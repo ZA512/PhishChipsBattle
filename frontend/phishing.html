@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phish &amp; Chips – Battle Entreprise</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* ---- Style arcade pour le start screen étendu ---- */
+        .player-form {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            max-width: 420px;
+            margin: 0 auto 20px;
+        }
+        .player-form .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .player-form label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-color, #333);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .player-form input,
+        .player-form select {
+            padding: 8px 12px;
+            border: 2px solid var(--border-color, #e1dfdd);
+            border-radius: 6px;
+            font-size: 1rem;
+            background: var(--primary-color, #fff);
+            color: var(--text-color, #333);
+            transition: border-color 0.2s;
+        }
+        .player-form input:focus,
+        .player-form select:focus {
+            outline: none;
+            border-color: var(--accent-color, #0078d4);
+        }
+        #player-name-input {
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            font-size: 1.4rem;
+            font-weight: 700;
+            text-align: center;
+            max-width: 120px;
+            align-self: center;
+        }
+        #start-error {
+            color: #d13438;
+            font-size: 0.9rem;
+            min-height: 1.2em;
+            text-align: center;
+        }
+        .score-link {
+            display: inline-block;
+            margin-top: 8px;
+            color: var(--accent-color, #0078d4);
+            font-size: 0.85rem;
+            text-decoration: none;
+        }
+        .score-link:hover { text-decoration: underline; }
+
+        /* Sticky footer */
+        html { height: 100%; }
+        body {
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+            font-family: sans-serif;
+        }
+        #game-container { flex: 1 0 auto; }
+        .game-footer { flex-shrink: 0; width: 100%; padding: 10px 0;
+            background-color: #f5f5f5; border-top: 1px solid #ddd;
+            margin-top: 20px; font-size: 0.8rem; color: #666; }
+        .footer-content {
+            display: flex; align-items: center; justify-content: center;
+            flex-wrap: wrap; max-width: 800px; margin: 0 auto; padding: 0 15px;
+        }
+        .badge { display: inline-flex; font-size: 11px; height: 20px; line-height: 20px;
+            border-radius: 3px; overflow: hidden; box-shadow: inset 0 0 1px rgba(0,0,0,0.3);
+            margin-right: 15px; }
+        .badge .label { background-color: #4d4d4d; color: white; padding: 0 6px; }
+        .badge .value { background-color: #007ec6; color: white; padding: 0 6px; }
+        .footer-text { text-align: center; }
+        .footer-text p { margin: 5px 0; }
+        .footer-text a { color: #3498db; text-decoration: none; }
+        .footer-text a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen">
+            <h1>🔐 Phish &amp; Chips</h1>
+            <p>Parce que tu vas en bouffer du phishing.</p>
+            <p>Analysez chaque email, inspectez l'expéditeur et les liens. Classez comme "Safe" (légitime) ou "Phishing" (malveillant).</p>
+            <p>Vous disposez de <strong>3 analyses automatiques</strong> par partie. <strong>3 erreurs</strong> et c'est GAME OVER.</p>
+
+            <!-- Formulaire joueur -->
+            <div class="player-form">
+                <div class="form-row" style="align-items:center">
+                    <label for="player-name-input">🕹️ Pseudo arcade (2–4 lettres)</label>
+                    <input type="text" id="player-name-input" maxlength="4" placeholder="AAA" autocomplete="off" spellcheck="false">
+                </div>
+                <div class="form-row">
+                    <label for="player-email-input">📧 Email professionnel</label>
+                    <input type="email" id="player-email-input" placeholder="prenom.nom@entreprise.fr" autocomplete="email">
+                </div>
+                <div class="form-row">
+                    <label for="player-service-select">🏢 Service (optionnel)</label>
+                    <select id="player-service-select">
+                        <option value="">— Pas de service —</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Difficulté -->
+            <div class="difficulty-selection">
+                <h3>Choisissez votre niveau de difficulté :</h3>
+                <div class="difficulty-options">
+                    <div class="difficulty-option">
+                        <input type="radio" id="easy-mode" name="difficulty" value="easy" checked>
+                        <label for="easy-mode">FACILE</label>
+                        <p class="difficulty-desc">Pour les stagiaires : 30 secondes fixes par email. Prenez votre temps, on n'est pas pressés...</p>
+                    </div>
+                    <div class="difficulty-option">
+                        <input type="radio" id="normal-mode" name="difficulty" value="normal">
+                        <label for="normal-mode">NORMAL</label>
+                        <p class="difficulty-desc">Pour les pros : Temps réduit de 1 sec à chaque succès jusqu'à 15 secondes minimum. Un vrai défi !</p>
+                    </div>
+                    <div class="difficulty-option">
+                        <input type="radio" id="hardcore-mode" name="difficulty" value="hardcore">
+                        <label for="hardcore-mode">HARDCORE</label>
+                        <p class="difficulty-desc">Pour les légendes : Temps réduit de 1 sec jusqu'à 5 secondes minimum. Seuls les cyberninjas survivront !</p>
+                    </div>
+                </div>
+            </div>
+
+            <p id="start-error"></p>
+            <button id="start-btn" class="btn">Démarrer l'Analyse</button>
+            <br>
+            <a href="scores.html" class="score-link">🏆 Voir les classements</a>
+        </div>
+
+        <!-- Game UI (Hidden initially) -->
+        <div id="game-ui" class="hidden">
+            <div id="email-viewer">
+                <div id="email-header">
+                    <div class="email-header-content">
+                        <p><strong>De :</strong> <span id="email-sender" class="inspectable"></span></p>
+                        <p><strong>Sujet :</strong> <span id="email-subject"></span></p>
+                    </div>
+                    <div id="email-actions">
+                        <button id="classify-safe-btn" class="email-btn" disabled>↩️ Répondre</button>
+                        <button id="classify-phishing-btn" class="email-btn" disabled>⚠️ Signaler phishing</button>
+                        <button id="auto-analyze-btn" class="email-btn">🔍 SOS Sécu (<span id="auto-analyzes-left">3</span>)</button>
+                    </div>
+                </div>
+                <div id="email-body-container">
+                    <div id="email-body"></div>
+                </div>
+            </div>
+
+            <div id="analysis-panel">
+                <div class="panel-section">
+                    <h3>Temps Restant</h3>
+                    <div id="timer">30</div>
+                </div>
+                <div class="panel-section">
+                    <h3>Sécurité Entreprise</h3>
+                    <div id="security-bar-container">
+                        <div id="security-bar"></div>
+                    </div>
+                    <p><span id="errors-left">3</span> vies restantes</p>
+                </div>
+                <div class="panel-section">
+                    <h3>Score</h3>
+                    <div id="score">0</div>
+                </div>
+                <div class="panel-section">
+                    <h3>Statistiques</h3>
+                    <p><span class="stat-icon">📧</span> Mails sûrs: <span id="safe-mails-found">0</span></p>
+                    <p><span class="stat-icon">💀</span> Phish trouvés: <span id="phishing-mails-found">0</span></p>
+                    <p><span class="stat-icon">⏱️</span> Temps moy.: <span id="avg-decision-time">0s</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Screen (Hidden initially) -->
+        <div id="game-over-screen" class="screen hidden">
+            <h2 id="game-over-title">GAME OVER</h2>
+            <p id="game-over-message">L'entreprise a été compromise.</p>
+            <p><span id="final-score">0</span></p>
+
+            <div id="rank-cylinder-fixed">
+                <div class="rank-panel previous-rank"></div>
+                <div class="rank-panel current-rank"></div>
+                <div class="rank-panel next-rank"></div>
+            </div>
+
+            <p id="game-mode-message"></p>
+            <br>
+            <button id="restart-btn" class="btn">Recommencer</button>
+            <br>
+            <a href="scores.html" class="score-link">🏆 Voir les classements</a>
+        </div>
+
+        <!-- Feedback Modal -->
+        <div id="feedback-modal">
+            <div id="secu-guy-container">
+                <img id="secu-guy-img" src="secu.png" alt="Agent de sécurité">
+            </div>
+            <div id="feedback-content">
+                <h2 id="feedback-title">Résultat</h2>
+                <p id="feedback-explanation"></p>
+                <div id="feedback-clues"></div>
+                <button id="feedback-continue-btn" class="btn">Continuer</button>
+            </div>
+        </div>
+
+        <!-- Tooltip -->
+        <div id="cursor-tooltip" class="hidden"></div>
+    </div>
+
+    <!-- NOTE: emails.js supprimé — les emails sont chargés depuis l'API -->
+    <script src="script.js"></script>
+
+    <footer class="game-footer">
+        <div class="footer-content">
+            <div class="badge">
+                <span class="label">License</span><span class="value">GPLv3</span>
+            </div>
+            <div class="footer-text">
+                <p>Phish &amp; Chips Battle — Copyright © 2025 Matthieu Girard</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

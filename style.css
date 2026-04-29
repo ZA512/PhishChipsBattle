@@ -1,0 +1,921 @@
+:root {
+    --bg-color: #f5f5f5; /* Fond clair comme Outlook */
+    --primary-color: #ffffff; /* Blanc pour les éléments principaux */
+    --secondary-color: #f3f2f1; /* Gris très clair pour les éléments secondaires */
+    --accent-color: #0078d4; /* Bleu Microsoft */
+    --text-color: #333333; /* Texte foncé pour un bon contraste */
+    --border-color: #e1dfdd; /* Couleur de bordure subtile */
+    --shadow-color: rgba(0, 0, 0, 0.1); /* Ombre légère */
+    --highlight-color: #c7e0f4; /* Bleu clair pour les surbrillances */
+    --safe-color: #107c10; /* Vert Microsoft pour les éléments sécurisés */
+    --warning-color: #ffb900; /* Jaune pour les avertissements */
+    --phishing-color: #d13438; /* Rouge Microsoft pour les alertes */
+    --link-color: #0078d4; /* Bleu pour les liens */
+    --inspection-color: #333333; /* Couleur pour le texte d'inspection */
+    --font-main: 'Segoe UI', sans-serif; /* Police Microsoft */
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-main);
+    background: var(--bg-color);
+    color: var(--text-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+#game-container {
+    width: 90%;
+    max-width: 1400px;
+    height: 95vh;
+    max-height: 840px;
+    background: var(--primary-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px var(--shadow-color);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+}
+
+/* --- Screens (Start/Game Over) --- */
+.screen {
+    padding: 30px;
+    text-align: center;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--primary-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px var(--shadow-color);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.5s ease-in-out;
+    z-index: 10;
+}
+
+.screen.hidden {
+    opacity: 0;
+    pointer-events: none;
+    z-index: -1;
+}
+
+#start-screen h1 { color: var(--accent-color); margin-bottom: 20px; font-size: 2.5em; }
+#start-screen p { margin-bottom: 15px; max-width: 600px; line-height: 1.6; }
+#start-screen label { margin-top: 20px; display: block; }
+#player-name-input { margin-top: 5px; padding: 10px; font-family: var(--font-main); background-color: var(--primary-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 2px; margin-bottom: 20px; }
+
+/* Styles pour la sélection de difficulté */
+.difficulty-selection {
+    margin: 20px 0;
+    width: 100%;
+    max-width: 800px;
+}
+
+.difficulty-selection h3 {
+    margin-bottom: 15px;
+    color: var(--accent-color);
+    font-size: 1.3em;
+}
+
+.difficulty-options {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.difficulty-option {
+    flex: 1;
+    background-color: var(--secondary-color);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px;
+    transition: all 0.3s ease;
+    position: relative;
+    cursor: pointer;
+}
+
+.difficulty-option:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px var(--shadow-color);
+}
+
+.difficulty-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.difficulty-option input[type="radio"]:checked + label {
+    color: var(--accent-color);
+    font-weight: bold;
+}
+
+.difficulty-option input[type="radio"]:checked ~ .difficulty-desc {
+    color: var(--text-color);
+}
+
+.difficulty-option input[type="radio"]:checked {
+    background-color: var(--highlight-color);
+}
+
+.difficulty-option label {
+    display: block;
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.difficulty-option:nth-child(1) label {
+    color: var(--safe-color);
+}
+
+.difficulty-option:nth-child(2) label {
+    color: var(--warning-color);
+}
+
+.difficulty-option:nth-child(3) label {
+    color: var(--phishing-color);
+}
+
+.difficulty-desc {
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+
+.difficulty-option input[type="radio"]:checked + label {
+    text-decoration: underline;
+}
+
+.difficulty-option input[type="radio"]:checked ~ .difficulty-desc {
+    font-weight: bold;
+}
+
+.difficulty-option:has(input[type="radio"]:checked) {
+    border-color: var(--accent-color);
+    background-color: var(--highlight-color);
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px var(--shadow-color);
+}
+
+#game-over-screen h2 { color: var(--accent-color); margin-bottom: 20px; font-size: 2.2em; text-transform: uppercase; letter-spacing: 2px; }
+
+/* Styles pour le format diplôme */
+#game-over-screen {
+    background-image: linear-gradient(to bottom, #f8f8f8, #ffffff);
+    border: 15px solid #f0f0f0;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1), inset 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+/* Styles pour le score et l'appréciation */
+.score-diploma {
+    display: block;
+    font-size: 1.3em;
+    color: var(--text-color);
+    margin: 15px 0;
+    padding: 10px;
+    border-top: 1px solid #e0e0e0;
+    border-bottom: 1px solid #e0e0e0;
+    background-color: rgba(245, 245, 245, 0.5);
+}
+
+.score-diploma strong {
+    color: var(--accent-color);
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 1.1em;
+}
+
+/* Styles pour le rang et sa description */
+#final-rank {
+    max-width: 80%;
+}
+
+.score-rank {
+    margin: 25px auto;
+    max-width: 100%;
+    padding: 15px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+.score-rank-actual {
+    margin: 25px auto;
+    max-width: 100%;
+    padding: 15px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    border: 2px dashed green;
+}
+.rank-title {
+    font-size: 1.8em;
+    color: var(--accent-color);
+    margin-bottom: 10px;
+    font-weight: bold;
+} 
+
+.rank-description {
+    font-size: 1.1em;
+    color: var(--text-color);
+    font-style: italic;
+    line-height: 1.4;
+    padding: 10px;
+    background-color: rgba(240, 240, 240, 0.3);
+    border-radius: 5px;
+}
+
+/* Styles spécifiques pour les titres et descriptions des rangs précédent/suivant */
+.score-rank .rank-title {
+    color: #6c757d; /* Couleur plus terne pour les rangs non-actuels */
+}
+
+.score-rank .rank-description {
+    background-color: rgba(240, 240, 240, 0.2); /* Fond plus discret */
+}
+
+/* Styles spécifiques pour le titre et la description du rang actuel */
+.score-rank-actual .rank-title {
+    color: var(--safe-color); /* Vert pour le rang actuel */
+    text-shadow: 0 1px 1px rgba(0,0,0,0.05); /* Légère ombre pour faire ressortir */
+}
+
+.score-rank-actual .rank-description {
+    background-color: rgba(232, 245, 233, 0.5); /* Fond légèrement verdâtre */
+    color: #2e7d32; /* Texte vert foncé */
+    border-left: 3px solid var(--safe-color); /* Bordure gauche verte */
+}
+
+
+/* Style pour le message de mode de jeu */
+.game-mode-info {
+    margin-top: 15px;
+    font-size: 1.1em;
+    padding: 12px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    display: inline-block;
+    background-color: rgba(240, 240, 240, 0.2);
+    transition: all 0.3s ease;
+}
+
+.game-mode-info:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 3px 10px var(--shadow-color);
+}
+
+.game-mode-info strong {
+    color: var(--accent-color);
+    font-size: 1.2em;
+}
+
+/* --- Rank Slot Machine --- */
+#rank-display {
+    margin: 20px auto;
+    position: relative;
+    width: 90%;
+    max-width: 750px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.rank-arrow {
+    font-size: 2.5em;
+    color: var(--accent-color);
+    margin-bottom: 5px;
+    z-index: 10; /* S'assurer qu'elle est au-dessus du cylindre */
+    text-shadow: 0 2px 3px rgba(0,0,0,0.2);
+}
+
+#rank-cylinder-fixed {
+    width: 100%;
+    max-width: 700px; /* Augmenté de 500px à 700px */
+    margin: 0 auto;
+    perspective: 1200px; /* Augmenté pour un effet plus prononcé */
+    position: relative;
+    height: 320px; /* Augmenté de 240px à 320px pour mieux voir les panneaux */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transform-style: preserve-3d; /* Assure que les enfants conservent leur position 3D */
+}
+
+.rank-panel {
+    width: 100%;
+    background-color: var(--secondary-color);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px 25px; /* Augmenté le padding horizontal de 15px à 25px */
+    box-sizing: border-box;
+    position: absolute;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 80px; /* Hauteur minimum au lieu de hauteur fixe */
+}
+
+.current-rank {
+    transform: translateY(0);
+    z-index: 3;
+    border: 3px solid var(--accent-color);
+    box-shadow: 0 4px 15px rgba(var(--accent-color-rgb), 0.5);
+    animation: highlight-rank 2s ease-in-out infinite alternate;
+    min-height: 100px; /* Hauteur minimum au lieu de hauteur fixe */
+}
+
+.previous-rank {
+    transform: translateY(-120px) rotateX(35deg) scale(0.8);
+    z-index: 1;
+    opacity: 0.65;
+    filter: brightness(0.8);
+    box-shadow: 0 -8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.next-rank {
+    transform: translateY(120px) rotateX(-35deg) scale(0.8);
+    z-index: 2;
+    opacity: 0.65;
+    filter: brightness(0.8);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes highlight-rank {
+    from { box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); }
+    to { box-shadow: 0 4px 15px rgba(var(--accent-color-rgb), 0.5); }
+}
+
+/* Styles conservés pour les éléments à l'intérieur du panneau */
+.rank-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+    width: 100%;
+    margin-bottom: 5px;
+    width: 100%;
+    min-height: 40px; /* Hauteur minimale pour assurer un alignement uniforme */
+}
+
+.rank-panel .rank-emoji {
+    font-size: 1.5em;
+    margin-right: 15px;
+    line-height: 1;
+}
+
+.rank-panel .rank-title {
+    font-size: 1.4em; /* Augmenté de 1.2em à 1.4em */
+    font-weight: bold;
+    color: var(--accent-color);
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+    line-height: 1.2;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rank-panel .rank-description {
+    font-size: 0.9em;
+    color: var(--text-color);
+    margin-top: 2px;
+    text-shadow: 1px 1px 1px rgba(0,0,0,0.05);
+    width: 95%;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.2;
+}
+
+/* Styles spécifiques pour le panneau actuel (plus grand) */
+.current-rank .rank-emoji {
+    font-size: 2.2em; /* Augmenté de 2em à 2.2em */
+    margin-right: 20px; /* Augmenté de 15px à 20px */
+}
+
+.current-rank .rank-title {
+    font-size: 2em; /* Augmenté de 1.8em à 2em */
+    white-space: nowrap; /* Changé de normal à nowrap car nous avons plus d'espace */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Styles pour les titres longs */
+.rank-panel .long-title {
+    font-size: 1.2em; /* Augmenté de 0.9em à 1.2em */
+}
+
+.current-rank .long-title {
+    font-size: 1.7em; /* Augmenté de 1.5em à 1.7em */
+}
+
+.current-rank .rank-description {
+    font-size: 1.1em;
+    margin-top: 5px;
+    line-height: 1.3;
+}
+
+
+
+/* --- Game UI --- */
+#game-ui { display: flex; height: 100%; width: 100%; opacity: 1; transition: opacity 0.5s ease-in-out; position: absolute; top: 0; left: 0; }
+#game-ui.hidden { opacity: 0; pointer-events: none; }
+
+#email-viewer { flex: 2.5; background-color: var(--primary-color); padding: 20px; border-right: 1px solid var(--border-color); overflow-y: auto; position: relative; }
+
+#email-header { 
+    margin-bottom: 20px; 
+    background: var(--primary-color); 
+    padding: 15px; 
+    border-bottom: 1px solid var(--border-color); 
+    position: relative; 
+    z-index: 2; 
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.email-header-content {
+    flex: 1;
+}
+
+#email-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 5px;
+}
+
+.email-btn {
+    padding: 6px 12px;
+    font-family: var(--font-main);
+    font-size: 0.85em;
+    border: 3px solid transparent; /* Bordure plus épaisse */
+    border-radius: 4px;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s, opacity 0.2s;
+    color: var(--text-color);
+    background-color: #f5f7fa; /* Légèrement coloré au lieu de blanc pur */
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* Ombre légère pour donner du relief */
+}
+
+.email-btn:hover:not(:disabled) {
+    background-color: var(--secondary-color);
+}
+
+.email-btn:active:not(:disabled) {
+    background-color: var(--highlight-color);
+
+/* Styles pour les labels de section de rang */
+.rank-section-label {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--accent-color); /* Couleur bleue pour attirer l'attention */
+    margin-top: 25px;
+    margin-bottom: 10px;
+    text-align: left; /* Aligné à gauche pour plus de visibilité */
+    padding-left: 20px; /* Décalage pour l'alignement avec l'encart */
+    position: relative; /* Pour positionner l'indicateur */
+}
+
+/* Petit indicateur visuel avant chaque label */
+.rank-section-label::before {
+    content: '➤'; /* Flèche pointant vers la droite */
+    position: absolute;
+    left: 0;
+    color: var(--accent-color);
+    font-size: 0.9em;
+}
+
+/* Ajustements pour les encarts de rang */
+.score-rank, .score-rank-actual {
+    padding: 20px; /* Plus de padding interne */
+    max-width: 600px; /* Élargir la box */
+    margin-left: auto; /* Pour centrer si #final-rank n'est pas déjà centré */
+    margin-right: auto; /* Pour centrer si #final-rank n'est pas déjà centré */
+    border-radius: 10px;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+/* Styles spécifiques pour les rangs précédent et suivant (affadis) */
+.score-rank {
+    background-color: #f8f8f8; /* Fond plus clair */
+    opacity: 0.85; /* Légèrement transparent */
+    transform: scale(0.97); /* Légèrement plus petit */
+    border: 1px solid #e0e0e0;
+}
+
+/* Bordure verte pointillée pour le rang actuel et mise en valeur */
+.score-rank-actual {
+    border: 2px dashed var(--safe-color) !important;
+    background-color: white;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15); /* Ombre plus prononcée */
+    transform: scale(1.02); /* Légèrement plus grand */
+    position: relative;
+    z-index: 2; /* Au-dessus des autres encarts */
+}
+
+/* Styles pour le contenu DANS les encarts (.rank-item) */
+.rank-item-content { /* Conteneur pour emoji et titre */
+    display: flex;
+    align-items: center; /* Aligner verticalement emoji et titre */
+    margin-bottom: 12px; /* Espace avant la description */
+}
+
+.rank-emoji {
+    font-size: 2.2em; /* Emoji plus grand */
+    margin-right: 15px; /* Plus d'espace à droite de l'emoji */
+    line-height: 1; /* Pour un meilleur alignement vertical avec le texte */
+}
+
+.rank-title-text {
+    font-size: 1.5em; /* Titre plus grand, style "Peter Parker" */
+    font-weight: 600;
+    color: var(--accent-color); /* Bleu par défaut pour les titres */
+    line-height: 1.2;
+}
+
+.rank-desc-text {
+    font-size: 1em; /* Description plus lisible */
+    color: #555; /* Gris foncé pour la description */
+    line-height: 1.6;
+    text-align: left; /* Assurer l'alignement à gauche pour la description */
+}
+
+
+
+/* Spécificités pour le rang actuel (dans .score-rank-actual) */
+.score-rank-actual .rank-title-text {
+    color: var(--safe-color); /* Titre en vert pour le rang actuel */
+}
+
+/* Spécificités pour les rangs précédent/suivant (dans .score-rank) */
+/* Pas besoin de surcharger .rank-title-text ici si la couleur par défaut (accent-color) convient */
+
+.score-rank .previous-rank .rank-desc-text,
+.score-rank .next-rank .rank-desc-text {
+    font-size: 0.95em; /* Description des autres rangs légèrement plus petite */
+}
+
+/* Classe Muted (pour la description des rangs précédent/suivant si besoin) */
+.muted {
+    color: #777; /* Gris plus clair pour le texte muted */
+    font-style: italic;
+}
+}
+
+.email-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+
+/* Animation pour le clignotement alterné des boutons */
+@keyframes pulse-safe {
+    0%, 50%, 100% { 
+        border-color: transparent; 
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    25% { 
+        border-color: var(--safe-color); 
+        box-shadow: 0 0 8px var(--safe-color);
+        text-shadow: 0 0 1px var(--safe-color);
+    }
+}
+
+@keyframes pulse-phishing {
+    0%, 50%, 100% { 
+        border-color: transparent; 
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    75% { 
+        border-color: var(--phishing-color); 
+        box-shadow: 0 0 8px var(--phishing-color);
+        text-shadow: 0 0 1px var(--phishing-color);
+    }
+}
+
+#classify-safe-btn.email-btn:not(:disabled) {
+    animation: pulse-safe 3s infinite;
+}
+
+#classify-phishing-btn.email-btn:not(:disabled) {
+    animation: pulse-phishing 3s infinite;
+}
+
+#email-body-container { 
+    margin-bottom: 20px; 
+    background: var(--primary-color); 
+    padding: 15px; 
+    position: relative; 
+    z-index: 2; 
+}
+
+#email-header p { 
+    margin-bottom: 8px; 
+}
+
+#email-header strong { 
+    color: var(--text-color); 
+    font-weight: 600; 
+}
+#email-body { white-space: pre-wrap; word-wrap: break-word; line-height: 1.6; }
+
+.inspectable { cursor: help; text-decoration: underline; text-decoration-style: dotted; color: var(--link-color); }
+.inspectable:hover { background-color: var(--highlight-color); }
+#email-body .link { color: var(--link-color); text-decoration: underline; cursor: help; }
+#email-body .link:hover { background-color: var(--highlight-color); }
+
+#analysis-panel { flex: 1.5; padding: 20px; display: flex; flex-direction: column; align-items: center; position: relative; z-index: 2; background-color: var(--secondary-color); border-left: 1px solid var(--border-color); }
+.panel-section { width: 100%; margin-bottom: 25px; text-align: center; }
+.panel-section h3 { color: var(--accent-color); margin-bottom: 10px; font-size: 1.2em; font-weight: 600; }
+
+#timer { font-size: 2.5em; font-weight: bold; color: var(--safe-color); transition: color 0.3s; }
+#timer.warning { color: var(--warning-color); }
+#timer.danger { color: var(--phishing-color); }
+
+#security-bar-container { width: 90%; height: 6px; background-color: var(--border-color); border-radius: 3px; overflow: hidden; margin: 0 auto; }
+#security-bar { height: 100%; width: 100%; background-color: var(--safe-color); transition: width 0.5s ease-out, background-color 0.5s ease-out; }
+#errors-left { font-weight: bold; } /* Added */
+
+#score { font-size: 1.5em; }
+#auto-analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+#inspection-display { margin-top: 15px; padding: 10px; background-color: var(--primary-color); border: 1px solid var(--border-color); border-radius: 2px; min-height: 50px; width: 100%; word-wrap: break-word; font-size: 0.9em; color: var(--inspection-color); line-height: 1.4; }
+
+#action-buttons { display: flex; justify-content: space-around; width: 100%; margin-top: auto; padding-bottom: 10px; }
+
+.btn { padding: 8px 16px; font-family: var(--font-main); font-size: 0.9em; border: none; border-radius: 2px; cursor: pointer; transition: background-color 0.2s, opacity 0.2s; color: white; background-color: var(--accent-color); }
+.btn:hover:not(:disabled) { background-color: #106ebe; }
+.btn:active:not(:disabled) { background-color: #005a9e; }
+.btn:disabled { cursor: not-allowed; opacity: 0.6; }
+
+/* Suppression des styles de fond coloré pour les boutons */
+#classify-safe-btn { background-color: white; }
+#classify-safe-btn:hover:not(:disabled) { background-color: #f5f5f5; }
+#classify-phishing-btn { background-color: white; }
+#classify-phishing-btn:hover:not(:disabled) { background-color: #f5f5f5; }
+#start-btn, #restart-btn, #feedback-continue-btn { background-color: var(--accent-color); color: white; font-weight: 600; }
+#start-btn:hover, #restart-btn:hover, #feedback-continue-btn:hover { background-color: #106ebe; }
+
+/* Style spécifique pour le bouton SOS Sécu */
+#auto-analyze-btn.email-btn {
+    background-color: #f5f7fa; /* Même couleur légèrement colorée */
+    color: var(--text-color);
+    font-weight: normal;
+    transition: all 0.2s ease;
+}
+
+#auto-analyze-btn.email-btn:hover:not(:disabled) {
+    background-color: #f5f5f5;
+}
+
+#auto-analyze-btn.email-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* --- Feedback Popup --- */
+#feedback-modal {
+    position: fixed; /* Or absolute relative to game-container */
+    top: 0;
+    left: 0;
+    right: 0; /* Ensure it covers full width */
+    bottom: 0; /* Ensure it covers full height */
+    background-color: rgba(0, 0, 0, 0.85); /* Modal now has the dark background */
+    display: flex; /* Always flex, for centering */
+    justify-content: center;
+    align-items: center;
+    z-index: 100; /* Above everything */
+    opacity: 0; /* Start of animation */
+    visibility: hidden; /* Ensure it's fully hidden initially */
+    pointer-events: none;
+    transition: opacity 0.3s ease-in-out; /* Only opacity transition now */
+}
+
+#feedback-modal.visible {
+    opacity: 1; /* End of animation */
+    visibility: visible; /* Make it visible when class is added */
+    pointer-events: auto;
+}
+
+/* Styles pour l'image du gars de la sécurité */
+#secu-guy-container {
+    position: absolute; /* Positioned within #feedback-modal */
+    top: 0;
+    left: 0;
+    width: 100%; /* Fills #feedback-modal */
+    height: 100%; /* Fills #feedback-modal */
+    z-index: 99; /* Juste derrière la popup de contenu, mais au-dessus du fond du modal */
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+    pointer-events: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+#secu-guy-container.visible {
+    opacity: 1;
+}
+
+#secu-guy-img {
+    max-width: 80%;
+    max-height: 80%;
+    position: absolute;
+    z-index: 99;
+    transform: translateX(25%); /* Décaler l'image vers la droite */
+    right: 0; /* Positionner à partir du bord droit */
+    margin: 0;
+}
+
+#feedback-content {
+    background-color: var(--primary-color);
+    padding: 24px;
+    border: 1px solid var(--border-color);
+    border-radius: 2px;
+    width: 90%;
+    max-width: 750px;
+    text-align: center;
+    box-shadow: 0 2px 8px var(--shadow-color);
+    transform: scale(0.9);
+    transition: transform 0.3s ease-in-out;
+    position: relative;
+    z-index: 101; /* S'assurer que la popup est au-dessus de l'image */
+}
+
+ #feedback-modal.visible #feedback-content {
+    transform: scale(1);
+ }
+
+#feedback-title {
+    font-size: 2em; /* Larger title */
+    margin-bottom: 15px;
+    font-weight: bold;
+}
+
+#feedback-explanation { /* Added for explanation text */
+    font-size: 1.1em;
+    margin-bottom: 20px;
+    color: var(--text-color);
+}
+
+#feedback-clues {
+    margin-bottom: 25px;
+    padding: 15px;
+    background-color: var(--secondary-color);
+    border-radius: 2px;
+    text-align: left;
+    max-height: 400px;
+    overflow-y: auto;
+    line-height: 1.6;
+    font-size: 0.95em;
+    border: 1px solid var(--border-color);
+}
+ #feedback-clues ul {
+    list-style: none; /* Remove default bullets */
+    padding-left: 0;
+ }
+ #feedback-clues li {
+     margin-bottom: 14px;
+     padding-left: 1.5em; /* Indent */
+     position: relative;
+     display: flex;
+     flex-direction: column;
+ }
+  #feedback-clues li::before { /* Custom bullet */
+      content: '▶';
+      position: absolute;
+      left: 0;
+      color: var(--accent-color);
+      font-size: 0.8em;
+      top: 3px;
+  }
+  
+  /* Styles pour les techniques et explications des indices */
+  .clue-technique {
+      color: var(--accent-color);
+      font-weight: bold;
+      display: block;
+      margin-bottom: 3px;
+      font-size: 1.05em;
+  }
+  
+  .clue-explanation {
+      display: block;
+      color: var(--text-color);
+      padding-left: 0.3em;
+  }
+  #feedback-clues strong { /* Highlight 'Indices:' */
+      color: var(--accent-color);
+      display: block;
+      margin-bottom: 10px;
+  }
+
+
+#feedback-continue-btn {
+    margin-top: 10px; /* Ensure spacing */
+    padding: 12px 30px; /* Adjust button size */
+}
+
+/* --- Tooltip qui suit le curseur --- */
+#cursor-tooltip {
+    position: fixed;
+    padding: 6px 10px;
+    background-color: var(--primary-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 2px;
+    font-size: 0.85em;
+    pointer-events: none;
+    z-index: 9999;
+    max-width: 250px;
+    word-wrap: break-word;
+    box-shadow: 0 2px 5px var(--shadow-color);
+    white-space: pre-line;
+}
+
+#cursor-tooltip.hidden {
+    display: none; /* Utiliser display:none au lieu d'opacity pour éviter tout problème */
+}
+
+#cursor-tooltip.warning {
+    border-left: 3px solid var(--warning-color);
+}
+
+#cursor-tooltip.danger {
+    border-left: 3px solid var(--phishing-color);
+}
+
+/* Animation subtile pour le tooltip - simplifiée */
+@keyframes tooltip-fade {
+    0% { opacity: 0.9; }
+    50% { opacity: 1; }
+    100% { opacity: 0.9; }
+}
+
+#cursor-tooltip:not(.hidden) {
+    animation: tooltip-fade 2s infinite;
+}
+
+/* Curseurs personnalisés pour les éléments inspectables */
+.inspectable {
+    cursor: help;
+}
+
+/* Lorsqu'on survole un élément inspectable, on cache le tooltip et on utilise un curseur personnalisé */
+.inspectable:hover {
+    cursor: help;
+}
+
+/* --- Tooltip dynamique --- */
+.tooltip-element {
+    position: fixed;
+    padding: 8px 12px;
+    background-color: var(--primary-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 2px;
+    font-size: 0.9em;
+    pointer-events: none;
+    z-index: 9999;
+    max-width: 500px;
+    min-width: 300px;
+    word-wrap: break-word;
+    box-shadow: 0 2px 4px var(--shadow-color);
+    white-space: pre-line;
+    transform: translate(10px, 10px);
+}
+
+.tooltip-element.warning {
+    border-left: 3px solid var(--warning-color);
+}
+
+.tooltip-element.danger {
+    border-left: 3px solid var(--phishing-color);
+}

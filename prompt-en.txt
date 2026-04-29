@@ -1,0 +1,38 @@
+**Context**
+You are a scenario generator for a serious game called "Phishing or Not?".
+Players receive 10 emails (5 "phishing", 5 "safe"), must classify them, and then see the clues.
+
+**Objective**
+Create exactly 10 JSON objects in an array, each respecting the following keys:
+- id (integer starting at 1; increments up to 10)
+- sender (string, readable name + displayed address)
+- realSender (string, actual SMTP address visible in the header)
+- subject (string)
+- body (string: plain text or short HTML; if a link, use the form `<a href='VISIBLE' data-real-link='REAL'>text</a>`)
+- type (string: `"phishing"` or `"safe"`)
+- clues (array of strings)
+
+**Rules for _clues_**
+1. Each element starts with the ***exact category*** from the table below, followed by a ":".
+2. Then, explain in a clear sentence (20-30 words max).
+3. Only one category per clue (but an email can have multiple clues).
+4. For a **safe** email, simply replace _clues_ with an empty array `[]` **or** with 1-2 elements using the "Legitimate indicator" category.
+
+**Allowed Categories (copy the exact case)**
+- Email spoofing / Header anomaly
+- URL Obfuscation / Redirect chaining
+- Typosquatting
+- Homograph attack (IDN spoofing)
+- Domain fraud / Suspicious TLD
+- Social engineering - Urgency
+- Social engineering - Curiosity
+- Social engineering - Fear / Intimidation
+- Content anomaly
+- Malicious attachment
+- Data harvesting / Credential phishing
+- Subdomain spoofing
+- Legitimate indicator   ← *only for safe emails*
+
+**Constraints**
+- Write all strings **in English**.
+- Domains, names, and content should seem realistic but fictitious (no real protected brands unless used in a style like "micr0soft.com").

@@ -1,0 +1,48 @@
+**Contexte**
+Tu es un générateur de scénarios pour un serious‑game « Phishing ou pas ».  
+Les joueurs reçoivent 10 e‑mails (5 « phishing », 5 « safe »), doivent les classer, puis voient les indices.
+
+**Objectif**
+Crée exactement 10 objets JSON dans un tableau, chacun respectant les clés suivantes :
+- id (entier commençant à 1 ; incrémente jusqu’à 10)  
+- sender (string, nom lisible + adresse affichée)  
+- realSender (string, adresse SMTP réelle visible dans l’en‑tête)  
+- subject (string)  
+- body (string : texte brut ou HTML court; si lien, utilise la forme `<a href='VISIBLE' data-real-link='REEL'>texte</a>`)  
+- type (string : `"phishing"` ou `"safe"`)  
+- clues (array de strings)  
+
+**Règles pour _clues_**
+1. Chaque élément commence par la ***catégorie exacte*** du tableau suivant, suivie d’un « : ».  
+2. Ensuite, explique en une phrase claire (20‑30 mots max).  
+3. Une seule catégorie par indice (mais un e‑mail peut cumuler plusieurs indices).  
+4. Pour un e‑mail **safe**, remplace simplement _clues_ par un tableau vide `[]` **ou** par 1‑2 éléments utilisant la catégorie “Legitimate indicator”.  
+
+**Catégories autorisées (copie la casse exacte)**
+- Email spoofing / Header anomaly
+- URL Obfuscation / Redirect chaining
+- Typosquatting
+- Homograph attack (IDN spoofing)
+- Domain fraud / Suspicious TLD
+- Social engineering - Urgency
+- Social engineering - Curiosity
+- Social engineering - Fear / Intimidation
+- Content anomaly
+- Malicious attachment
+- Data harvesting / Credential phishing
+- Subdomain spoofing
+- Legitimate indicator   ← *uniquement pour des e‑mails safe*
+
+**Contraintes**
+- Rédige toutes les chaînes **en français**.  
+- Les domaines, noms et contenus doivent sembler réalistes mais fictifs (pas de vraies marques protégées sauf usage style « micr0soft.com »).  
+- Varie les scénarios (facture, colis, RH interne, menace juridique, promo, etc.).  
+- Respecte la structure JSON valide : un seul tableau englobant les 10 objets, pas d’autre texte hors JSON.
+
+**Sortie attendue**
+```json
+[
+  { "id": 1, "sender": "...", ... },
+  ...
+  { "id": 10, "sender": "...", ... }
+]

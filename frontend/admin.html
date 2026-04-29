@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚙️ Admin – Phish &amp; Chips Battle</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; margin: 0; }
+        .admin-container { max-width: 700px; margin: 0 auto; padding: 24px 16px; }
+        h1 { color: #0078d4; }
+
+        /* Login */
+        #login-section { background: #fff; border: 2px solid #e1dfdd; border-radius: 10px; padding: 32px; max-width: 380px; margin: 60px auto; }
+        #login-section h2 { margin-top: 0; }
+        #login-error { color: #d13438; font-size: 0.9rem; min-height: 1.2em; }
+
+        /* Main */
+        #main-section { display: none; }
+
+        /* Form */
+        .form-card { background: #fff; border: 2px solid #e1dfdd; border-radius: 10px; padding: 20px; margin-bottom: 24px; }
+        .form-card h2 { margin-top: 0; font-size: 1.1rem; }
+        .form-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+        .form-row label { font-size: 0.85rem; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: 0.04em; }
+        .form-row input { padding: 8px 12px; border: 2px solid #e1dfdd; border-radius: 6px; font-size: 1rem; }
+        .form-row input:focus { outline: none; border-color: #0078d4; }
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn { padding: 9px 18px; border: none; border-radius: 6px; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+        .btn-primary { background: #0078d4; color: #fff; }
+        .btn-primary:hover { opacity: 0.85; }
+        .btn-secondary { background: #f3f2f1; color: #333; border: 1px solid #ccc; }
+        .btn-secondary:hover { background: #e1dfdd; }
+        .btn-danger { background: #d13438; color: #fff; }
+        .btn-danger:hover { opacity: 0.85; }
+        .form-msg { font-size: 0.9rem; min-height: 1.2em; margin-top: 8px; }
+        .form-msg.ok { color: #107c10; }
+        .form-msg.err { color: #d13438; }
+
+        /* Services list */
+        .service-list { background: #fff; border: 2px solid #e1dfdd; border-radius: 10px; padding: 20px; }
+        .service-list h2 { margin-top: 0; font-size: 1.1rem; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f3f2f1; padding: 8px 12px; text-align: left; font-size: 0.83rem; color: #555; border-bottom: 2px solid #e1dfdd; }
+        td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; font-size: 0.9rem; }
+        tr:hover td { background: #fafafa; }
+        .actions { display: flex; gap: 6px; }
+        .loading { text-align: center; color: #888; padding: 20px; }
+
+        a.back-link { display: inline-block; margin-bottom: 16px; color: #0078d4; text-decoration: none; font-size: 0.9rem; }
+        a.back-link:hover { text-decoration: underline; }
+
+        /* Confirm dialog overlay */
+        .confirm-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; justify-content: center; align-items: center; }
+        .confirm-overlay.open { display: flex; }
+        .confirm-box { background: #fff; border-radius: 10px; padding: 28px; max-width: 360px; text-align: center; }
+        .confirm-box h3 { margin-top: 0; }
+        .confirm-btns { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-section">
+    <h2>⚙️ Administration</h2>
+    <div class="form-row">
+        <label for="admin-password">Mot de passe admin</label>
+        <input type="password" id="admin-password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <p id="login-error"></p>
+    <button class="btn btn-primary" id="login-btn">Se connecter</button>
+</div>
+
+<!-- Main admin panel -->
+<div id="main-section">
+    <div class="admin-container">
+        <a href="phishing.html" class="back-link">← Retour au jeu</a>
+        <h1>⚙️ Administration des services</h1>
+
+        <!-- Add / Edit form -->
+        <div class="form-card">
+            <h2 id="form-title">➕ Nouveau service</h2>
+            <input type="hidden" id="edit-id">
+            <div class="form-row">
+                <label for="svc-name">Nom du service</label>
+                <input type="text" id="svc-name" placeholder="ex: Direction des Systèmes d'Information" maxlength="100">
+            </div>
+            <div class="form-row">
+                <label for="svc-code">Code court (majuscules, max 20 car.)</label>
+                <input type="text" id="svc-code" placeholder="ex: DSI" maxlength="20">
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-primary" id="save-btn">Enregistrer</button>
+                <button class="btn btn-secondary" id="cancel-edit-btn" style="display:none">Annuler</button>
+            </div>
+            <p class="form-msg" id="form-msg"></p>
+        </div>
+
+        <!-- Services list -->
+        <div class="service-list">
+            <h2>📋 Services existants</h2>
+            <div id="services-table-container" class="loading">Chargement…</div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm delete dialog -->
+<div class="confirm-overlay" id="confirm-overlay">
+    <div class="confirm-box">
+        <h3>Supprimer ce service ?</h3>
+        <p id="confirm-text">Les joueurs de ce service n'auront plus de service associé.</p>
+        <div class="confirm-btns">
+            <button class="btn btn-danger" id="confirm-yes">Supprimer</button>
+            <button class="btn btn-secondary" id="confirm-no">Annuler</button>
+        </div>
+    </div>
+</div>
+
+<script src="admin.js"></script>
+</body>
+</html>
