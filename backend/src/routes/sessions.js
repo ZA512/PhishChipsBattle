@@ -87,6 +87,7 @@ router.post('/', async (req, res) => {
  */
 router.get('/:id/next-email', async (req, res) => {
   const sessionId = parseInt(req.params.id, 10);
+  if (isNaN(sessionId)) return res.status(400).json({ error: 'ID de session invalide' });
   if (!verifySessionToken(req, sessionId)) {
     return res.status(401).json({ error: 'Token de session invalide' });
   }
@@ -151,6 +152,7 @@ router.get('/:id/next-email', async (req, res) => {
  */
 router.post('/:id/answer', answerLimiter, async (req, res) => {
   const sessionId = parseInt(req.params.id, 10);
+  if (isNaN(sessionId)) return res.status(400).json({ error: 'ID de session invalide' });
   if (!verifySessionToken(req, sessionId)) {
     return res.status(401).json({ error: 'Token de session invalide' });
   }
@@ -268,6 +270,7 @@ router.post('/:id/answer', answerLimiter, async (req, res) => {
  */
 router.post('/:id/end', async (req, res) => {
   const sessionId = parseInt(req.params.id, 10);
+  if (isNaN(sessionId)) return res.status(400).json({ error: 'ID de session invalide' });
   if (!verifySessionToken(req, sessionId)) {
     return res.status(401).json({ error: 'Token de session invalide' });
   }

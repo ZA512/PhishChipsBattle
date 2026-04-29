@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('crypto');
+
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 /**
@@ -22,12 +24,14 @@ function adminAuth(req, res, next) {
 }
 
 function constantTimeEqual(a, b) {
-  if (a.length !== b.length) return false;
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+  if (bufA.length !== bufB.length) {
+    // Compare quand même pour éviter le timing leak
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
   }
-  return result === 0;
+  return crypto.timingSafeEqual(bufA, bufB);
 }
 
 module.exports = { adminAuth };

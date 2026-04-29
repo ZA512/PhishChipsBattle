@@ -279,17 +279,17 @@ Tout le backend utilise `console.log('[tag]', ...)` et `console.error('[tag]', .
 ## ✅ Checklist d'exécution
 
 ```
-[ ] BUG-1 : Supprimer les doublons dans scores.js
-[ ] BUG-2 : Remplacer constantTimeEqual par crypto.timingSafeEqual
-[ ] BUG-3 : Ajouter transaction dans POST /api/players
-[ ] BUG-4 : Valider sessionId (isNaN) dans sessions.js
-[ ] BUG-5 : Valider JWT_SECRET et ADMIN_PASSWORD au démarrage
-[ ] BUG-6 : Valider serviceId dans players.js
-[ ] SEC-1 : Corriger CORS wildcard en prod
-[ ] SEC-2 : Ajouter headers de sécurité dans nginx.conf
-[ ] SEC-3 : Ajouter healthcheck API dans docker-compose.yml
-[ ] SEC-4 : Ajouter Cache-Control pour fichiers HTML
+[x] BUG-1 : Supprimer les doublons dans scores.js
+[x] BUG-2 : Remplacer constantTimeEqual par crypto.timingSafeEqual
+[x] BUG-3 : Ajouter transaction dans POST /api/players
+[x] BUG-4 : Valider sessionId (isNaN) dans sessions.js
+[x] BUG-5 : Valider JWT_SECRET et ADMIN_PASSWORD au démarrage
+[x] BUG-6 : Valider serviceId dans players.js
+[x] SEC-1 : Corriger CORS wildcard en prod
+[x] SEC-2 : Ajouter headers de sécurité dans nginx.conf
+[x] SEC-3 : Ajouter healthcheck API dans docker-compose.yml
+[x] SEC-4 : Ajouter Cache-Control pour fichiers HTML
 [ ] QC-1  : Décider du sort des fichiers racine dupliqués
-[ ] QC-2  : Supprimer runSqlFile() morte
-[ ] QC-3  : Ajouter validation res.ok dans scores.js
+[x] QC-2  : Supprimer runSqlFile() morte
+[x] QC-3  : Ajouter validation res.ok dans scores.js
 ```

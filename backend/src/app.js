@@ -20,7 +20,7 @@ app.use(helmet());
 
 // CORS — allow requests from the Nginx frontend (same origin via proxy in prod)
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? false : '*'),
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Token', 'X-Admin-Password'],
 }));
@@ -52,6 +52,14 @@ app.use((err, _req, res, _next) => {
 });
 
 async function start() {
+  if (!process.env.JWT_SECRET) {
+    console.error('[api] JWT_SECRET is required');
+    process.exit(1);
+  }
+  if (!process.env.ADMIN_PASSWORD) {
+    console.error('[api] ADMIN_PASSWORD is required');
+    process.exit(1);
+  }
   try {
     await migrate();
     app.listen(PORT, () => {

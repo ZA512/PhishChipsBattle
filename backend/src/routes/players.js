@@ -34,8 +34,15 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'Format d\'email invalide' });
   }
 
+  const svcId = serviceId ? parseInt(serviceId, 10) : null;
+  if (serviceId && isNaN(svcId)) {
+    return res.status(400).json({ error: 'serviceId invalide' });
+  }
+
   const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
     // Check if email already exists
     const byEmail = await client.query(
       'SELECT id, name, email, service_id FROM players WHERE email = $1',
@@ -54,10 +61,11 @@ router.post('/', async (req, res) => {
       if (serviceId !== undefined) {
         await client.query(
           'UPDATE players SET service_id = $1 WHERE id = $2',
-          [serviceId || null, existing.id]
+          [svcId, existing.id]
         );
-        existing.service_id = serviceId || null;
+        existing.service_id = svcId;
       }
+      await client.query('COMMIT');
       return res.json({ player: { id: existing.id, name: existing.name, email: existing.email, serviceId: existing.service_id }, created: false });
     }
 
@@ -73,13 +81,19 @@ router.post('/', async (req, res) => {
     }
 
     // Create new player
-    const svcId = serviceId || null;
     const insert = await client.query(
       'INSERT INTO players (name, email, service_id) VALUES ($1, $2, $3) RETURNING id, name, email, service_id',
       [normalizedName, normalizedEmail, svcId]
     );
     const player = insert.rows[0];
+    await client.query('COMMIT');
     return res.status(201).json({ player: { id: player.id, name: player.name, email: player.email, serviceId: player.service_id }, created: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Conflit : ce pseudo ou cet email existe déjà.' });
+    }
+    throw err;
   } finally {
     client.release();
   }

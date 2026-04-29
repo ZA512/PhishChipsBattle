@@ -7,15 +7,6 @@ const pool = require('./pool');
 const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
 
 /**
- * Run a single SQL migration file
- */
-async function runSqlFile(filename) {
-  const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, filename), 'utf8');
-  await pool.query(sql);
-  console.log(`[migrate] Applied ${filename}`);
-}
-
-/**
  * Seed emails from emails-data.js if the emails table is empty
  */
 async function seedEmails(client) {
