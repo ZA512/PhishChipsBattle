@@ -5,9 +5,9 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const pool = require('../db/pool');
 const { answerLimiter } = require('../middleware/rateLimiter');
+const { evaluateAchievements } = require('../services/achievements');
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const EMAILS_PER_GAME = 30;
 const MAX_ERRORS = 3;
 
 /** Shuffle array using Fisher-Yates (server-side, non-predictable) */
@@ -61,9 +61,9 @@ router.post('/', async (req, res) => {
       return res.status(500).json({ error: 'Aucun email disponible dans la base' });
     }
 
-    // Shuffle and pick EMAILS_PER_GAME
+    // Shuffle all emails — game continues until MAX_ERRORS or all emails played
     const allIds = emailsRes.rows.map((r) => r.id);
-    const shuffled = shuffleArray(allIds).slice(0, EMAILS_PER_GAME);
+    const shuffled = shuffleArray(allIds);
 
     const sessionRes = await client.query(
       `INSERT INTO game_sessions (player_id, difficulty, email_order, total_emails)
@@ -245,6 +245,16 @@ router.post('/:id/answer', answerLimiter, async (req, res) => {
 
     await client.query('COMMIT');
 
+    // Evaluate achievements if game completed
+    let newAchievements = [];
+    if (completed) {
+      try {
+        newAchievements = await evaluateAchievements(session.player_id, sessionId);
+      } catch (achErr) {
+        console.error('[achievements] Evaluation error (non-blocking):', achErr.message);
+      }
+    }
+
     return res.json({
       isCorrect,
       correctType,
@@ -255,6 +265,7 @@ router.post('/:id/answer', answerLimiter, async (req, res) => {
       completed,
       gameOver,
       allDone,
+      newAchievements,
     });
   } catch (err) {
     await client.query('ROLLBACK');

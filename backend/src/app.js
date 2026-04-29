@@ -12,6 +12,8 @@ const servicesRouter = require('./routes/services');
 const adminRouter = require('./routes/admin');
 const { apiLimiter } = require('./middleware/rateLimiter');
 
+const pool = require('./db/pool');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -40,6 +42,14 @@ app.use('/api/admin', adminRouter);
 
 // Health check (no rate limit)
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+
+// All achievements catalog
+app.get('/api/achievements', async (_req, res) => {
+  const result = await pool.query(
+    'SELECT id, key, name, description, emoji, category, difficulty, tier, threshold FROM achievements ORDER BY category, difficulty, tier'
+  );
+  res.json({ achievements: result.rows });
+});
 
 // 404 for unknown routes
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 Statistiques – Admin – Phish &amp; Chips Battle</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; margin: 0; padding: 24px 16px; }
+        .stats-container { max-width: 900px; margin: 0 auto; }
+        h1 { color: #0078d4; text-align: center; margin-bottom: 24px; }
+        .back-link { display: inline-block; margin-bottom: 16px; color: #0078d4; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { text-decoration: underline; }
+
+        /* Login */
+        #login-section { max-width: 400px; margin: 80px auto; text-align: center; }
+        #login-section input { padding: 8px 12px; border: 2px solid #e1dfdd; border-radius: 6px; font-size: 1rem; width: 100%; margin: 10px 0; }
+        #login-section button { padding: 8px 20px; background: #0078d4; color: #fff; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; }
+        #login-error { color: #d13438; font-size: 0.85rem; min-height: 1.2em; margin-top: 8px; }
+
+        /* Cards */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: #fff; border-radius: 8px; padding: 16px; border: 1px solid #e1dfdd; text-align: center; }
+        .stat-card .stat-value { font-size: 2rem; font-weight: 700; color: #0078d4; }
+        .stat-card .stat-label { font-size: 0.8rem; color: #666; margin-top: 4px; }
+
+        /* Difficulty breakdown */
+        .diff-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+        .diff-table th { background: #f3f2f1; padding: 8px 12px; text-align: left; font-size: 0.85rem; color: #555; border-bottom: 2px solid #e1dfdd; }
+        .diff-table td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; }
+
+        /* Hardest emails */
+        .section-title { font-size: 1.1rem; font-weight: 700; margin: 20px 0 12px; color: #333; }
+        .hardest-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+        .hardest-table th { background: #f3f2f1; padding: 8px 12px; text-align: left; font-size: 0.8rem; color: #555; border-bottom: 2px solid #e1dfdd; }
+        .hardest-table td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; font-size: 0.85rem; }
+        .error-bar { display: inline-block; height: 14px; background: #d13438; border-radius: 3px; min-width: 4px; }
+
+        /* Activity chart */
+        .activity-chart { display: flex; align-items: flex-end; gap: 3px; height: 120px; margin-bottom: 24px; padding: 10px 0; }
+        .activity-bar { flex: 1; background: #0078d4; border-radius: 3px 3px 0 0; min-height: 4px; position: relative; }
+        .activity-bar:hover::after { content: attr(data-tooltip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 3px 6px; border-radius: 4px; font-size: 0.7rem; white-space: nowrap; }
+        .period-btns { display: flex; gap: 8px; margin-bottom: 12px; }
+        .period-btn { padding: 4px 12px; border: 1px solid #e1dfdd; border-radius: 4px; background: #f3f2f1; cursor: pointer; font-size: 0.8rem; }
+        .period-btn.active { background: #0078d4; color: #fff; border-color: #0078d4; }
+    </style>
+</head>
+<body>
+<div class="stats-container">
+    <!-- Login -->
+    <div id="login-section">
+        <h2>📊 Statistiques Admin</h2>
+        <input type="password" id="admin-password" placeholder="Mot de passe admin">
+        <br>
+        <button id="login-btn">Se connecter</button>
+        <p id="login-error"></p>
+    </div>
+
+    <!-- Main content (hidden until auth) -->
+    <div id="main-section" style="display:none">
+        <a href="admin.html" class="back-link">← Administration</a>
+        <a href="phishing.html" class="back-link" style="margin-left:16px">← Retour au jeu</a>
+        <h1>📊 Tableau de bord</h1>
+
+        <!-- Overview cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-players">-</div>
+                <div class="stat-label">Joueurs inscrits</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-success">-</div>
+                <div class="stat-label">Taux de réussite</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-answers">-</div>
+                <div class="stat-label">Réponses totales</div>
+            </div>
+        </div>
+
+        <!-- By difficulty -->
+        <h3 class="section-title">📈 Par difficulté</h3>
+        <table class="diff-table">
+            <thead><tr><th>Difficulté</th><th>Parties</th><th>Score moyen</th></tr></thead>
+            <tbody id="diff-tbody"></tbody>
+        </table>
+
+        <!-- Hardest emails -->
+        <h3 class="section-title">💀 Emails les plus difficiles</h3>
+        <table class="hardest-table">
+            <thead><tr><th>Sujet</th><th>Type</th><th>Tentatives</th><th>Taux d'erreur</th></tr></thead>
+            <tbody id="hardest-tbody"></tbody>
+        </table>
+
+        <!-- Activity -->
+        <h3 class="section-title">📅 Activité</h3>
+        <div class="period-btns">
+            <button class="period-btn active" data-period="week">7 jours</button>
+            <button class="period-btn" data-period="month">30 jours</button>
+        </div>
+        <div class="activity-chart" id="activity-chart"></div>
+    </div>
+</div>
+
+<script src="admin-stats.js"></script>
+</body>
+</html>

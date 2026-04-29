@@ -293,3 +293,24 @@ Tout le backend utilise `console.log('[tag]', ...)` et `console.error('[tag]', .
 [x] QC-2  : Supprimer runSqlFile() morte
 [x] QC-3  : Ajouter validation res.ok dans scores.js
 ```
+
+---
+
+## 🚀 Features ajoutées (Phase 0–4)
+
+```
+[x] Phase 0 : Suppression limite 30 mails + bouton abandon
+[x] Phase 1 : Dark mode + Outlook theme + faux inbox sidebar
+[x] Phase 2 : Export CSV par onglet leaderboard
+[x] Phase 3 : Dashboard admin stats (endpoints + page)
+[x] Phase 4 : Système de badges/achievements complet
+    - Migration 002_achievements.sql (tables achievements + player_achievements)
+    - Définitions (achievements-data.js) : 72 badges (tiered/per-difficulty/universal)
+    - Seed upsert dans migrate.js
+    - Moteur d'évaluation (services/achievements.js)
+    - Intégration dans sessions.js (évaluation à la fin de partie)
+    - API : GET /api/players/:id/profile, GET /api/players/:id/achievements, GET /api/achievements
+    - Page profil (profile.html + profile.js) : stats + grille de badges + filtre catégorie
+    - Popup badges débloqués en game-over + lien vers profil
+    - Liens cliquables vers profil depuis le leaderboard
+```

@@ -47,6 +47,8 @@ const safeMailsFoundEl = document.getElementById('safe-mails-found');
 const phishingMailsFoundEl = document.getElementById('phishing-mails-found');
 const avgDecisionTimeEl = document.getElementById('avg-decision-time');
 
+const abandonBtn = document.getElementById('abandon-btn');
+
 // --- API State ---
 let sessionId = null;
 let sessionToken = null;
@@ -210,8 +212,8 @@ async function loadNextEmail() {
         });
 
         if (res.status === 410) {
-            // All emails done or game over
-            endGame(errors < maxErrors);
+            // All emails done (tilt) or game over from errors
+            endGame(errors < maxErrors, false);
             return;
         }
         if (!res.ok) {
@@ -351,6 +353,8 @@ async function classifyEmail(userChoice) {
 
         if (data.completed) {
             gameActive = false;
+            // Store achievements for display in endGame
+            window._pendingAchievements = data.newAchievements || [];
         }
     } catch (e) {
         console.error('classifyEmail error:', e);
@@ -431,7 +435,7 @@ feedbackContinueBtn.addEventListener('click', () => {
     playSound('click');
 
     if (!gameActive) {
-        endGame(errors < maxErrors);
+        endGame(errors < maxErrors, false);
         return;
     }
     autoAnalyzeBtn.disabled = false;
@@ -568,39 +572,33 @@ const RANKS = [
 ];
 
 function getRankDetails(finalScore) {
-    const total = totalEmails || 30;
     let idx;
     if (finalScore === 0) idx = RANKS.length - 1;
     else if (finalScore === 1) idx = RANKS.length - 2;
     else if (finalScore === 2) idx = RANKS.length - 3;
     else if (finalScore <= 4) idx = RANKS.length - 4;
-    else {
-        const pct = (finalScore / total) * 100;
-        if (pct >= 80) idx = 0;
-        else if (pct >= 70) idx = 1;
-        else if (pct >= 60) idx = 2;
-        else if (pct >= 50) idx = 3;
-        else if (pct >= 45) idx = 4;
-        else if (pct >= 40) idx = 5;
-        else if (pct >= 35) idx = 6;
-        else if (pct >= 30) idx = 7;
-        else if (pct >= 25) idx = 8;
-        else if (pct >= 20) idx = 9;
-        else if (pct >= 18) idx = 10;
-        else if (pct >= 15) idx = 11;
-        else if (pct >= 12) idx = 12;
-        else if (pct >= 10) idx = 13;
-        else if (pct >= 8) idx = 14;
-        else if (pct >= 6) idx = RANKS.length - 4;
-        else if (pct >= 4) idx = RANKS.length - 3;
-        else if (pct >= 2) idx = RANKS.length - 2;
-        else idx = RANKS.length - 1;
-    }
+    else if (finalScore >= 150) idx = 0;
+    else if (finalScore >= 120) idx = 1;
+    else if (finalScore >= 100) idx = 2;
+    else if (finalScore >= 80) idx = 3;
+    else if (finalScore >= 65) idx = 4;
+    else if (finalScore >= 50) idx = 5;
+    else if (finalScore >= 40) idx = 6;
+    else if (finalScore >= 32) idx = 7;
+    else if (finalScore >= 25) idx = 8;
+    else if (finalScore >= 20) idx = 9;
+    else if (finalScore >= 16) idx = 10;
+    else if (finalScore >= 13) idx = 11;
+    else if (finalScore >= 10) idx = 12;
+    else if (finalScore >= 8) idx = 13;
+    else if (finalScore >= 6) idx = 14;
+    else if (finalScore >= 5) idx = RANKS.length - 4;
+    else idx = RANKS.length - 4;
     return { index: idx, rank: RANKS[idx] };
 }
 
 // --- End Game ---
-function endGame(won) {
+function endGame(won, abandoned = false) {
     gameActive = false;
     clearInterval(timerInterval);
     feedbackModalEl.classList.remove('visible');
@@ -609,8 +607,8 @@ function endGame(won) {
     gameOverScreen.classList.remove('hidden');
 
     const { index: curIdx, rank: curRank } = getRankDetails(score);
-    const pct = totalEmails > 0 ? ((score / totalEmails) * 100).toFixed(0) : 0;
-    finalScoreEl.innerHTML = `<span class="score-diploma">Vous avez atteint le score <strong>${curRank.appreciation}</strong> de ${score} sur ${totalEmails} (${pct}%)</span>`;
+    const emailsPlayed = emailsSuccessfullyClassified;
+    finalScoreEl.innerHTML = `<span class="score-diploma">Vous avez atteint le score <strong>${curRank.appreciation}</strong> de ${score} (${emailsPlayed} emails traités)</span>`;
 
     const prev = document.querySelector('.previous-rank');
     const curr = document.querySelector('.current-rank');
@@ -622,14 +620,18 @@ function endGame(won) {
         prev.innerHTML = gen(RANKS[Math.max(0, curIdx - 1)]);
         curr.innerHTML = gen(curRank);
         next.innerHTML = gen(RANKS[Math.min(RANKS.length - 1, curIdx + 1)]);
-        if (curIdx === 0) prev.style.visibility = 'hidden';
-        else if (curIdx === RANKS.length - 1) next.style.visibility = 'hidden';
+        prev.style.visibility = curIdx === 0 ? 'hidden' : '';
+        next.style.visibility = curIdx === RANKS.length - 1 ? 'hidden' : '';
     }
 
-    if (won) {
-        gameOverTitleEl.textContent = 'MISSION ACCOMPLIE';
+    if (abandoned) {
+        gameOverTitleEl.textContent = 'ABANDON';
+        gameOverTitleEl.style.color = getCssVariableValue('--warning-color');
+        gameOverMessageEl.textContent = `${playerName}, vous avez quitté la mission. Score conservé !`;
+    } else if (won) {
+        gameOverTitleEl.textContent = 'TILT ! TOUS LES MAILS TRAITÉS';
         gameOverTitleEl.style.color = getCssVariableValue('--safe-color');
-        gameOverMessageEl.textContent = `Félicitations ${playerName} ! Vous avez protégé l'entreprise.`;
+        gameOverMessageEl.textContent = `Incroyable ${playerName} ! Vous avez traité tous les emails disponibles !`;
     } else {
         gameOverTitleEl.textContent = 'MISSION ÉCHOUÉE';
         gameOverTitleEl.style.color = getCssVariableValue('--phishing-color');
@@ -647,6 +649,37 @@ function endGame(won) {
             headers: { 'X-Session-Token': sessionToken },
         }).catch(() => {});
     }
+
+    // Show newly unlocked achievements
+    const badges = window._pendingAchievements || [];
+    window._pendingAchievements = [];
+    renderNewBadges(badges);
+}
+
+function renderNewBadges(badges) {
+    // Remove previous badge popup if any
+    const old = document.getElementById('new-badges-popup');
+    if (old) old.remove();
+
+    const container = document.createElement('div');
+    container.id = 'new-badges-popup';
+
+    const badgesHtml = badges && badges.length > 0
+      ? `<div class="badges-popup-title">🏆 Nouveaux badges débloqués !</div>
+         <div class="badges-popup-list">
+           ${badges.map((b) => `<div class="badge-item"><span class="badge-emoji">${b.emoji}</span><span class="badge-name">${b.name}</span><span class="badge-desc">${b.description}</span></div>`).join('')}
+         </div>`
+      : '';
+
+    const profileLink = playerId
+      ? `<a href="profile.html?id=${playerId}" class="profile-link-btn">👤 Voir mon profil & tous mes badges</a>`
+      : '';
+
+    container.innerHTML = badgesHtml + profileLink;
+    gameOverScreen.appendChild(container);
+
+    // Animate in
+    requestAnimationFrame(() => container.classList.add('visible'));
 }
 
 // --- Event Listeners ---
@@ -661,6 +694,12 @@ restartBtn.addEventListener('click', () => {
 classifySafeBtn.addEventListener('click', () => classifyEmail('safe'));
 classifyPhishingBtn.addEventListener('click', () => classifyEmail('phishing'));
 autoAnalyzeBtn.addEventListener('click', useAutoAnalyze);
+abandonBtn.addEventListener('click', () => {
+    if (!gameActive) return;
+    if (confirm('Abandonner la partie ? Votre score sera conservé.')) {
+        endGame(false, true);
+    }
+});
 
 // Auto-uppercase for name input
 playerNameInput.addEventListener('input', () => {
@@ -681,9 +720,97 @@ document.querySelectorAll('.difficulty-option').forEach((opt) => {
 document.addEventListener('DOMContentLoaded', () => {
     hideTooltip();
     loadServices();
+    initTheme();
     const checked = document.querySelector('.difficulty-option input[type="radio"]:checked');
     if (checked) {
         const parent = checked.closest('.difficulty-option');
         if (parent) parent.style.borderColor = 'var(--accent-color)';
     }
 });
+
+// --- Theme Management ---
+function initTheme() {
+    const savedDark = localStorage.getItem('pcb-dark') === 'true';
+    const savedTheme = localStorage.getItem('pcb-theme') || 'classic';
+    if (savedDark) document.body.classList.add('dark');
+    applyTheme(savedTheme);
+    updateDarkToggleIcon();
+
+    const darkToggle = document.getElementById('dark-toggle');
+    const themeSelect = document.getElementById('theme-select');
+    if (themeSelect) themeSelect.value = savedTheme;
+
+    if (darkToggle) darkToggle.addEventListener('click', () => {
+        document.body.classList.toggle('dark');
+        localStorage.setItem('pcb-dark', document.body.classList.contains('dark'));
+        updateDarkToggleIcon();
+    });
+    if (themeSelect) themeSelect.addEventListener('change', () => {
+        applyTheme(themeSelect.value);
+        localStorage.setItem('pcb-theme', themeSelect.value);
+    });
+}
+function updateDarkToggleIcon() {
+    const btn = document.getElementById('dark-toggle');
+    if (btn) btn.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+}
+function applyTheme(theme) {
+    document.body.classList.remove('theme-outlook');
+    const existing = document.getElementById('theme-css');
+    if (existing) existing.remove();
+    const existingSidebar = document.getElementById('outlook-sidebar');
+    if (existingSidebar) existingSidebar.remove();
+
+    if (theme === 'outlook') {
+        document.body.classList.add('theme-outlook');
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.id = 'theme-css';
+        link.href = 'theme-outlook.css';
+        document.head.appendChild(link);
+        injectOutlookSidebar();
+    }
+}
+
+function injectOutlookSidebar() {
+    const gameUi = document.getElementById('game-ui');
+    if (!gameUi || document.getElementById('outlook-sidebar')) return;
+
+    const sidebar = document.createElement('div');
+    sidebar.id = 'outlook-sidebar';
+    sidebar.className = 'outlook-sidebar';
+    sidebar.innerHTML = `
+        <div class="sidebar-header">📥 Boîte de réception</div>
+        <input class="sidebar-search" type="text" placeholder="🔍 Rechercher dans les mails..." disabled>
+        ${FAKE_INBOX_EMAILS.map((e, i) => `
+            <div class="fake-email${i < 4 ? ' unread' : ''}">
+                <span class="fe-sender">${e.sender}</span>
+                <span class="fe-time">${e.time}</span>
+                <div class="fe-subject">${e.subject}</div>
+                <div class="fe-preview">${e.preview}</div>
+            </div>
+        `).join('')}
+    `;
+    gameUi.insertBefore(sidebar, gameUi.firstChild);
+}
+
+const FAKE_INBOX_EMAILS = [
+    { sender: 'Jean-Michel D.', subject: 'RE:RE:RE:RE: La machine à café', preview: 'Bon sérieusement qui a changé les dosettes...', time: '9:42' },
+    { sender: 'RH - Sophie', subject: 'URGENT: Entretien annuel à reprogrammer', preview: 'Suite à votre absence non justifiée du...', time: '9:38' },
+    { sender: 'Amazon.fr', subject: 'Votre commande de 3 coques de téléphone', preview: 'Votre colis sera livré demain entre...', time: '9:15' },
+    { sender: 'Direction Générale', subject: 'RE: Résultats trimestriels catastrophiques', preview: 'Merci de préparer un plan d\'action pour...', time: '8:55' },
+    { sender: 'Parking Entreprise', subject: 'Infraction stationnement - 3e avertissement', preview: 'Votre véhicule a de nouveau été garé sur...', time: '8:47' },
+    { sender: 'Collègue Anonyme', subject: 'FW: blague du jour 😂😂😂', preview: 'MDR trop drôle regarde ça !!! C\'est toi le...', time: '8:30' },
+    { sender: 'Formation', subject: 'Rappel: Excel niveau 1 (obligatoire)', preview: 'Nous vous rappelons que vous n\'avez toujours...', time: 'Hier' },
+    { sender: 'IT Support', subject: 'RE: Mon PC fait un bruit bizarre', preview: 'Avez-vous essayé de l\'éteindre et de le...', time: 'Hier' },
+    { sender: 'Cantine', subject: 'Menu semaine: Poisson pané vendredi', preview: 'Cette semaine au menu : lundi tagliatelles...', time: 'Hier' },
+    { sender: 'Dupont Bernard', subject: 'RE: Qui a mangé mon yaourt ???', preview: 'C\'est la TROISIÈME fois ce mois-ci. Je vais...', time: 'Hier' },
+    { sender: 'Netflix', subject: 'Continuez à regarder: The Office S4E12', preview: 'Vous n\'avez pas terminé votre épisode...', time: 'Mar' },
+    { sender: 'Manager', subject: 'Ton rapport est où ?', preview: 'Je t\'avais demandé ça pour lundi. On est...', time: 'Mar' },
+    { sender: 'Tinder', subject: '💕 3 nouveaux likes !', preview: 'Quelqu\'un vous a liké ! Ouvrez l\'app pour...', time: 'Mar' },
+    { sender: 'Compta - Marie', subject: 'Note de frais rejetée (3e fois)', preview: 'Non, un kebab à 14€ n\'est pas un "déjeuner...', time: 'Lun' },
+    { sender: 'Imprimante 2e étage', subject: 'Toner épuisé - File d\'attente: 47 docs', preview: 'Votre impression "CV_perso_v12_final_FINAL" est...', time: 'Lun' },
+    { sender: 'LinkedIn', subject: 'Jean-Michel a validé vos compétences', preview: 'Jean-Michel vous recommande en "Expert Excel"...', time: 'Lun' },
+    { sender: 'Sécurité', subject: 'Votre badge a été utilisé à 3h du matin', preview: 'Une utilisation inhabituelle de votre badge...', time: 'Dim' },
+    { sender: 'Leboncoin', subject: 'Nouvelle offre: Chaise bureau "empruntée"', preview: 'Chaise ergonomique, légèrement utilisée...', time: 'Sam' },
+];

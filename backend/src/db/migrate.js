@@ -41,6 +41,37 @@ async function seedEmails(client) {
 }
 
 /**
+ * Seed achievements from achievements-data.js (upsert by key)
+ */
+async function seedAchievements(client) {
+  // Check if achievements table exists (migration 002 may not have run yet)
+  const tableCheck = await client.query(
+    "SELECT to_regclass('public.achievements') AS t"
+  );
+  if (!tableCheck.rows[0].t) return;
+
+  const achievements = require('./achievements-data');
+  console.log(`[migrate] Seeding/updating ${achievements.length} achievements…`);
+
+  for (const a of achievements) {
+    await client.query(
+      `INSERT INTO achievements (key, name, description, emoji, category, difficulty, tier, threshold)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (key) DO UPDATE SET
+         name = EXCLUDED.name,
+         description = EXCLUDED.description,
+         emoji = EXCLUDED.emoji,
+         category = EXCLUDED.category,
+         difficulty = EXCLUDED.difficulty,
+         tier = EXCLUDED.tier,
+         threshold = EXCLUDED.threshold`,
+      [a.key, a.name, a.description, a.emoji, a.category, a.difficulty, a.tier, a.threshold]
+    );
+  }
+  console.log('[migrate] Achievements seeded successfully.');
+}
+
+/**
  * Main migration entry point — called once at API startup
  */
 async function migrate() {
@@ -67,6 +98,7 @@ async function migrate() {
     }
 
     await seedEmails(client);
+    await seedAchievements(client);
     await client.query('COMMIT');
     console.log('[migrate] All migrations complete.');
   } catch (err) {

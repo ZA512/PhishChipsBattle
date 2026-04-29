@@ -99,4 +99,76 @@ router.post('/', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/players/:id/profile
+ * Returns player stats (no email exposed).
+ */
+router.get('/:id/profile', async (req, res) => {
+  const playerId = parseInt(req.params.id, 10);
+  if (isNaN(playerId)) return res.status(400).json({ error: 'ID invalide' });
+
+  const playerRes = await pool.query(
+    'SELECT id, name, service_id, created_at FROM players WHERE id = $1',
+    [playerId]
+  );
+  if (playerRes.rows.length === 0) return res.status(404).json({ error: 'Joueur introuvable' });
+  const player = playerRes.rows[0];
+
+  const statsRes = await pool.query(
+    `SELECT
+       COUNT(*) FILTER (WHERE completed) AS games_played,
+       COALESCE(MAX(score), 0) AS best_score,
+       COALESCE(SUM(score), 0) AS total_score,
+       COALESCE(SUM(CASE WHEN completed THEN score ELSE 0 END), 0) AS total_correct,
+       COALESCE(SUM(errors), 0) AS total_errors
+     FROM game_sessions WHERE player_id = $1`,
+    [playerId]
+  );
+  const stats = statsRes.rows[0];
+
+  return res.json({
+    player: { id: player.id, name: player.name, serviceId: player.service_id, createdAt: player.created_at },
+    stats: {
+      gamesPlayed: parseInt(stats.games_played) || 0,
+      bestScore: parseInt(stats.best_score) || 0,
+      totalScore: parseInt(stats.total_score) || 0,
+      totalCorrect: parseInt(stats.total_correct) || 0,
+      totalErrors: parseInt(stats.total_errors) || 0,
+    },
+  });
+});
+
+/**
+ * GET /api/players/:id/achievements
+ * Returns all achievements with unlock status for a player.
+ */
+router.get('/:id/achievements', async (req, res) => {
+  const playerId = parseInt(req.params.id, 10);
+  if (isNaN(playerId)) return res.status(400).json({ error: 'ID invalide' });
+
+  const result = await pool.query(
+    `SELECT a.*, pa.unlocked_at, pa.session_id AS unlock_session_id
+     FROM achievements a
+     LEFT JOIN player_achievements pa ON pa.achievement_id = a.id AND pa.player_id = $1
+     ORDER BY a.category, a.difficulty, a.tier`,
+    [playerId]
+  );
+
+  const achievements = result.rows.map((r) => ({
+    id: r.id,
+    key: r.key,
+    name: r.name,
+    description: r.description,
+    emoji: r.emoji,
+    category: r.category,
+    difficulty: r.difficulty,
+    tier: r.tier,
+    threshold: r.threshold,
+    unlocked: !!r.unlocked_at,
+    unlockedAt: r.unlocked_at || null,
+  }));
+
+  return res.json({ achievements });
+});
+
 module.exports = router;

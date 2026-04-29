@@ -94,13 +94,22 @@
     </style>
 </head>
 <body>
+    <!-- Theme Toggle -->
+    <div id="theme-controls">
+        <button id="dark-toggle" class="theme-toggle-btn" title="Mode sombre/clair">🌙</button>
+        <select id="theme-select" title="Thème visuel">
+            <option value="classic">🎮 Classique</option>
+            <option value="outlook">📧 Outlook</option>
+        </select>
+    </div>
+
     <div id="game-container">
         <!-- Start Screen -->
         <div id="start-screen" class="screen">
             <h1>🔐 Phish &amp; Chips</h1>
             <p>Parce que tu vas en bouffer du phishing.</p>
             <p>Analysez chaque email, inspectez l'expéditeur et les liens. Classez comme "Safe" (légitime) ou "Phishing" (malveillant).</p>
-            <p>Vous disposez de <strong>3 analyses automatiques</strong> par partie. <strong>3 erreurs</strong> et c'est GAME OVER.</p>
+            <p>Vous disposez de <strong>3 analyses automatiques</strong> par partie. <strong>3 erreurs</strong> et c'est GAME OVER. Sinon, le jeu continue tant qu'il reste des mails !</p>
 
             <!-- Formulaire joueur -->
             <div class="player-form">
@@ -188,6 +197,9 @@
                     <p><span class="stat-icon">📧</span> Mails sûrs: <span id="safe-mails-found">0</span></p>
                     <p><span class="stat-icon">💀</span> Phish trouvés: <span id="phishing-mails-found">0</span></p>
                     <p><span class="stat-icon">⏱️</span> Temps moy.: <span id="avg-decision-time">0s</span></p>
+                </div>
+                <div class="panel-section">
+                    <button id="abandon-btn" class="email-btn abandon-btn">🏳️ Abandonner</button>
                 </div>
             </div>
         </div>

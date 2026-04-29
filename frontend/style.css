@@ -15,6 +15,59 @@
     --font-main: 'Segoe UI', sans-serif; /* Police Microsoft */
 }
 
+/* --- Dark Mode --- */
+body.dark {
+    --bg-color: #1e1e1e;
+    --primary-color: #2d2d2d;
+    --secondary-color: #252525;
+    --accent-color: #4fc3f7;
+    --text-color: #e0e0e0;
+    --border-color: #444444;
+    --shadow-color: rgba(0, 0, 0, 0.4);
+    --highlight-color: #1a3a4a;
+    --safe-color: #4caf50;
+    --warning-color: #ffca28;
+    --phishing-color: #ef5350;
+    --link-color: #4fc3f7;
+    --inspection-color: #e0e0e0;
+}
+
+/* --- Theme Controls --- */
+#theme-controls {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 9999;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+.theme-toggle-btn {
+    background: var(--primary-color);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px var(--shadow-color);
+    transition: transform 0.2s;
+}
+.theme-toggle-btn:hover { transform: scale(1.1); }
+#theme-select {
+    background: var(--primary-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    box-shadow: 0 2px 6px var(--shadow-color);
+}
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -697,6 +750,22 @@ body {
     cursor: not-allowed;
 }
 
+/* --- Abandon Button --- */
+.abandon-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    opacity: 0.7;
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    width: 100%;
+}
+.abandon-btn:hover {
+    opacity: 1;
+    border-color: var(--warning-color);
+    color: var(--warning-color);
+}
+
 /* --- Feedback Popup --- */
 #feedback-modal {
     position: fixed; /* Or absolute relative to game-container */
@@ -918,4 +987,79 @@ body {
 
 .tooltip-element.danger {
     border-left: 3px solid var(--phishing-color);
+}
+
+/* --- New Badges Popup (game-over screen) --- */
+#new-badges-popup {
+    margin-top: 1.5rem;
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, #fef9c3, #fef3c7);
+    border: 2px solid #f59e0b;
+    border-radius: 12px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.4s, transform 0.4s;
+}
+#new-badges-popup.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+.badges-popup-title {
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-bottom: 0.7rem;
+    color: #92400e;
+}
+.badges-popup-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.badge-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.4rem 0.6rem;
+    background: rgba(255,255,255,0.7);
+    border-radius: 8px;
+}
+.badge-emoji {
+    font-size: 1.5rem;
+}
+.badge-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+.badge-desc {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin-left: auto;
+}
+body.dark #new-badges-popup {
+    background: linear-gradient(135deg, #422006, #451a03);
+    border-color: #d97706;
+}
+body.dark .badges-popup-title {
+    color: #fbbf24;
+}
+body.dark .badge-item {
+    background: rgba(255,255,255,0.05);
+}
+body.dark .badge-desc {
+    color: #a1a1aa;
+}
+.profile-link-btn {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.5rem 1.2rem;
+    background: var(--accent-color, #0078d4);
+    color: #fff;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+.profile-link-btn:hover {
+    background: #005a9e;
 }

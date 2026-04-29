@@ -5,6 +5,14 @@
 // --- Difficulty state (global, applies to all tabs) ---
 let activeDifficulty = ''; // '' = tous niveaux
 
+// --- Last fetched data for CSV export ---
+const lastData = {
+    'players-global': null,
+    'players-monthly': null,
+    'services-global': null,
+    'services-monthly': null,
+};
+
 // --- Month helpers ---
 function nowYYYYMM() {
     const d = new Date();
@@ -51,7 +59,7 @@ function renderPlayersTable(rows, showStreak = false) {
         <tbody>
         ${rows.map((r, i) => `<tr>
             <td>${medal(i)}</td>
-            <td>${escHtml(r.name)}${showStreak ? streakBadge(r.streak) : ''}</td>
+            <td><a href="profile.html?id=${r.id}" class="player-link">${escHtml(r.name)}</a>${showStreak ? streakBadge(r.streak) : ''}</td>
             <td>${r.service_name ? escHtml(r.service_name) : '<span style="color:#aaa">—</span>'}</td>
             <td><span class="score-val">${r.best_score}</span></td>
             <td>${r.games_played}</td>
@@ -129,6 +137,7 @@ async function loadTab(tab) {
         el.innerHTML = '<p class="loading">Chargement…</p>';
         try {
             const data = await fetchPlayers(null, activeDifficulty);
+            lastData['players-global'] = data.scores;
             el.innerHTML = renderPlayersTable(data.scores, false);
         } catch { el.innerHTML = '<p class="empty-state">Erreur de chargement.</p>'; }
     }
@@ -141,6 +150,7 @@ async function loadTab(tab) {
         el.innerHTML = '<p class="loading">Chargement…</p>';
         try {
             const data = await fetchServices(null, activeDifficulty);
+            lastData['services-global'] = data.scores;
             el.innerHTML = renderServicesTable(data.scores, false);
             attachServiceClicks(el, null);
         } catch { el.innerHTML = '<p class="empty-state">Erreur de chargement.</p>'; }
@@ -156,6 +166,7 @@ async function loadPlayersMonthly() {
     el.innerHTML = '<p class="loading">Chargement…</p>';
     try {
         const data = await fetchPlayers(pmMonth.current, activeDifficulty);
+        lastData['players-monthly'] = data.scores;
         el.innerHTML = renderPlayersTable(data.scores, true);
     } catch { el.innerHTML = '<p class="empty-state">Erreur de chargement.</p>'; }
 }
@@ -165,6 +176,7 @@ async function loadServicesMonthly() {
     el.innerHTML = '<p class="loading">Chargement…</p>';
     try {
         const data = await fetchServices(smMonth.current, activeDifficulty);
+        lastData['services-monthly'] = data.scores;
         el.innerHTML = renderServicesTable(data.scores, true);
         attachServiceClicks(el, smMonth.current);
     } catch { el.innerHTML = '<p class="empty-state">Erreur de chargement.</p>'; }
@@ -269,3 +281,35 @@ document.getElementById('service-modal').addEventListener('click', (e) => {
 
 // Load default tab
 loadTab('players-global');
+
+// --- CSV Export ---
+function exportCsv(type) {
+    const rows = lastData[type];
+    if (!rows || rows.length === 0) return alert('Aucune donnée à exporter.');
+
+    let headers, mapRow;
+    if (type.startsWith('players')) {
+        headers = ['Rang', 'Pseudo', 'Service', 'Meilleur score', 'Parties'];
+        mapRow = (r, i) => [i + 1, r.name, r.service_name || '', r.best_score, r.games_played];
+    } else {
+        headers = ['Rang', 'Service', 'Code', 'Score moyen', 'Participants'];
+        mapRow = (r, i) => [i + 1, r.name, r.code, r.avg_best_score, r.player_count];
+    }
+
+    const BOM = '\uFEFF';
+    const csv = BOM + [headers.join(';')]
+        .concat(rows.map((r, i) => mapRow(r, i).map(v => `"${String(v).replace(/"/g, '""')}"`).join(';')))
+        .join('\r\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `classement-${type}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+document.querySelectorAll('.csv-export-btn').forEach((btn) => {
+    btn.addEventListener('click', () => exportCsv(btn.dataset.export));
+});

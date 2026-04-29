@@ -109,4 +109,112 @@ router.delete('/services/:id', async (req, res) => {
   return res.json({ ok: true });
 });
 
+// ============================================================
+// Stats endpoints
+// ============================================================
+
+/**
+ * GET /api/admin/stats/overview
+ * Global stats: success rate, player count, game count, avg score by difficulty.
+ */
+router.get('/stats/overview', async (_req, res) => {
+  const [totals, byDiff, players] = await Promise.all([
+    pool.query(`
+      SELECT
+        COUNT(*) AS total_answers,
+        COUNT(*) FILTER (WHERE is_correct) AS correct_answers
+      FROM email_answers
+    `),
+    pool.query(`
+      SELECT
+        gs.difficulty,
+        COUNT(DISTINCT gs.id) AS games,
+        ROUND(AVG(gs.score), 1) AS avg_score
+      FROM game_sessions gs
+      WHERE gs.completed = TRUE
+      GROUP BY gs.difficulty
+      ORDER BY gs.difficulty
+    `),
+    pool.query('SELECT COUNT(*) AS count FROM players'),
+  ]);
+
+  const t = totals.rows[0];
+  const successRate = t.total_answers > 0
+    ? ((parseInt(t.correct_answers) / parseInt(t.total_answers)) * 100).toFixed(1)
+    : 0;
+
+  return res.json({
+    totalPlayers: parseInt(players.rows[0].count),
+    totalAnswers: parseInt(t.total_answers),
+    successRate: parseFloat(successRate),
+    byDifficulty: byDiff.rows.map((r) => ({
+      difficulty: r.difficulty,
+      games: parseInt(r.games),
+      avgScore: parseFloat(r.avg_score),
+    })),
+  });
+});
+
+/**
+ * GET /api/admin/stats/hardest-emails
+ * Top 10 emails with highest error rate (min 5 attempts).
+ */
+router.get('/stats/hardest-emails', async (_req, res) => {
+  const { rows } = await pool.query(`
+    SELECT
+      e.id,
+      e.subject,
+      e.type,
+      COUNT(*) AS attempts,
+      COUNT(*) FILTER (WHERE NOT ea.is_correct) AS errors,
+      ROUND(COUNT(*) FILTER (WHERE NOT ea.is_correct)::numeric / COUNT(*) * 100, 1) AS error_rate
+    FROM email_answers ea
+    JOIN emails e ON e.id = ea.email_id
+    WHERE ea.user_choice IN ('phishing', 'safe')
+    GROUP BY e.id, e.subject, e.type
+    HAVING COUNT(*) >= 5
+    ORDER BY error_rate DESC
+    LIMIT 10
+  `);
+
+  return res.json({
+    emails: rows.map((r) => ({
+      id: r.id,
+      subject: r.subject,
+      type: r.type,
+      attempts: parseInt(r.attempts),
+      errors: parseInt(r.errors),
+      errorRate: parseFloat(r.error_rate),
+    })),
+  });
+});
+
+/**
+ * GET /api/admin/stats/activity?period=week|month
+ * Games and players per day for the given period.
+ */
+router.get('/stats/activity', async (req, res) => {
+  const period = req.query.period === 'month' ? 30 : 7;
+
+  const { rows } = await pool.query(`
+    SELECT
+      DATE(started_at) AS day,
+      COUNT(*) AS games,
+      COUNT(DISTINCT player_id) AS players
+    FROM game_sessions
+    WHERE started_at >= NOW() - ($1 || ' days')::interval
+    GROUP BY DATE(started_at)
+    ORDER BY day
+  `, [period]);
+
+  return res.json({
+    period: req.query.period === 'month' ? 'month' : 'week',
+    days: rows.map((r) => ({
+      day: r.day,
+      games: parseInt(r.games),
+      players: parseInt(r.players),
+    })),
+  });
+});
+
 module.exports = router;

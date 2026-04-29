@@ -1,0 +1,171 @@
+/* ============================================================
+   Theme Outlook Web – PhishChipsBattle
+   Simulates Outlook Web App layout with a fake inbox sidebar
+   ============================================================ */
+
+/* --- Outlook Ribbon (fake top bar) --- */
+body.theme-outlook #game-ui::before {
+    content: '📬 Outlook  |  Accueil   Affichage   Aide';
+    display: block;
+    width: 100%;
+    background: var(--accent-color);
+    color: #fff;
+    font-size: 0.75rem;
+    padding: 6px 16px;
+    letter-spacing: 0.3px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 10;
+}
+
+/* --- Main layout override: sidebar + email --- */
+body.theme-outlook #game-ui {
+    position: relative;
+    display: grid;
+    grid-template-columns: 280px 1fr 320px;
+    grid-template-rows: 32px 1fr;
+    gap: 0;
+    padding-top: 0;
+    height: 100vh;
+    max-width: 100%;
+    border: 1px solid var(--border-color);
+}
+
+body.theme-outlook #game-ui::before {
+    grid-column: 1 / -1;
+    grid-row: 1;
+}
+
+/* --- Fake Inbox Sidebar --- */
+body.theme-outlook #game-ui::after {
+    content: '';
+    display: block;
+    grid-column: 1;
+    grid-row: 2;
+}
+
+body.theme-outlook .outlook-sidebar {
+    grid-column: 1;
+    grid-row: 2;
+    background: var(--primary-color);
+    border-right: 1px solid var(--border-color);
+    overflow-y: auto;
+    padding: 0;
+    font-size: 0.82rem;
+}
+
+body.theme-outlook .outlook-sidebar .sidebar-header {
+    padding: 10px 12px 6px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+body.theme-outlook .outlook-sidebar .sidebar-search {
+    margin: 8px 10px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.78rem;
+    color: var(--text-color);
+    background: var(--secondary-color);
+    width: calc(100% - 20px);
+    pointer-events: none;
+}
+
+body.theme-outlook .outlook-sidebar .fake-email {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: default;
+    transition: background 0.15s;
+}
+
+body.theme-outlook .outlook-sidebar .fake-email:hover {
+    background: var(--highlight-color);
+}
+
+body.theme-outlook .outlook-sidebar .fake-email.unread {
+    border-left: 3px solid var(--accent-color);
+}
+
+body.theme-outlook .outlook-sidebar .fake-email .fe-sender {
+    font-weight: 600;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.theme-outlook .outlook-sidebar .fake-email .fe-subject {
+    font-size: 0.78rem;
+    color: var(--text-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+}
+
+body.theme-outlook .outlook-sidebar .fake-email .fe-preview {
+    font-size: 0.72rem;
+    color: #888;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+
+body.theme-outlook .outlook-sidebar .fake-email .fe-time {
+    font-size: 0.65rem;
+    color: #999;
+    float: right;
+    margin-top: -14px;
+}
+
+/* --- Email Viewer occupies center --- */
+body.theme-outlook #email-viewer {
+    grid-column: 2;
+    grid-row: 2;
+    border-radius: 0;
+    border-right: 1px solid var(--border-color);
+}
+
+/* --- Analysis Panel occupies right --- */
+body.theme-outlook #analysis-panel {
+    grid-column: 3;
+    grid-row: 2;
+}
+
+/* --- Responsive: hide sidebar on narrow screens --- */
+@media (max-width: 900px) {
+    body.theme-outlook #game-ui {
+        grid-template-columns: 1fr 280px;
+    }
+    body.theme-outlook .outlook-sidebar {
+        display: none;
+    }
+    body.theme-outlook #email-viewer {
+        grid-column: 1;
+    }
+    body.theme-outlook #analysis-panel {
+        grid-column: 2;
+    }
+}
+
+@media (max-width: 600px) {
+    body.theme-outlook #game-ui {
+        grid-template-columns: 1fr;
+        grid-template-rows: 32px 1fr auto;
+    }
+    body.theme-outlook #email-viewer {
+        grid-column: 1;
+        grid-row: 2;
+    }
+    body.theme-outlook #analysis-panel {
+        grid-column: 1;
+        grid-row: 3;
+    }
+}

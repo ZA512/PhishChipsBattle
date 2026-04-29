@@ -68,6 +68,22 @@
         .loading { text-align: center; color: #888; padding: 20px; }
         a.back-link { display: inline-block; margin-bottom: 16px; color: #0078d4; text-decoration: none; font-size: 0.9rem; }
         a.back-link:hover { text-decoration: underline; }
+
+        /* CSV export */
+        .csv-export-btn {
+            float: right;
+            background: #f3f2f1;
+            border: 1px solid #e1dfdd;
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            color: #555;
+            transition: all 0.2s;
+        }
+        .csv-export-btn:hover { background: #0078d4; color: #fff; border-color: #0078d4; }
+        .player-link { color: var(--accent-color, #0078d4); text-decoration: none; font-weight: 600; }
+        .player-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -93,6 +109,7 @@
 
     <!-- Players Global -->
     <div class="tab-panel active" id="tab-players-global">
+        <button class="csv-export-btn" data-export="players-global">📥 CSV</button>
         <div id="players-global-content" class="loading">Chargement…</div>
     </div>
 
@@ -103,12 +120,14 @@
             <span class="current-month" id="pm-label"></span>
             <button id="pm-next">▶</button>
         </div>
+        <button class="csv-export-btn" data-export="players-monthly">📥 CSV</button>
         <div id="players-monthly-content" class="loading">Chargement…</div>
     </div>
 
     <!-- Services Global -->
     <div class="tab-panel" id="tab-services-global">
         <p style="font-size:0.85rem;color:#666;">Score = moyenne des meilleurs scores des 10&nbsp;meilleurs participants du service. Cliquez sur un service pour le détail.</p>
+        <button class="csv-export-btn" data-export="services-global">📥 CSV</button>
         <div id="services-global-content" class="loading">Chargement…</div>
     </div>
 
@@ -120,6 +139,7 @@
             <button id="sm-next">▶</button>
         </div>
         <p style="font-size:0.85rem;color:#666;">Score = moyenne des meilleurs scores des 10&nbsp;meilleurs participants du service ce mois-ci. 🔥&nbsp;= nombre de mois consécutifs dans le top&nbsp;10. Cliquez sur un service pour le détail.</p>
+        <button class="csv-export-btn" data-export="services-monthly">📥 CSV</button>
         <div id="services-monthly-content" class="loading">Chargement…</div>
     </div>
 </div>
