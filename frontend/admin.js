@@ -2,7 +2,7 @@
 //  admin.js – Page d'administration des services
 // ============================================================
 
-let adminPassword = '';
+let adminSecret = '';
 
 // --- DOM ---
 const loginSection = document.getElementById('login-section');
@@ -28,14 +28,14 @@ const confirmNo = document.getElementById('confirm-no');
 
 // --- Login ---
 async function login() {
-    const pwd = adminPasswordInput.value.trim();
-    if (!pwd) { loginError.textContent = 'Mot de passe requis.'; return; }
+    const enteredSecret = adminPasswordInput.value.trim();
+    if (!enteredSecret) { loginError.textContent = 'Mot de passe requis.'; return; }
     loginBtn.disabled = true;
 
     // Test the password with a real API call
     try {
         const res = await fetch('/api/admin/services', {
-            headers: { 'X-Admin-Password': pwd },
+            headers: { 'X-Admin-Password': enteredSecret },
         });
         if (res.status === 401 || res.status === 403) {
             loginError.textContent = 'Mot de passe incorrect.';
@@ -47,9 +47,7 @@ async function login() {
             loginBtn.disabled = false;
             return;
         }
-        adminPassword = pwd;
-        // Store in sessionStorage (cleared when tab closes)
-        sessionStorage.setItem('adminPwd', pwd);
+        adminSecret = enteredSecret;
         showMainPanel();
     } catch {
         loginError.textContent = 'Impossible de contacter le serveur.';
@@ -70,7 +68,7 @@ adminPasswordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') l
 async function apiRequest(method, path, body) {
     const opts = {
         method,
-        headers: { 'X-Admin-Password': adminPassword },
+        headers: { 'X-Admin-Password': adminSecret },
     };
     if (body) {
         opts.headers['Content-Type'] = 'application/json';
@@ -81,43 +79,28 @@ async function apiRequest(method, path, body) {
 
 // --- Load Services ---
 async function loadServices() {
-    servicesContainer.innerHTML = '<p class="loading">Chargement…</p>';
+    setContainerMessage('Chargement…', 'loading');
     try {
         const res = await apiRequest('GET', '/services');
         const data = await res.json();
 
         if (!res.ok) {
-            servicesContainer.innerHTML = `<p style="color:#d13438">${data.error || 'Erreur'}</p>`;
+            setContainerMessage('Erreur lors du chargement des services.', '', '#d13438');
             return;
         }
 
-        if (!data.services || data.services.length === 0) {
-            servicesContainer.innerHTML = '<p style="color:#888;text-align:center;padding:20px;">Aucun service créé. Utilisez le formulaire ci-dessus.</p>';
+        const services = Array.isArray(data.services)
+            ? data.services.map(normalizeService).filter(Boolean)
+            : [];
+
+        if (services.length === 0) {
+            setContainerMessage('Aucun service créé. Utilisez le formulaire ci-dessus.', '', '#888');
             return;
         }
 
-        servicesContainer.innerHTML = `
-            <table>
-                <thead><tr>
-                    <th>Nom</th><th>Code</th><th>Créé le</th><th>Actions</th>
-                </tr></thead>
-                <tbody>
-                ${data.services.map((s) => `
-                    <tr>
-                        <td>${escHtml(s.name)}</td>
-                        <td><code>${escHtml(s.code)}</code></td>
-                        <td>${new Date(s.created_at).toLocaleDateString('fr-FR')}</td>
-                        <td class="actions">
-                            <button class="btn btn-secondary" onclick="startEdit(${s.id},'${escAttr(s.name)}','${escAttr(s.code)}')">✏️ Modifier</button>
-                            <button class="btn btn-danger" onclick="confirmDelete(${s.id},'${escAttr(s.name)}')">🗑️ Supprimer</button>
-                        </td>
-                    </tr>
-                `).join('')}
-                </tbody>
-            </table>
-        `;
+        renderServicesTable(services);
     } catch {
-        servicesContainer.innerHTML = '<p style="color:#d13438">Erreur de connexion.</p>';
+        setContainerMessage('Erreur de connexion.', '', '#d13438');
     }
 }
 
@@ -138,7 +121,7 @@ saveBtn.addEventListener('click', async () => {
             res = await apiRequest('POST', '/services', { name, code });
         }
         const data = await res.json();
-        if (!res.ok) { showMsg(data.error || 'Erreur.', false); return; }
+        if (!res.ok) { showMsg('Erreur lors de l’enregistrement.', false); return; }
 
         showMsg(id ? 'Service mis à jour ✓' : 'Service créé ✓', true);
         resetForm();
@@ -185,8 +168,8 @@ confirmYes.addEventListener('click', async () => {
     try {
         const res = await apiRequest('DELETE', `/services/${pendingDeleteId}`);
         if (!res.ok) {
-            const data = await res.json();
-            showMsg(data.error || 'Erreur lors de la suppression.', false);
+            await res.json().catch(() => null);
+            showMsg('Erreur lors de la suppression.', false);
         } else {
             showMsg('Service supprimé ✓', true);
             loadServices();
@@ -208,12 +191,85 @@ function showMsg(msg, ok) {
     formMsg.textContent = msg;
     formMsg.className = `form-msg ${ok ? 'ok' : 'err'}`;
 }
-function escHtml(s) {
-    if (!s) return '';
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function normalizeText(value, fallback = '') {
+    return typeof value === 'string' ? value.replace(/[\u0000-\u001F\u007F]/g, '').trim() : fallback;
 }
-function escAttr(s) {
-    return String(s || '').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+
+function normalizeService(service) {
+    if (!service || typeof service !== 'object') return null;
+
+    const id = Number.parseInt(service.id, 10);
+    if (!Number.isInteger(id)) return null;
+
+    return {
+        id,
+        name: normalizeText(service.name, 'Service'),
+        code: normalizeText(service.code, 'N/A'),
+        created_at: service.created_at,
+    };
+}
+
+function setContainerMessage(message, className = '', color = '') {
+    const paragraph = document.createElement('p');
+    if (className) paragraph.className = className;
+    if (color) paragraph.style.color = color;
+    if (!className) {
+        paragraph.style.textAlign = 'center';
+        paragraph.style.padding = '20px';
+    }
+    paragraph.textContent = normalizeText(message);
+    servicesContainer.replaceChildren(paragraph);
+}
+
+function createActionButton(label, className, onClick) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = className;
+    button.textContent = label;
+    button.addEventListener('click', onClick);
+    return button;
+}
+
+function renderServicesTable(services) {
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const tbody = document.createElement('tbody');
+    const headerRow = document.createElement('tr');
+
+    ['Nom', 'Code', 'Créé le', 'Actions'].forEach((label) => {
+        const th = document.createElement('th');
+        th.textContent = label;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+
+    services.forEach((service) => {
+        const row = document.createElement('tr');
+        const nameCell = document.createElement('td');
+        const codeCell = document.createElement('td');
+        const dateCell = document.createElement('td');
+        const actionsCell = document.createElement('td');
+        const codeTag = document.createElement('code');
+
+        nameCell.textContent = service.name;
+        codeTag.textContent = service.code;
+        codeCell.appendChild(codeTag);
+        dateCell.textContent = new Date(service.created_at).toLocaleDateString('fr-FR');
+        actionsCell.className = 'actions';
+        actionsCell.appendChild(createActionButton('✏️ Modifier', 'btn btn-secondary', () => {
+            startEdit(service.id, service.name, service.code);
+        }));
+        actionsCell.appendChild(createActionButton('🗑️ Supprimer', 'btn btn-danger', () => {
+            confirmDelete(service.id, service.name);
+        }));
+
+        row.append(nameCell, codeCell, dateCell, actionsCell);
+        tbody.appendChild(row);
+    });
+
+    table.append(thead, tbody);
+    servicesContainer.replaceChildren(table);
 }
 
 // --- Auto-code from name ---
@@ -232,12 +288,3 @@ svcCodeInput.addEventListener('input', () => {
     svcCodeInput.value = svcCodeInput.value.toUpperCase().replace(/[^A-Z0-9_]/g, '');
 });
 
-// --- Check sessionStorage on load ---
-document.addEventListener('DOMContentLoaded', () => {
-    const saved = sessionStorage.getItem('adminPwd');
-    if (saved) {
-        adminPassword = saved;
-        adminPasswordInput.value = saved;
-        login();
-    }
-});

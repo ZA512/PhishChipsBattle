@@ -6,6 +6,11 @@ const pool = require('../db/pool');
 
 /** Nombre de meilleurs joueurs pris en compte dans le score d'un service */
 const SERVICE_TOP_N = 10;
+const VALID_DIFFICULTIES = ['easy', 'normal', 'hardcore'];
+
+function getSingleQueryParam(value) {
+  return typeof value === 'string' ? value : null;
+}
 
 /**
  * Construit les fragments SQL AND pour le filtrage optionnel par mois et difficulté.
@@ -19,7 +24,7 @@ function buildFilters(month, difficulty, alias = 'gs') {
     const idx = params.push(`${month}-01`);
     parts.push(`AND DATE_TRUNC('month', ${alias}.ended_at) = DATE_TRUNC('month', $${idx}::date)`);
   }
-  if (difficulty && ['easy', 'normal', 'hardcore'].includes(difficulty)) {
+  if (difficulty && VALID_DIFFICULTIES.includes(difficulty)) {
     const idx = params.push(difficulty);
     parts.push(`AND ${alias}.difficulty = $${idx}`);
   }
@@ -38,7 +43,7 @@ function prevMonthStr(yyyymm) {
 async function computePlayerStreaks(currentIds, refMonth, difficulty) {
   if (!refMonth || currentIds.length === 0) return {};
 
-  const diffClause = difficulty && ['easy', 'normal', 'hardcore'].includes(difficulty)
+  const diffClause = difficulty && VALID_DIFFICULTIES.includes(difficulty)
     ? 'AND gs.difficulty = $1' : '';
   const diffParam = diffClause ? [difficulty] : [];
   const mIdx = diffParam.length + 1;
@@ -90,7 +95,7 @@ async function computePlayerStreaks(currentIds, refMonth, difficulty) {
 async function computeServiceStreaks(currentIds, refMonth, difficulty) {
   if (!refMonth || currentIds.length === 0) return {};
 
-  const diffClause = difficulty && ['easy', 'normal', 'hardcore'].includes(difficulty)
+  const diffClause = difficulty && VALID_DIFFICULTIES.includes(difficulty)
     ? 'AND gs.difficulty = $1' : '';
   const diffParam = diffClause ? [difficulty] : [];
   const mIdx = diffParam.length + 1;
@@ -159,7 +164,8 @@ async function computeServiceStreaks(currentIds, refMonth, difficulty) {
  */
 router.get('/players', async (req, res) => {
   try {
-    const { month, difficulty } = req.query;
+    const month = getSingleQueryParam(req.query.month);
+    const difficulty = getSingleQueryParam(req.query.difficulty);
     const { clauses, params } = buildFilters(month, difficulty);
 
     const { rows } = await pool.query(`
@@ -199,7 +205,8 @@ router.get('/players', async (req, res) => {
  */
 router.get('/services', async (req, res) => {
   try {
-    const { month, difficulty } = req.query;
+    const month = getSingleQueryParam(req.query.month);
+    const difficulty = getSingleQueryParam(req.query.difficulty);
     const { clauses, params } = buildFilters(month, difficulty);
 
     const { rows } = await pool.query(`
@@ -253,7 +260,8 @@ router.get('/services/:id', async (req, res) => {
     const serviceId = parseInt(req.params.id, 10);
     if (isNaN(serviceId)) return res.status(400).json({ error: 'ID invalide' });
 
-    const { month, difficulty } = req.query;
+    const month = getSingleQueryParam(req.query.month);
+    const difficulty = getSingleQueryParam(req.query.difficulty);
     const { clauses, params } = buildFilters(month, difficulty);
     const nextParam = params.length + 1;
 

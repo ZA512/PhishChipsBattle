@@ -158,7 +158,7 @@ async function startGame() {
             return;
         }
         playerId = pData.player.id;
-        playerName = pData.player.name;
+        playerName = typeof pData.player?.name === 'string' ? pData.player.name : '';
 
         // 2. Create session
         const sRes = await fetch('/api/sessions', {
@@ -230,15 +230,7 @@ async function loadNextEmail() {
         emailSenderEl.setAttribute('data-real-sender', data.realSender || data.sender);
         emailSubjectEl.textContent = data.subject;
 
-        // Render body with safe link inspection (no real href)
-        emailBodyEl.innerHTML = '';
-        let sanitized = data.body.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const linkRegex = /&lt;a\s+(?:[^&]*?\s+)?href=(['"'])(.*?)\1(?:\s+data-real-link=(['"'])(.*?)\3)?(?:[^&]*?)&gt;(.*?)&lt;\/a&gt;/gi;
-        sanitized = sanitized.replace(linkRegex, (_m, _q1, href, _q2, realLink, text) => {
-            const actual = escapeHtml(realLink || href);
-            return `<span class="inspectable link" data-real-link="${actual}">${escapeHtml(text)}</span>`;
-        });
-        emailBodyEl.innerHTML = sanitized.replace(/\n/g, '<br>');
+        renderEmailBody(data.body);
 
         addInspectionListeners();
         resetTimer();
@@ -251,9 +243,55 @@ async function loadNextEmail() {
     }
 }
 
-function escapeHtml(s) {
-    if (!s) return '';
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+function toSafeInteger(value, fallback = 0) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function sanitizeUiText(value, fallback = '') {
+    return typeof value === 'string' ? value.replace(/[\u0000-\u001F\u007F]/g, '').trim() : fallback;
+}
+
+function appendTextWithBreaks(container, text) {
+    const chunks = String(text || '').split('\n');
+    chunks.forEach((chunk, index) => {
+        if (index > 0) {
+            container.appendChild(document.createElement('br'));
+        }
+        if (chunk) {
+            container.appendChild(document.createTextNode(chunk));
+        }
+    });
+}
+
+function stripTags(text) {
+    return String(text || '').replace(/<[^>]*>/g, '');
+}
+
+function renderEmailBody(body) {
+    emailBodyEl.replaceChildren();
+
+    const source = typeof body === 'string' ? body : '';
+    const linkRegex = /<a\s+([^>]*?)>(.*?)<\/a>/gis;
+    let lastIndex = 0;
+
+    for (const match of source.matchAll(linkRegex)) {
+        const start = match.index ?? 0;
+        appendTextWithBreaks(emailBodyEl, source.slice(lastIndex, start));
+
+        const attrs = match[1] || '';
+        const hrefMatch = /href=(['"])(.*?)\1/i.exec(attrs);
+        const realLinkMatch = /data-real-link=(['"])(.*?)\1/i.exec(attrs);
+        const link = document.createElement('span');
+        link.className = 'inspectable link';
+        link.dataset.realLink = realLinkMatch?.[2] || hrefMatch?.[2] || '';
+        link.textContent = stripTags(match[2]);
+        emailBodyEl.appendChild(link);
+
+        lastIndex = start + match[0].length;
+    }
+
+    appendTextWithBreaks(emailBodyEl, source.slice(lastIndex));
 }
 
 // --- Classify ---
@@ -285,9 +323,9 @@ async function classifyEmail(userChoice) {
         }
 
         // Update local state from server response (source of truth)
-        score = data.score;
-        errors = data.errors;
-        autoAnalyzesLeft = 3 - data.jokersUsed;
+        score = toSafeInteger(data.score);
+        errors = toSafeInteger(data.errors);
+        autoAnalyzesLeft = Math.max(0, 3 - toSafeInteger(data.jokersUsed));
 
         // Stats
         totalDecisionTime += decisionTime;
@@ -437,27 +475,35 @@ function updateAutoAnalyzeDisplay() {
 // --- Inspection Tooltips ---
 function addInspectionListeners() {
     function createDynamicTooltip(e, text, type = '') {
-        document.querySelectorAll('.tooltip-element').forEach((t) => document.body.removeChild(t));
-        const el = document.createElement('div');
-        el.className = `tooltip-element ${type}`;
-        el.textContent = text;
-        el.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:9999;pointer-events:none;`;
-        document.body.appendChild(el);
-        return el;
+        const safeLeft = Math.max(0, toSafeInteger(e.clientX));
+        const safeTop = Math.max(0, toSafeInteger(e.clientY));
+        const safeType = type === 'danger' || type === 'warning' ? type : '';
+
+        cursorTooltipEl.className = safeType ? `tooltip-element ${safeType}` : 'tooltip-element';
+        cursorTooltipEl.textContent = sanitizeUiText(text);
+        cursorTooltipEl.style.left = `${safeLeft}px`;
+        cursorTooltipEl.style.top = `${safeTop}px`;
+        cursorTooltipEl.classList.remove('hidden');
+        return cursorTooltipEl;
     }
-    function track(e, tip) { if (tip) { tip.style.left = e.clientX + 'px'; tip.style.top = e.clientY + 'px'; } }
+    function track(e, tip) {
+        if (tip) {
+            tip.style.left = `${Math.max(0, toSafeInteger(e.clientX))}px`;
+            tip.style.top = `${Math.max(0, toSafeInteger(e.clientY))}px`;
+        }
+    }
 
     let senderTip = null;
     emailSenderEl.onmouseover = (e) => {
-        const disp = currentEmailData.sender;
-        const real = emailSenderEl.getAttribute('data-real-sender');
+        const disp = sanitizeUiText(currentEmailData.sender);
+        const real = sanitizeUiText(emailSenderEl.getAttribute('data-real-sender'));
         senderTip = createDynamicTooltip(e,
             real && real !== disp ? `🎭 Email affiché: ${disp}\n⚠️ Adresse réelle: ${real}` : `Expéditeur: ${disp}`,
             real && real !== disp ? 'danger' : '');
         emailSenderEl.onmousemove = (e) => track(e, senderTip);
     };
     emailSenderEl.onmouseout = () => {
-        if (senderTip) { document.body.removeChild(senderTip); senderTip = null; }
+        if (senderTip) { hideTooltip(); senderTip = null; }
         emailSenderEl.onmousemove = null;
     };
 
@@ -476,7 +522,7 @@ function addInspectionListeners() {
             link.onmousemove = (e) => track(e, linkTip);
         };
         link.onmouseout = () => {
-            if (linkTip) { document.body.removeChild(linkTip); linkTip = null; }
+            if (linkTip) { hideTooltip(); linkTip = null; }
             link.onmousemove = null;
         };
         link.onclick = (e) => e.preventDefault();

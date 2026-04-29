@@ -62,28 +62,30 @@ router.put('/services/:id', async (req, res) => {
     return res.status(400).json({ error: 'Au moins name ou code requis' });
   }
 
-  const updates = [];
-  const params = [];
+  const normalizedName = name ? String(name).trim() : null;
+  const normalizedCode = code
+    ? String(code).toUpperCase().trim().replace(/\s+/g, '_')
+    : null;
 
-  if (name) {
-    params.push(String(name).trim());
-    updates.push(`name = $${params.length}`);
-  }
-  if (code) {
-    const normalizedCode = String(code).toUpperCase().trim().replace(/\s+/g, '_');
-    if (normalizedCode.length > 20) {
-      return res.status(400).json({ error: 'code trop long (max 20 caractères)' });
-    }
-    params.push(normalizedCode);
-    updates.push(`code = $${params.length}`);
+  if (normalizedCode && normalizedCode.length > 20) {
+    return res.status(400).json({ error: 'code trop long (max 20 caractères)' });
   }
 
-  params.push(id);
+  let query;
+  let params;
+  if (normalizedName && normalizedCode) {
+    query = 'UPDATE services SET name = $1, code = $2 WHERE id = $3 RETURNING id, name, code, created_at';
+    params = [normalizedName, normalizedCode, id];
+  } else if (normalizedName) {
+    query = 'UPDATE services SET name = $1 WHERE id = $2 RETURNING id, name, code, created_at';
+    params = [normalizedName, id];
+  } else {
+    query = 'UPDATE services SET code = $1 WHERE id = $2 RETURNING id, name, code, created_at';
+    params = [normalizedCode, id];
+  }
+
   try {
-    const { rows } = await pool.query(
-      `UPDATE services SET ${updates.join(', ')} WHERE id = $${params.length} RETURNING id, name, code, created_at`,
-      params
-    );
+    const { rows } = await pool.query(query, params);
     if (rows.length === 0) return res.status(404).json({ error: 'Service introuvable' });
     return res.json({ service: rows[0] });
   } catch (err) {
