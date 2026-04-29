@@ -48,6 +48,22 @@
         .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666; }
         .section-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #888; margin: 16px 0 8px; }
 
+        /* Difficulty selector */
+        .diff-selector { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+        .diff-selector label { font-size: 0.82rem; font-weight: 600; color: #666; margin-right: 4px; }
+        .diff-btn {
+            padding: 5px 14px; border: 2px solid #e1dfdd; border-radius: 20px;
+            background: #f3f2f1; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+            transition: all 0.2s; color: #555;
+        }
+        .diff-btn.active { border-color: #0078d4; background: #0078d4; color: #fff; }
+        .diff-btn:hover:not(.active) { border-color: #0078d4; color: #0078d4; }
+
+        /* Streak badge */
+        .streak { display: inline-block; font-size: 0.78rem; font-weight: 700; background: #fff3cd;
+                  color: #856404; border: 1px solid #ffc107; border-radius: 10px;
+                  padding: 1px 6px; margin-left: 6px; vertical-align: middle; white-space: nowrap; }
+
         /* Loading */
         .loading { text-align: center; color: #888; padding: 20px; }
         a.back-link { display: inline-block; margin-bottom: 16px; color: #0078d4; text-decoration: none; font-size: 0.9rem; }
@@ -58,6 +74,15 @@
 <div class="scores-container">
     <a href="phishing.html" class="back-link">← Retour au jeu</a>
     <h1>🏆 Classements</h1>
+
+    <!-- Difficulty selector (global, applies to all tabs) -->
+    <div class="diff-selector">
+        <label>Difficulté :</label>
+        <button class="diff-btn active" data-diff="">🌐 Tous</button>
+        <button class="diff-btn" data-diff="easy">🔰 Facile</button>
+        <button class="diff-btn" data-diff="normal">⚠️ Normal</button>
+        <button class="diff-btn" data-diff="hardcore">💀 Hardcore</button>
+    </div>
 
     <div class="tabs">
         <button class="tab-btn active" data-tab="players-global">👤 Joueurs (tous)</button>
@@ -83,7 +108,7 @@
 
     <!-- Services Global -->
     <div class="tab-panel" id="tab-services-global">
-        <p style="font-size:0.85rem;color:#666;">Score = moyenne des meilleurs scores individuels de chaque membre du service. Cliquez sur un service pour le détail.</p>
+        <p style="font-size:0.85rem;color:#666;">Score = moyenne des meilleurs scores des 10&nbsp;meilleurs participants du service. Cliquez sur un service pour le détail.</p>
         <div id="services-global-content" class="loading">Chargement…</div>
     </div>
 
@@ -94,7 +119,7 @@
             <span class="current-month" id="sm-label"></span>
             <button id="sm-next">▶</button>
         </div>
-        <p style="font-size:0.85rem;color:#666;">Score = moyenne des meilleurs scores individuels de chaque membre du service ce mois-ci. Cliquez sur un service pour le détail.</p>
+        <p style="font-size:0.85rem;color:#666;">Score = moyenne des meilleurs scores des 10&nbsp;meilleurs participants du service ce mois-ci. 🔥&nbsp;= nombre de mois consécutifs dans le top&nbsp;10. Cliquez sur un service pour le détail.</p>
         <div id="services-monthly-content" class="loading">Chargement…</div>
     </div>
 </div>

@@ -1,6 +1,214 @@
-🚀 Démo en ligne : https://za512.github.io/PhishChips/
+🚀 Démo standalone : https://za512.github.io/PhishChips/
 
 # 🔐 Phish & Chips – Parce que tu vas en bouffer du phishing.
+
+Affûtez vos moustaches de détective anti-phishing et devenez le Sherlock Holmes du spam (les frites sont virtuelles, désolé) !
+
+## 📋 Description
+
+Bienvenue chez **Phish & Chips**, le fast-food de la cybersécurité où le plat du jour, c'est du phishing ! Votre mission, si vous l'acceptez (et vous n'avez pas vraiment le choix, c'est un jeu) : devenir un pro du tri d'emails. Démasquez les arnaques sournoises, protégez les messages innocents des griffes des cyber-vilains, et faites-le avec style (ou en pyjama, on ne juge pas).
+
+Choisissez votre niveau de souffrance : de *Stagiaire en sueur* à *Cyber-Ninja vétéran qui a tout vu*. Chaque bonne réponse vous rapproche de la gloire éternelle. En cas d'erreur… non, vous ne voulez vraiment pas savoir. Mais pas de panique, chaque feedback est une pépite de sagesse pour ne plus jamais vous faire avoir par un prince nigérian en détresse financière.
+
+## 🖼️ Aperçu du jeu
+
+![Accueil](img/PhishChips-accueil.png)
+*Page d'accueil de Phish & Chips*
+
+![Email à analyser](img/PhishChips-mail.png)
+*Affichage d'un email à analyser*
+
+![Feedback](img/PhishChips-resultat.png)
+*Feedback après l'analyse d'un email*
+
+---
+
+## 🎮 Fonctionnalités du jeu solo (version standalone)
+
+- **Interface plus vraie que nature** (ou presque) : On se croirait dans sa boîte mail.
+- **Trois niveaux de souffrance** :
+  - 🔰 **Facile** – 30 secondes fixes par email. Pour tremper l'orteil sans se noyer.
+  - ⚠️ **Normal** – Le chrono se réduit progressivement jusqu'à 15 secondes. Ça commence à picoter sérieusement.
+  - 💀 **Hardcore** – Le chrono fond jusqu'à 5 secondes. Préparez le café, les mouchoirs, et peut-être un psychologue.
+- **Un score qui fait frémir (ou pleurer)** : Grimpez les échelons, de *Bleu Bité du Web* à *Maître Zen de l'Anti-Phishing*, et frimez devant vos amis (ou votre chat).
+- **Feedback qui claque (et qui éduque)** : Notre agent Sécu, un brin sardonique mais toujours pédagogue, vous dit tout, sans langue de bois mais avec des images.
+- **Devenez accro aux stats (c'est légal, promis)** : Combien de méchants mails démasqués ? Quel est votre temps de réaction de super-héros ? Des chiffres pour briller en société !
+- **Le Joker "SOS Sécu"** : 3 appels à un ami virtuel (un peu bourru, mais efficace) par partie. Utilisez-les sagement, jeune padawan, la Force est limitée.
+
+---
+
+## 🏢 Version Entreprise – PhishChipsBattle (Docker)
+
+Vous voulez transformer l'exercice en vrai championnat de bureau ? Bonne nouvelle : il y a une **version containerisée** avec classements, services, et compétition inter-équipes. Là, les frites sont toujours virtuelles, mais l'honneur, lui, est bien réel.
+
+### ✨ Nouveautés de la version entreprise
+
+- **Identification arcade** : pseudo 2–4 caractères (majuscules) + email professionnel. Personne ne peut voler votre pseudo si votre email le protège. Tentez quand même, on aura rigolé.
+- **Services** : chaque joueur peut se rattacher à un service (DSI, RH, Marketing…). L'admin peut les créer/modifier/supprimer depuis la page d'admin protégée par mot de passe.
+- **Anti-triche intégré** : la réponse correcte (phishing ou sain) n'est **jamais** envoyée au navigateur avant que vous ayez répondu. Pas question que le service informatique balance un script qui récupère les réponses à l'avance.
+- **Limite anti-robots** : 10 réponses maximum toutes les 5 secondes sur l'endpoint `/answer`. Les keyboards warriors sont priés de positionner leurs doigts à vitesse humaine.
+
+### 🏆 Les 4 classements
+
+Chacun filtrable par niveau de difficulté (🌐 Tous / 🔰 Facile / ⚠️ Normal / 💀 Hardcore) :
+
+| # | Classement | Description |
+|---|-----------|-------------|
+| 1 | **Joueurs – Tous temps** | Top 10 des meilleurs scores de tous les temps |
+| 2 | **Joueurs – Mensuel** | Top 10 des meilleurs scores du mois (navigable mois par mois) |
+| 3 | **Services – Tous temps** | Top 10 des services (voir formule ci-dessous) |
+| 4 | **Services – Mensuel** | Top 10 des services du mois (navigable mois par mois) |
+
+#### 🔥 Badge de séquence mensuelle
+Dans les classements mensuels, un badge **🔥N** apparaît à côté des joueurs ou services présents dans le top 10 depuis N mois consécutifs. Deux mois d'affilée ? 🔥2. Six mois sans bouger ? 🔥6. Ça donne envie de les déloger, non ?
+
+#### 📐 Formule du score service
+
+Le score d'un service = **moyenne des meilleurs scores des 10 meilleurs joueurs du service**.
+
+Pourquoi seulement les 10 meilleurs ? Parce qu'un service de 200 personnes ne devrait pas être plombé par les 50 stagiaires qui ont tenté une partie un lundi matin pour voir. Les bons joueurs portent l'équipe, les débutants apprennent tranquillement sans culpabiliser. Tout le monde y gagne, sauf peut-être l'ego des services avec seulement 2 joueurs — mais c'est leur problème.
+
+> En clair : une grande équipe avec 10 excellents joueurs bat une petite équipe avec 2 joueurs moyens. Une grande équipe avec 10 excellents joueurs **et** 190 catastrophes bat quand même les 2 joueurs moyens. Justice est faite.
+
+### 🛠️ Stack technique
+
+| Composant | Technologie |
+|-----------|-------------|
+| Frontend | HTML/CSS/JS + Nginx 1.27 |
+| API | Node.js 20 + Express 4 |
+| Base de données | PostgreSQL 16 |
+| Orchestration | Docker Compose |
+
+---
+
+## 🚀 Déploiement (version entreprise Docker)
+
+### Prérequis
+
+- Docker + Docker Compose (v2)
+- Un terminal (et un peu de courage, mais vraiment très peu)
+
+### Installation
+
+```bash
+# 1. Clonez le dépôt
+git clone https://github.com/ZA512/PhishChipsBattle.git
+cd PhishChipsBattle
+
+# 2. Créez votre .env à partir du modèle
+cp .env.example .env
+# Éditez .env : changez TOUS les mots de passe (oui, vraiment)
+nano .env
+
+# 3. Lancez la stack
+docker compose up -d --build
+
+# 4. Ouvrez votre navigateur
+# → http://localhost:8080
+```
+
+### Variables d'environnement (`.env`)
+
+| Variable | Description | Exemple |
+|----------|-------------|---------|
+| `POSTGRES_DB` | Nom de la base | `phishchips` |
+| `POSTGRES_USER` | Utilisateur PostgreSQL | `phishchips` |
+| `POSTGRES_PASSWORD` | Mot de passe PostgreSQL | **à changer !** |
+| `JWT_SECRET` | Secret JWT (≥ 32 caractères aléatoires) | **à changer !** |
+| `ADMIN_PASSWORD` | Mot de passe de la page admin | **à changer !** |
+| `FRONTEND_PORT` | Port exposé sur l'hôte | `8080` |
+
+> ⚠️ Ne commitez **jamais** votre `.env`. Il est dans `.gitignore`. Si vous le commitez quand même, vous méritez de rejouer une partie en Hardcore.
+
+### Pages disponibles
+
+| URL | Description |
+|-----|-------------|
+| `/` ou `/phishing.html` | Le jeu |
+| `/scores.html` | Les 4 classements |
+| `/admin.html` | Administration des services (mot de passe requis) |
+| `/help.html` | Page d'aide |
+
+---
+
+## 📧 Génération d'emails
+
+Envie de jouer les scénaristes de l'arnaque (pour la bonne cause, bien sûr) ? Le fichier `prompt.txt` est votre grimoire secret. Donnez-le à manger à une IA sympa, et hop, de nouveaux pièges diaboliques (ou des emails innocents) pour peupler la base. Le prompt est précis, il demande :
+
+- Infos d'expéditeur (affichées et réelles)
+- Sujet qui claque (ou qui pue l'arnaque à des kilomètres) et corps du message
+- Type : Phishing démoniaque ou Ange gardien légitime ?
+- Indices : les miettes de pain pour retrouver le chemin de la vérité
+- Techniques utilisées : la panoplie du parfait petit arnaqueur numérique (pour mieux les contrer, évidemment)
+
+---
+
+## 🗂️ Structure du projet
+
+```
+PhishChipsBattle/
+├── phishing.html        ← Version standalone (ouvrir directement dans le navigateur)
+├── script.js            ← Logique standalone
+├── emails.js            ← Base de 157 emails (standalone)
+├── style.css
+├── secu.png
+├── help.html
+├── prompt.txt           ← Prompt pour générer de nouveaux emails
+│
+├── backend/             ← API Node.js/Express
+│   ├── Dockerfile
+│   ├── package.json
+│   └── src/
+│       ├── app.js
+│       ├── db/
+│       │   ├── pool.js
+│       │   ├── migrate.js
+│       │   ├── emails-data.js   ← Les 157 emails, seed auto au démarrage
+│       │   └── migrations/
+│       │       └── 001_schema.sql
+│       ├── routes/
+│       │   ├── players.js
+│       │   ├── sessions.js
+│       │   ├── scores.js
+│       │   ├── services.js
+│       │   └── admin.js
+│       └── middleware/
+│           ├── adminAuth.js
+│           └── rateLimiter.js
+│
+├── frontend/            ← Assets servis par Nginx
+│   ├── nginx.conf
+│   ├── phishing.html    ← Version entreprise
+│   ├── script.js        ← Logique entreprise (API calls)
+│   ├── scores.html / scores.js
+│   ├── admin.html / admin.js
+│   ├── help.html
+│   ├── style.css
+│   └── secu.png
+│
+├── docker-compose.yml
+├── .env.example
+│
+└── OnePageVersion/      ← Version autonome en un seul fichier HTML
+    ├── phishing-onepage.html       (3,3 Mo, image intégrée en base64)
+    └── phishing-onepage-light.html (213 Ko, sans image)
+```
+
+---
+
+## 🔧 Utilisation standalone (sans Docker)
+
+Pas besoin d'invoquer des démons informatiques :
+
+1. Clonez ou téléchargez le dépôt
+2. Ouvrez `phishing.html` (ou une version OnePageVersion) dans votre navigateur
+3. Sauvez le monde virtuel, un email bidon à la fois
+
+C'est tout. Votre navigateur suffit.
+
+---
+
+*Phish & Chips Battle – parce que la cybersécurité, c'est mieux quand ça fait un peu mal à l'ego.*
 
 Affûtez vos moustaches de détective anti-phishing et devenez le Sherlock Holmes du spam (les frites sont virtuelles, désolé) !
 
