@@ -76,8 +76,8 @@
         }
         #game-container { flex: 1 0 auto; }
         .game-footer { flex-shrink: 0; width: 100%; padding: 10px 0;
-            background-color: #f5f5f5; border-top: 1px solid #ddd;
-            margin-top: 20px; font-size: 0.8rem; color: #666; }
+            background-color: var(--secondary-color); border-top: 1px solid var(--border-color);
+            font-size: 0.8rem; color: var(--text-color); }
         .footer-content {
             display: flex; align-items: center; justify-content: center;
             flex-wrap: wrap; max-width: 800px; margin: 0 auto; padding: 0 15px;
@@ -89,8 +89,75 @@
         .badge .value { background-color: #007ec6; color: white; padding: 0 6px; }
         .footer-text { text-align: center; }
         .footer-text p { margin: 5px 0; }
-        .footer-text a { color: #3498db; text-decoration: none; }
+        .footer-text a { color: var(--link-color); text-decoration: none; }
         .footer-text a:hover { text-decoration: underline; }
+
+        /* ---- Start Screen : login card ---- */
+        #start-screen {
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .start-card {
+            width: 100%;
+            max-width: 500px;
+            background: var(--primary-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 28px 32px 22px;
+            box-shadow: 0 4px 24px var(--shadow-color);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .start-header { text-align: center; }
+        #start-screen h1 { font-size: 1.7em; margin: 0 0 4px; }
+        .start-tagline { font-size: 0.85rem; opacity: 0.7; margin: 0; }
+        .start-fields-row { display: flex; gap: 12px; }
+        .start-field {
+            display: flex; flex-direction: column; gap: 5px;
+            flex: 1; min-width: 0;
+        }
+        .start-field label, .difficulty-toggle-group > label {
+            font-size: 0.75rem; font-weight: 700;
+            opacity: 0.6; text-transform: uppercase;
+            letter-spacing: 0.05em; display: block;
+        }
+        .difficulty-toggle-group { display: flex; flex-direction: column; gap: 6px; }
+        .difficulty-toggle {
+            display: flex;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .difficulty-toggle input[type="radio"] { display: none; }
+        .difficulty-toggle label {
+            flex: 1; text-align: center;
+            padding: 9px 4px; font-size: 0.88rem; font-weight: 600;
+            cursor: pointer;
+            background: var(--secondary-color); color: var(--text-color);
+            border-right: 1px solid var(--border-color);
+            transition: background 0.15s, color 0.15s;
+            user-select: none;
+        }
+        .difficulty-toggle label:last-child { border-right: none; }
+        .difficulty-toggle input[type="radio"]:checked + label {
+            background: var(--accent-color); color: #fff;
+        }
+        .start-btn-full { width: 100%; padding: 12px; font-size: 1.05em; margin: 2px 0 0; }
+        .start-rules-mini {
+            display: flex; gap: 6px; flex-wrap: wrap;
+            justify-content: center; font-size: 0.75rem; opacity: 0.55;
+        }
+        .start-rules-mini span::after { content: "·"; margin-left: 6px; }
+        .start-rules-mini span:last-child::after { content: ""; }
+        #start-error { margin: 0; min-height: 0; }
+        @media (max-width: 480px) {
+            .start-card { padding: 20px 16px 16px; }
+            .start-fields-row { flex-direction: column; }
+            #start-screen h1 { font-size: 1.4em; }
+        }
     </style>
 </head>
 <body>
@@ -99,62 +166,60 @@
         <button id="dark-toggle" class="theme-toggle-btn" title="Mode sombre/clair">🌙</button>
         <select id="theme-select" title="Thème visuel">
             <option value="classic">🎮 Classique</option>
-            <option value="outlook">📧 Outlook</option>
+            <option value="outlook" selected>📧 Outlook</option>
         </select>
     </div>
 
     <div id="game-container">
         <!-- Start Screen -->
         <div id="start-screen" class="screen">
-            <h1>🔐 Phish &amp; Chips</h1>
-            <p>Parce que tu vas en bouffer du phishing.</p>
-            <p>Analysez chaque email, inspectez l'expéditeur et les liens. Classez comme "Safe" (légitime) ou "Phishing" (malveillant).</p>
-            <p>Vous disposez de <strong>3 analyses automatiques</strong> par partie. <strong>3 erreurs</strong> et c'est GAME OVER. Sinon, le jeu continue tant qu'il reste des mails !</p>
+            <div class="start-card">
+                <div class="start-header">
+                    <h1>🔐 Phish &amp; Chips</h1>
+                    <p class="start-tagline">Le fast-food de la cybersécurité. Classez les emails avant qu'ils classent votre carrière.</p>
+                </div>
 
-            <!-- Formulaire joueur -->
-            <div class="player-form">
-                <div class="form-row" style="align-items:center">
-                    <label for="player-name-input">🕹️ Pseudo arcade (2–4 lettres)</label>
-                    <input type="text" id="player-name-input" maxlength="4" placeholder="AAA" autocomplete="off" spellcheck="false">
+                <div class="start-fields-row">
+                    <div class="start-field">
+                        <label for="player-name-input">Pseudo (2–4 lettres)</label>
+                        <input type="text" id="player-name-input" maxlength="4" placeholder="AAA" autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="start-field">
+                        <label for="player-email-input">Email professionnel</label>
+                        <input type="email" id="player-email-input" placeholder="prenom.nom@entreprise.fr" autocomplete="email">
+                    </div>
                 </div>
-                <div class="form-row">
-                    <label for="player-email-input">📧 Email professionnel</label>
-                    <input type="email" id="player-email-input" placeholder="prenom.nom@entreprise.fr" autocomplete="email">
-                </div>
-                <div class="form-row">
-                    <label for="player-service-select">🏢 Service (optionnel)</label>
+
+                <div class="start-field">
+                    <label for="player-service-select">Service (optionnel)</label>
                     <select id="player-service-select">
                         <option value="">— Pas de service —</option>
                     </select>
                 </div>
-            </div>
 
-            <!-- Difficulté -->
-            <div class="difficulty-selection">
-                <h3>Choisissez votre niveau de difficulté :</h3>
-                <div class="difficulty-options">
-                    <div class="difficulty-option">
+                <div class="difficulty-toggle-group">
+                    <label>Niveau de difficulté</label>
+                    <div class="difficulty-toggle">
                         <input type="radio" id="easy-mode" name="difficulty" value="easy" checked>
-                        <label for="easy-mode">FACILE</label>
-                        <p class="difficulty-desc">Pour les stagiaires : 30 secondes fixes par email. Prenez votre temps, on n'est pas pressés...</p>
-                    </div>
-                    <div class="difficulty-option">
+                        <label for="easy-mode">🔰 Facile</label>
                         <input type="radio" id="normal-mode" name="difficulty" value="normal">
-                        <label for="normal-mode">NORMAL</label>
-                        <p class="difficulty-desc">Pour les pros : Temps réduit de 1 sec à chaque succès jusqu'à 15 secondes minimum. Un vrai défi !</p>
-                    </div>
-                    <div class="difficulty-option">
+                        <label for="normal-mode">⚠️ Normal</label>
                         <input type="radio" id="hardcore-mode" name="difficulty" value="hardcore">
-                        <label for="hardcore-mode">HARDCORE</label>
-                        <p class="difficulty-desc">Pour les légendes : Temps réduit de 1 sec jusqu'à 5 secondes minimum. Seuls les cyberninjas survivront !</p>
+                        <label for="hardcore-mode">💀 Hardcore</label>
                     </div>
                 </div>
-            </div>
 
-            <p id="start-error"></p>
-            <button id="start-btn" class="btn">Démarrer l'Analyse</button>
-            <br>
-            <a href="scores.html" class="score-link">🏆 Voir les classements</a>
+                <p id="start-error"></p>
+                <button id="start-btn" class="btn start-btn-full">⚡ Démarrer l'Analyse</button>
+
+                <div class="start-rules-mini">
+                    <span id="rule-timer">⏱ 30s fixes</span>
+                    <span>💥 3 erreurs max</span>
+                    <span>🔍 3 SOS Sécu</span>
+                </div>
+
+                <a href="scores.html" class="score-link" style="text-align:center">🏆 Voir les classements</a>
+            </div>
         </div>
 
         <!-- Game UI (Hidden initially) -->

@@ -100,10 +100,13 @@ cp .env.example .env
 # Éditez .env : changez TOUS les mots de passe (oui, vraiment)
 nano .env
 
-# 3. Lancez la stack
+# 3. Générez le package-lock.json (requis par npm ci dans le Dockerfile)
+cd backend && npm install && cd ..
+
+# 4. Lancez la stack
 docker compose up -d --build
 
-# 4. Ouvrez votre navigateur
+# 5. Ouvrez votre navigateur
 # → http://localhost:8080
 ```
 

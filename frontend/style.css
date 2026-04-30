@@ -231,8 +231,8 @@ body {
 
 /* Styles pour le format diplôme */
 #game-over-screen {
-    background-image: linear-gradient(to bottom, #f8f8f8, #ffffff);
-    border: 15px solid #f0f0f0;
+    background-image: linear-gradient(to bottom, var(--secondary-color), var(--primary-color));
+    border: 15px solid var(--border-color);
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.1), inset 0 0 10px rgba(0, 0, 0, 0.05);
 }
 
@@ -243,9 +243,9 @@ body {
     color: var(--text-color);
     margin: 15px 0;
     padding: 10px;
-    border-top: 1px solid #e0e0e0;
-    border-bottom: 1px solid #e0e0e0;
-    background-color: rgba(245, 245, 245, 0.5);
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--secondary-color);
 }
 
 .score-diploma strong {
@@ -264,7 +264,7 @@ body {
     margin: 25px auto;
     max-width: 100%;
     padding: 15px;
-    background-color: #fff;
+    background-color: var(--primary-color);
     border-radius: 8px;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
 }
@@ -272,10 +272,10 @@ body {
     margin: 25px auto;
     max-width: 100%;
     padding: 15px;
-    background-color: #fff;
+    background-color: var(--primary-color);
     border-radius: 8px;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
-    border: 2px dashed green;
+    border: 2px dashed var(--safe-color);
 }
 .rank-title {
     font-size: 1.8em;
@@ -290,29 +290,31 @@ body {
     font-style: italic;
     line-height: 1.4;
     padding: 10px;
-    background-color: rgba(240, 240, 240, 0.3);
+    background-color: var(--secondary-color);
     border-radius: 5px;
 }
 
 /* Styles spécifiques pour les titres et descriptions des rangs précédent/suivant */
 .score-rank .rank-title {
-    color: #6c757d; /* Couleur plus terne pour les rangs non-actuels */
+    color: var(--text-color);
+    opacity: 0.6;
 }
 
 .score-rank .rank-description {
-    background-color: rgba(240, 240, 240, 0.2); /* Fond plus discret */
+    background-color: var(--secondary-color);
+    opacity: 0.8;
 }
 
 /* Styles spécifiques pour le titre et la description du rang actuel */
 .score-rank-actual .rank-title {
-    color: var(--safe-color); /* Vert pour le rang actuel */
-    text-shadow: 0 1px 1px rgba(0,0,0,0.05); /* Légère ombre pour faire ressortir */
+    color: var(--safe-color);
+    text-shadow: 0 1px 1px rgba(0,0,0,0.05);
 }
 
 .score-rank-actual .rank-description {
-    background-color: rgba(232, 245, 233, 0.5); /* Fond légèrement verdâtre */
-    color: #2e7d32; /* Texte vert foncé */
-    border-left: 3px solid var(--safe-color); /* Bordure gauche verte */
+    background-color: var(--secondary-color);
+    color: var(--safe-color);
+    border-left: 3px solid var(--safe-color);
 }
 
 
@@ -324,7 +326,7 @@ body {
     border: 2px solid var(--border-color);
     border-radius: 8px;
     display: inline-block;
-    background-color: rgba(240, 240, 240, 0.2);
+    background-color: var(--secondary-color);
     transition: all 0.3s ease;
 }
 

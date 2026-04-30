@@ -116,6 +116,8 @@ async function loadServices() {
             opt.textContent = `${svc.name} (${svc.code})`;
             playerServiceSelect.appendChild(opt);
         });
+        const savedService = localStorage.getItem('pcb-service');
+        if (savedService) playerServiceSelect.value = savedService;
     } catch (e) {
         console.warn('Impossible de charger les services:', e);
     }
@@ -177,6 +179,11 @@ async function startGame() {
         sessionId = sData.sessionId;
         sessionToken = sData.sessionToken;
         totalEmails = sData.totalEmails;
+
+        // Save player info for next session
+        localStorage.setItem('pcb-name', rawName);
+        localStorage.setItem('pcb-email', email);
+        if (playerServiceSelect.value) localStorage.setItem('pcb-service', playerServiceSelect.value);
 
         // Reset local state
         score = 0; errors = 0; autoAnalyzesLeft = 3;
@@ -708,30 +715,40 @@ playerNameInput.addEventListener('input', () => {
     playerNameInput.setSelectionRange(pos, pos);
 });
 
-// Difficulty visual feedback
-document.querySelectorAll('.difficulty-option').forEach((opt) => {
-    opt.addEventListener('click', function () {
-        const radio = this.querySelector('input[type="radio"]');
-        if (radio) radio.checked = true;
-    });
-});
-
 // --- Init ---
 document.addEventListener('DOMContentLoaded', () => {
     hideTooltip();
     loadServices();
     initTheme();
-    const checked = document.querySelector('.difficulty-option input[type="radio"]:checked');
-    if (checked) {
-        const parent = checked.closest('.difficulty-option');
-        if (parent) parent.style.borderColor = 'var(--accent-color)';
-    }
+    // Restore saved player info
+    const savedName = localStorage.getItem('pcb-name');
+    const savedEmail = localStorage.getItem('pcb-email');
+    if (savedName) playerNameInput.value = savedName;
+    if (savedEmail) playerEmailInput.value = savedEmail;
+
+    // Dynamic rules mini-footer
+    const ruleTimer = document.getElementById('rule-timer');
+    const timerLabels = {
+        easy:     '⏱ 30s fixes',
+        normal:   '⏱ 30s → 15s',
+        hardcore: '⏱ 30s → 5s',
+    };
+    // Read value from label's 'for' attr — avoids race with :checked state
+    document.querySelectorAll('.difficulty-toggle label').forEach((lbl) => {
+        lbl.addEventListener('click', () => {
+            const input = document.getElementById(lbl.getAttribute('for'));
+            if (ruleTimer && input) ruleTimer.textContent = timerLabels[input.value] || timerLabels.easy;
+        });
+    });
+    // Init with the default checked value
+    const checkedInit = document.querySelector('input[name="difficulty"]:checked');
+    if (ruleTimer && checkedInit) ruleTimer.textContent = timerLabels[checkedInit.value] || timerLabels.easy;
 });
 
 // --- Theme Management ---
 function initTheme() {
     const savedDark = localStorage.getItem('pcb-dark') === 'true';
-    const savedTheme = localStorage.getItem('pcb-theme') || 'classic';
+    const savedTheme = localStorage.getItem('pcb-theme') || 'outlook';
     if (savedDark) document.body.classList.add('dark');
     applyTheme(savedTheme);
     updateDarkToggleIcon();
