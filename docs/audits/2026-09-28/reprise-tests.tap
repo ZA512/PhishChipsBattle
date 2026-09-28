@@ -1,0 +1,97 @@
+TAP version 13
+# [migrate] Applied 001_schema.sql
+# [migrate] Applied 002_achievements.sql
+# [migrate] Applied 003_enterprise.sql
+# [migrate] Seeding 162 emails…
+# [migrate] Emails seeded successfully.
+# [migrate] Seeding/updating 85 achievements…
+# [migrate] Achievements seeded successfully.
+# [migrate] All migrations complete.
+# Subtest: Parcours entreprise et régressions sur PostgreSQL
+    # Subtest: Authentification, identité et origine des mutations
+    ok 1 - Authentification, identité et origine des mutations
+      ---
+      duration_ms: 223.392181
+      type: 'test'
+      ...
+    # Subtest: Unicité concurrente des pseudos et rollback sans connexion bloquée
+    ok 2 - Unicité concurrente des pseudos et rollback sans connexion bloquée
+      ---
+      duration_ms: 36.912092
+      type: 'test'
+      ...
+    # Subtest: Préconisation collègues prioritaire, fallback manager et choix libre
+    ok 3 - Préconisation collègues prioritaire, fallback manager et choix libre
+      ---
+      duration_ms: 69.925322
+      type: 'test'
+      ...
+    # Subtest: Horloge serveur, jokers bornés, double clic et reprise réseau idempotente
+    ok 4 - Horloge serveur, jokers bornés, double clic et reprise réseau idempotente
+      ---
+      duration_ms: 1411.930732
+      type: 'test'
+      ...
+    # Subtest: Battle : roster figé, même séquence, tentative unique et droits
+    ok 5 - Battle : roster figé, même séquence, tentative unique et droits
+      ---
+      duration_ms: 325.140379
+      type: 'test'
+      ...
+    # Subtest: Modération auditée et protection contre une correction périmée
+    ok 6 - Modération auditée et protection contre une correction périmée
+      ---
+      duration_ms: 72.73077
+      type: 'test'
+      ...
+    # Subtest: Suppression : nouveau choix et conservation historique
+    ok 7 - Suppression : nouveau choix et conservation historique
+      ---
+      duration_ms: 75.13292
+      type: 'test'
+      ...
+    # Subtest: Top 10 exact, formule du détail, séquence mensuelle et exclusion des scores historiques
+    ok 8 - Top 10 exact, formule du détail, séquence mensuelle et exclusion des scores historiques
+      ---
+      duration_ms: 143.504977
+      type: 'test'
+      ...
+    # Subtest: Succès atteignables et résultats pédagogiques sans jokers
+    ok 9 - Succès atteignables et résultats pédagogiques sans jokers
+      ---
+      duration_ms: 96.370036
+      type: 'test'
+      ...
+    # Subtest: Limite de réponses par compte et déconnexion effective
+    ok 10 - Limite de réponses par compte et déconnexion effective
+      ---
+      duration_ms: 306.615991
+      type: 'test'
+      ...
+    1..10
+ok 1 - Parcours entreprise et régressions sur PostgreSQL
+  ---
+  duration_ms: 3977.775381
+  type: 'test'
+  ...
+# Subtest: Identité OIDC : signature, audience, tenant, nonce et expiration
+ok 2 - Identité OIDC : signature, audience, tenant, nonce et expiration
+  ---
+  duration_ms: 220.2781
+  type: 'test'
+  ...
+# Subtest: Migration de données historiques : doublons, affectation et résultats préservés
+ok 3 - Migration de données historiques : doublons, affectation et résultats préservés
+  ---
+  duration_ms: 244.16498
+  type: 'test'
+  ...
+1..3
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 4391.979027

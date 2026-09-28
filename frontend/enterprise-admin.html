@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Administration — Phish & Chips</title>
+    <link rel="stylesheet" href="enterprise.css" />
+  </head>
+  <body class="enterprise">
+    <main>
+      <h1>Organiser, suivre, corriger.</h1>
+      <p class="lead">
+        Gérez les équipes et les compétitions. Les corrections de score
+        demandent un motif et restent dans l’historique.
+      </p>
+      <p id="message" class="notice" role="status">Chargement…</p>
+      <section class="card" data-admin>
+        <h2>Équipes</h2>
+        <p class="meta">
+          La suppression demande un nouveau choix aux membres à leur prochaine
+          connexion. Les résultats passés sont conservés.
+        </p>
+        <form id="team-form">
+          <input type="hidden" id="team-id" />
+          <div class="grid">
+            <div>
+              <label for="team-name">Nom</label
+              ><input id="team-name" maxlength="100" required />
+            </div>
+            <div>
+              <label for="team-code">Code</label
+              ><input
+                id="team-code"
+                maxlength="20"
+                pattern="[A-Za-z0-9_]+"
+                required
+              />
+            </div>
+          </div>
+          <button class="btn" type="submit">Enregistrer</button
+          ><button class="btn btn-secondary" id="team-reset" type="button">
+            Nouveau
+          </button>
+        </form>
+        <div id="teams" class="table-scroll"></div>
+      </section>
+      <section class="card">
+        <h2>Créer une battle</h2>
+        <p class="meta">
+          Les participants et leurs équipes sont figés à la publication. Tous
+          reçoivent la même série. Les changements d’équipe ultérieurs
+          concernent les prochaines battles.
+        </p>
+        <form id="battle-form">
+          <label for="battle-name">Nom</label
+          ><input id="battle-name" maxlength="100" required />
+          <div class="grid">
+            <div>
+              <label for="battle-mode">Format</label
+              ><select id="battle-mode">
+                <option value="individual">Classement individuel</option>
+                <option value="internal">Individuel dans une équipe</option>
+                <option value="teams">Battle entre équipes</option>
+              </select>
+            </div>
+            <div>
+              <label for="battle-difficulty">Difficulté</label
+              ><select id="battle-difficulty">
+                <option value="easy">Facile</option>
+                <option value="normal">Normal</option>
+                <option value="hardcore">Hardcore</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid">
+            <div>
+              <label for="battle-start">Début</label
+              ><input id="battle-start" type="datetime-local" required />
+            </div>
+            <div>
+              <label for="battle-end">Fin</label
+              ><input id="battle-end" type="datetime-local" required />
+            </div>
+          </div>
+          <div class="grid">
+            <div>
+              <label for="battle-count">Emails</label
+              ><input
+                id="battle-count"
+                type="number"
+                min="1"
+                max="162"
+                value="20"
+                required
+              />
+            </div>
+            <div>
+              <label for="battle-attempts">Tentatives par personne</label
+              ><input
+                id="battle-attempts"
+                type="number"
+                min="1"
+                max="5"
+                value="1"
+                required
+              />
+            </div>
+            <div>
+              <label for="battle-jokers">Jokers par tentative</label
+              ><input
+                id="battle-jokers"
+                type="number"
+                min="0"
+                max="3"
+                value="3"
+                required
+              />
+            </div>
+          </div>
+          <div id="player-picker">
+            <label for="battle-players"
+              >Participants · Ctrl/Cmd pour plusieurs sélections</label
+            ><select id="battle-players" multiple></select
+            ><button class="btn btn-secondary" id="select-all" type="button">
+              Tous les joueurs actuels
+            </button>
+          </div>
+          <div id="team-picker" class="hidden">
+            <label for="battle-teams"
+              >Équipes · une pour un défi interne, plusieurs pour une
+              battle</label
+            ><select id="battle-teams" multiple></select>
+          </div>
+          <button class="btn" type="submit">Publier la battle</button>
+        </form>
+        <div id="battles" class="table-scroll"></div>
+      </section>
+      <section class="card" data-admin>
+        <h2>Correction des scores</h2>
+        <p class="meta">
+          Seules les parties terminées peuvent être corrigées. Une
+          disqualification les retire des classements ; les réponses
+          pédagogiques restent conservées.
+        </p>
+        <button class="btn btn-secondary" id="refresh-scores" type="button">
+          Actualiser les parties
+        </button>
+        <form id="correction-form">
+          <label for="session-select">Partie</label
+          ><select id="session-select" required></select
+          ><label for="corrected-score">Score corrigé</label
+          ><input
+            id="corrected-score"
+            type="number"
+            min="0"
+            max="162"
+            required
+          /><label
+            ><input id="disqualified" type="checkbox" /> Disqualifier cette
+            partie</label
+          ><label for="correction-reason">Motif obligatoire</label
+          ><textarea id="correction-reason" maxlength="1000" required></textarea
+          ><button class="btn btn-danger" type="submit">
+            Appliquer la correction
+          </button>
+        </form>
+        <h3>Historique des corrections</h3>
+        <div id="corrections" class="table-scroll"></div>
+      </section>
+      <section class="card" data-admin>
+        <details>
+          <summary>Annuaire et recommandations</summary>
+          <p class="meta">
+            La synchronisation actualise les managers et collaborateurs, sans
+            changer les équipes choisies. Configurez Entra et la permission
+            Graph User.Read.All avant de la lancer.
+          </p>
+          <button class="btn btn-secondary" id="sync-directory" type="button">
+            Synchroniser Microsoft Graph
+          </button>
+          <details>
+            <summary>Importer un annuaire de test</summary>
+            <p class="meta">
+              Tableau JSON avec id, tenantId, displayName et managerId. Un
+              import est un état complet : les personnes absentes seront
+              désactivées.
+            </p>
+            <textarea
+              id="directory-json"
+              rows="8"
+              placeholder='[{"id":"…","tenantId":"…","displayName":"…","managerId":"…"}]'
+            ></textarea
+            ><label
+              ><input type="checkbox" id="directory-full" /> Je confirme que cet
+              import est complet</label
+            ><button
+              class="btn btn-secondary"
+              id="import-directory"
+              type="button"
+            >
+              Importer
+            </button>
+          </details>
+        </details>
+      </section>
+      <section class="card" data-admin>
+        <a class="btn btn-secondary" href="/admin-stats.html"
+          >Statistiques pédagogiques</a
+        ><a class="btn btn-secondary" href="/admin.html"
+          >Administration classique</a
+        >
+      </section>
+    </main>
+    <script src="account.js"></script>
+    <script src="enterprise-admin.js"></script>
+  </body>
+</html>

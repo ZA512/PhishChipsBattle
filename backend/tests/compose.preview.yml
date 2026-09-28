@@ -1,0 +1,23 @@
+# Optional browser QA over the disposable database from compose.yml.
+services:
+  api:
+    build: ..
+    environment:
+      DATABASE_URL: postgres://pcb_test:pcb_test_only@db:5432/phishchips_test
+      AUTH_MODE: local
+      APP_URL: http://127.0.0.1:18080
+      JWT_SECRET: test-only-64-character-jwt-secret-not-for-production-2026
+      ADMIN_PASSWORD: test-only-bootstrap-secret-2026
+      PORT: 3000
+    depends_on:
+      db:
+        condition: service_healthy
+  frontend:
+    image: nginx:1.30-alpine
+    ports:
+      - "127.0.0.1:18080:80"
+    volumes:
+      - ../../frontend:/usr/share/nginx/html:ro
+      - ../../frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Connexion — Phish & Chips</title>
+    <link rel="stylesheet" href="enterprise.css" />
+  </head>
+  <body class="enterprise">
+    <main>
+      <section class="card auth-card">
+        <p class="meta">PHISH & CHIPS · ENTREPRISE</p>
+        <h1>À vous de jouer.</h1>
+        <p class="lead">
+          Connectez-vous pour retrouver votre équipe et participer aux battles.
+        </p>
+        <p id="message" class="notice" role="status">Chargement…</p>
+        <a id="sso" class="btn hidden" href="/api/auth/entra/login"
+          >Se connecter avec Microsoft</a
+        >
+        <form id="local-form" class="hidden">
+          <label for="email">Email</label
+          ><input
+            id="email"
+            type="email"
+            required
+            autocomplete="username"
+          /><label for="password">Mot de passe</label
+          ><input
+            id="password"
+            type="password"
+            minlength="12"
+            maxlength="128"
+            required
+            autocomplete="current-password"
+          /><label for="name">Pseudo · pour créer un compte</label
+          ><input id="name" maxlength="40" autocomplete="nickname" /><button
+            class="btn"
+            type="submit"
+          >
+            Connexion</button
+          ><button class="btn btn-secondary" type="button" id="register">
+            Créer mon compte
+          </button>
+          <details>
+            <summary>Créer le premier administrateur local</summary>
+            <label for="bootstrap-secret"
+              >Secret administrateur de l’installation</label
+            ><input
+              id="bootstrap-secret"
+              type="password"
+              autocomplete="off"
+            /><button class="btn btn-secondary" type="button" id="bootstrap">
+              Initialiser l’administrateur
+            </button>
+          </details>
+        </form>
+      </section>
+    </main>
+    <script src="login.js"></script>
+  </body>
+</html>

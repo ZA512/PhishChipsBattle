@@ -1,0 +1,190 @@
+body.enterprise {
+  margin: 0;
+  background: #f4f7fc;
+  color: #182b49;
+  font:
+    16px/1.5 system-ui,
+    sans-serif;
+}
+.enterprise main {
+  max-width: 1100px;
+  margin: 32px auto;
+  padding: 0 20px;
+}
+.enterprise h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+}
+.enterprise h2 {
+  font-size: 22px;
+}
+.enterprise .lead {
+  color: #536783;
+  max-width: 760px;
+}
+.card {
+  background: #fff;
+  border: 1px solid #d9e2ee;
+  border-radius: 12px;
+  padding: 24px;
+  margin: 20px 0;
+  box-shadow: 0 2px 8px #203e6310;
+}
+.enterprise label {
+  display: block;
+  font-weight: 600;
+  margin: 12px 0 5px;
+}
+.enterprise input,
+.enterprise select,
+.enterprise textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #a5b6cb;
+  border-radius: 6px;
+  background: #fff;
+  color: #182b49;
+  font: inherit;
+}
+.enterprise input[type="checkbox"] {
+  width: auto;
+}
+.enterprise select[multiple] {
+  min-height: 140px;
+}
+.enterprise .btn,
+.account-nav .btn {
+  display: inline-block;
+  border: 0;
+  border-radius: 6px;
+  padding: 10px 16px;
+  background: #1269ce;
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: none;
+  margin: 8px 6px 0 0;
+}
+.enterprise .btn-secondary,
+.account-nav .btn-secondary {
+  background: #eaf0f8;
+  color: #173b68;
+}
+.enterprise .btn-danger {
+  background: #b22b3a;
+}
+.enterprise button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.account-nav {
+  box-sizing: border-box;
+  width: 100%;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 12px 24px;
+  background: #122b4c;
+  color: #fff;
+  font:
+    14px system-ui,
+    sans-serif;
+}
+.theme-controls {
+  position: static !important;
+  align-self: flex-end;
+  margin: 12px 24px;
+}
+.start-field select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #a5b6cb;
+  border-radius: 6px;
+  font: inherit;
+}
+#start-error:empty {
+  display: none;
+}
+.account-nav a {
+  color: white;
+  text-decoration: none;
+  padding: 6px 0;
+}
+.account-nav a:hover {
+  text-decoration: underline;
+}
+.account-nav span {
+  margin-left: auto;
+}
+.account-nav .btn {
+  margin: 0;
+  font-size: 13px;
+  padding: 6px 12px;
+}
+.notice {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #e9f3ff;
+  color: #164f86;
+  margin: 12px 0;
+}
+.notice.error {
+  background: #ffeded;
+  color: #8f2030;
+}
+.notice.success {
+  background: #e6f5ec;
+  color: #126437;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+.enterprise table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+.enterprise td,
+.enterprise th {
+  text-align: left;
+  padding: 10px;
+  border-bottom: 1px solid #e3eaf3;
+}
+.table-scroll {
+  overflow: auto;
+}
+.enterprise summary {
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 20px;
+}
+.hidden {
+  display: none !important;
+}
+.meta {
+  color: #536783;
+  font-size: 14px;
+}
+.pill {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 20px;
+  background: #edf3fa;
+  font-size: 13px;
+}
+.auth-card {
+  max-width: 440px;
+  margin: 8vh auto !important;
+}
+.enterprise .tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

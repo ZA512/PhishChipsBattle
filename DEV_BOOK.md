@@ -1,316 +1,94 @@
-# 📋 PhishChipsBattle – Dev Book
-
-> Audit complet réalisé le 29 avril 2026.
-> Ce document recense tous les bugs, problèmes de sécurité et améliorations techniques à effectuer.
+# PhishChipsBattle — Dev book
 
----
+État actualisé le **28 septembre 2026**, après audit du code et vérification sur PostgreSQL. Le précédent dev-book reste disponible dans [l’archive du 29 avril](docs/archives/DEV_BOOK_2026-04-29.md). L’[audit avant corrections](ETAT_PROJET_2026-09-28.md) conserve les constats et preuves initiaux.
 
-## 🔴 Bugs critiques
+## Direction retenue
 
-### BUG-1 : `scores.js` — Fonctions dupliquées (écrasement)
+L’application entreprise repose sur une identité authentifiée, un choix explicite d’équipe et des compétitions dont les règles et participants sont fixés à la publication.
 
-**Fichier :** `frontend/scores.js`
-**Gravité :** 🔴 Critique — Les fonctionnalités filtrage par difficulté et streaks sont cassées en production.
+- Les équipes sont créées, renommées et supprimées dans l’administration, avec stockage en base.
+- L’organigramme sert uniquement à proposer une équipe à une personne : collègues actifs sous le même manager en priorité, puis manager actif, puis choix sans préconisation. Une égalité entre les collègues utilise le repli manager.
+- La personne confirme son équipe et peut en changer librement. Aucune affectation ne suit automatiquement un manager, un poste ou un intitulé.
+- Une suppression archive l’équipe et impose un nouveau choix aux membres. Les parties et battles antérieures conservent leurs affectations.
+- Une battle fige les joueurs déjà inscrits et leurs équipes à sa publication. Les arrivées ultérieures et changements d’équipe concernent les compétitions suivantes.
 
-**Description :**
-Le fichier contient **deux jeux de définitions** des mêmes fonctions :
-- **Lignes ~1-295** : version complète avec support du filtre `difficulty` et des `streak` badges.
-- **Lignes ~300+** : ancienne version sans ces features.
+L’administration constitue donc le bon endroit pour gérer les équipes ; `.env` contient la configuration technique et les secrets.
 
-En JavaScript, la seconde définition **écrase** silencieusement la première. Résultat :
-- `renderPlayersTable(rows)` ignore le paramètre `showStreak`
-- `renderServicesTable(rows)` ignore le paramètre `showStreak`
-- `fetchPlayers(month)` ignore le paramètre `difficulty`
-- `fetchServices(month)` ignore le paramètre `difficulty`
-- `fetchServiceDetail(id, month)` ignore le paramètre `difficulty`
-- `nowYYYYMM`, `prevMonth`, `nextMonth`, `formatMonth`, `medal`, `escHtml` sont redéfinis inutilement
-- `loadTab` est redéfini sans support de `activeDifficulty`
+## État de l’ancien dev-book
 
-**Correction :**
-Supprimer tout le bloc dupliqué à partir de la ligne ~288 (deuxième définition de `nowYYYYMM`). Ne garder que les premières définitions (lignes 1-287 environ) qui supportent `difficulty` et `showStreak`.
+| Point | État réel après reprise |
+| --- | --- |
+| BUG-1 · Fonctions dupliquées dans les classements | Déjà corrigé dans le code audité ; filtres conservés. |
+| BUG-2 · Comparaison du secret admin | Ancien accès par en-tête supprimé. Administration par compte/rôle. Le secret local d’amorçage est comparé via des empreintes de taille fixe. |
+| BUG-3 · Concurrence et transactions joueurs | Repris : identité liée au compte, pseudos uniques en base, rollback et libération des connexions, ordre des verrous. |
+| BUG-4 · Identifiants SQL invalides | Validation entière stricte sur joueurs, équipes, parties et battles ; Express 5 intercepte les erreurs asynchrones. |
+| BUG-5 · Secrets au démarrage | Validation JWT et configuration Entra/local ; les exemples `changeme` sont refusés. |
+| BUG-6 · Équipe invalide | Choix authentifié, validation de l’identifiant et de l’état actif de l’équipe. |
+| SEC-1 · CORS | Application sur une origine unique ; aucun wildcard par défaut. Contrôle d’origine des mutations. |
+| SEC-2 · En-têtes Nginx | Réappliqués dans les locations HTML/JS/CSS ; CSP et protection d’intégration incluses. |
+| SEC-3 · Healthcheck | Présent pour API et base ; le healthcheck API vérifie PostgreSQL. |
+| SEC-4 · Cache HTML | HTML, JS et CSS revalidés afin de recevoir un déploiement cohérent. |
+| QC-1 · Racine/standalone | Décision documentée : préserver la version historique ; Docker ne sert que `frontend/`. |
+| QC-2 · Fonction SQL morte | Déjà supprimée dans la version auditée. |
+| QC-3 · `res.ok` des classements | Déjà présent ; erreur de réponse du jeu désormais récupérable depuis l’interface. |
+| QC-4 · Logs | Démarrage et erreurs de requêtes/succès structurés ; migration/seed encore en logs texte. Centralisation et journal d’exploitation à prévoir. |
+| QC-5 · Catalogue d’emails versionné | **À faire.** Le seed initialise une base vide, sans versionner les contenus existants. |
 
-**Test :**
-1. Aller sur la page scores
-2. Sélectionner un filtre de difficulté → les scores doivent se filtrer
-3. Aller en vue mensuelle → les badges 🔥streak doivent apparaître
+## Corrections supplémentaires
 
----
+L’audit a révélé des défauts absents du précédent document :
 
-### BUG-2 : `constantTimeEqual` fuite la longueur du mot de passe
+- Suppression de l’identité fondée sur un simple pseudo/email et de la création de parties pour un `playerId` arbitraire.
+- Chrono calculé côté serveur, date limite persistée et non réinitialisée par une relecture ; horloge réelle contrôlée après attente d’un verrou.
+- Jokers limités côté serveur, sérialisation des réponses et résultat idempotent par email. Un double clic ne compte pas deux fois.
+- Reprise d’une partie en cours, y compris une battle à tentative unique ; les points, statistiques et échéance restent conservés.
+- Affectation d’équipe enregistrée dans chaque partie et dans le roster de battle.
+- Top 10 exactement borné, même moyenne dans le classement et son détail, départage déterministe, streaks mensuels fonctionnels.
+- Séparation des classements d’entraînement et de battle ; exclusion des anciennes parties non vérifiées et des parties disqualifiées.
+- Statistiques pédagogiques excluant les jokers des réponses humaines et des temps moyens.
+- Catalogue de **85 badges** (le chiffre 72 de l’ancien document était erroné), seuil No Life atteignable, pile ou face atteignable, historique des équipes pour Touriste, podium évalué et badges lors de l’abandon.
+- Syntaxe du profil corrigée, liens de feedback avec deux-points conservés, traitement des domaines plus précis et export CSV protégeant les cellules interprétables comme des formules.
+- Node 24, Express 5 et dépendances mises à jour ; suite de tests et workflow CI ajoutés.
 
-**Fichier :** `backend/src/middleware/adminAuth.js` (ligne 27)
-**Gravité :** 🔴 Sécurité
-
-**Description :**
-```javascript
-function constantTimeEqual(a, b) {
-  if (a.length !== b.length) return false;  // ← fuite par timing
-  // ...
-}
-```
-Le `return false` immédiat quand les longueurs diffèrent permet une attaque par timing pour deviner la longueur du mot de passe admin.
+## Fonctions entreprise livrées
 
-**Correction :**
-Remplacer par `crypto.timingSafeEqual` de Node.js :
-```javascript
-const crypto = require('crypto');
+| Fonction | Livré | Limite / validation restante |
+| --- | --- | --- |
+| Connexion locale | Mots de passe scrypt, sessions opaques HttpOnly, déconnexion, premier admin protégé | Démonstration locale ; pas de récupération de mot de passe. |
+| SSO Entra | Code + PKCE, état/nonce, contrôle signature/émetteur/audience/tenant, identité `oid`, rôles | Connexion réelle, consentements et politiques du tenant à tester. |
+| Annuaire | Import complet transactionnel, désactivation des absents, synchronisation Graph paginée | Retour des managers et permissions applicatives Graph à confirmer dans le tenant réel. Pas de planification automatique. |
+| Équipes | CRUD avec archivage, recommandation sans affectation, choix libre, historique | Rapprochement des anciens comptes non authentifiés à développer. |
+| Battles | Individuel, intra-équipe, inter-équipes ; règles/roster figés, même séquence, reprise, tentatives limitées | Participants déjà inscrits uniquement. Aucun éditeur de draft après publication. |
+| Résultats | Provisoires puis conservés à clôture ; absents à zéro pour la moyenne des équipes | Clôture à la consultation après échéance ou manuelle ; pas de tâche planifiée dédiée. |
+| Modération | Motif obligatoire, acteur/date/avant-après, disqualification et contrôle de version | Les badges déjà obtenus ne sont pas automatiquement révoqués. |
+| Interface | Connexion, équipes, battles, administration, profil, classements, récapitulatif | Design responsive des nouvelles pages ; jeu hérité avec thèmes conservés. |
+| Vérifications | Tests Node + PostgreSQL, migration ancienne base, identités OIDC signées, parcours navigateur et Docker | Le workflow GitHub n’a pas été exécuté à distance tant que les changements ne sont pas publiés. |
 
-function constantTimeEqual(a, b) {
-  const bufA = Buffer.from(String(a));
-  const bufB = Buffer.from(String(b));
-  if (bufA.length !== bufB.length) {
-    // Compare quand même pour éviter le timing leak
-    crypto.timingSafeEqual(bufA, bufA);
-    return false;
-  }
-  return crypto.timingSafeEqual(bufA, bufB);
-}
-```
+## Règles de résultats
 
----
+En entraînement, classement individuel au meilleur score valide ; équipe à la moyenne des dix meilleurs joueurs ayant joué pour cette équipe. Les parties mémorisent l’équipe au démarrage : changer d’équipe ne transfère pas les scores précédents.
 
-### BUG-3 : `players.js` — Race condition sans transaction
+En battle, meilleur essai valide par inscrit. Le classement individuel départage ensuite au temps cumulé, à l’heure de fin puis à l’identifiant. Le classement inter-équipes moyenne **tous les inscrits**, absents compris à zéro, puis départage à la participation et à l’identifiant. Cette formule est affichée aux participants.
 
-**Fichier :** `backend/src/routes/players.js`, route `POST /`
-**Gravité :** 🟠 Élevé
+Une correction ne réécrit pas les réponses pédagogiques. Elle modifie le score/disqualification, l’historique de modération et les résultats d’une battle déjà clôturée. Les badges de podium constatent une place atteinte à la fin d’une partie ; ils ne promettent pas une attribution en fin de mois.
 
-**Description :**
-Le code fait `SELECT` puis `INSERT` sans `BEGIN/COMMIT`. Deux requêtes simultanées avec le même pseudo/email peuvent passer le check et l'une échouera avec une erreur Postgres non attrapée (`23505` unique violation) qui n'est pas gérée dans le catch.
+## Migration et données historiques
 
-**Correction :**
-1. Entourer les requêtes de `BEGIN` / `COMMIT` / `ROLLBACK`
-2. Ajouter un `catch` sur l'INSERT pour gérer l'erreur `23505` (conflit d'unicité) proprement
-3. Ou utiliser `INSERT ... ON CONFLICT` pour une solution sans transaction
+La migration 003 conserve les comptes, emails, réponses et résultats. Elle distingue les anciennes parties par `rules_version=0` et les nouvelles règles contrôlées par `rules_version=1`. Les scores historiques ne peuvent pas être déclarés fiables rétroactivement.
 
----
+L’équipe des anciennes parties est reprise depuis l’affectation présente à la migration, car le logiciel précédent ne stockait pas ce lien. Les changements antérieurs ne sont pas reconstructibles. Les anciens pseudos dupliqués reçoivent un suffixe unique ; les anciens comptes ne sont pas revendiqués sur la seule correspondance d’un email.
 
-### BUG-4 : `sessionId` NaN passé en SQL
+Une migration d’une base utilisée demande une sauvegarde préalable. La version historique standalone à la racine est conservée et ne bénéficie pas des contrôles du serveur entreprise.
 
-**Fichier :** `backend/src/routes/sessions.js`
-**Routes :** `GET /:id/next-email`, `POST /:id/answer`, `POST /:id/end`
-**Gravité :** 🟠 Élevé
+## Vérification et prochaines étapes
 
-**Description :**
-`parseInt(req.params.id, 10)` n'est pas vérifié pour `NaN` avant utilisation dans les requêtes SQL. Un appel avec `/api/sessions/abc/next-email` provoquera une erreur SQL.
+Les commandes reproductibles figurent dans le [README](README.md). Les tests utilisent une base `_test` neuve et jetable, séparée du volume de démonstration. Les résultats détaillés sont conservés dans `docs/audits/2026-09-28/`.
 
-**Correction :**
-Ajouter après chaque `parseInt` :
-```javascript
-const sessionId = parseInt(req.params.id, 10);
-if (isNaN(sessionId)) return res.status(400).json({ error: 'ID de session invalide' });
-```
+Priorités avant usage entreprise :
 
----
+1. Valider la connexion et les trois rôles sur le tenant réel ; vérifier la désactivation des comptes et le retour des managers Graph.
+2. Valider les règles de participation et de moyenne avec un petit groupe pilote.
+3. Mettre en place HTTPS, adresses clientes du proxy, sauvegarde/restauration, rotation des secrets et règles de conservation des données.
+4. Prévoir le rapprochement contrôlé des anciens comptes si leurs données doivent être réutilisées.
 
-### BUG-5 : `JWT_SECRET` non validé au démarrage
-
-**Fichier :** `backend/src/app.js` et `backend/src/routes/sessions.js`
-**Gravité :** 🟠 Élevé
-
-**Description :**
-`JWT_SECRET` est lu depuis `process.env` mais jamais validé. Si absent, `jwt.sign()` crashera avec une erreur cryptique.
-
-**Correction :**
-Dans `app.js`, dans la fonction `start()`, avant `migrate()` :
-```javascript
-if (!process.env.JWT_SECRET) {
-  console.error('[api] JWT_SECRET is required');
-  process.exit(1);
-}
-if (!process.env.ADMIN_PASSWORD) {
-  console.error('[api] ADMIN_PASSWORD is required');
-  process.exit(1);
-}
-```
-
----
-
-### BUG-6 : `serviceId` non validé dans `players.js`
-
-**Fichier :** `backend/src/routes/players.js`
-**Gravité :** 🟡 Moyen
-
-**Description :**
-Le `serviceId` du body est passé directement à la requête SQL sans `parseInt()` ni vérification de type. Un `serviceId: "abc"` causera une erreur Postgres.
-
-**Correction :**
-```javascript
-const svcId = serviceId ? parseInt(serviceId, 10) : null;
-if (serviceId && isNaN(svcId)) {
-  return res.status(400).json({ error: 'serviceId invalide' });
-}
-```
-
----
-
-## 🟠 Problèmes de sécurité
-
-### SEC-1 : CORS `*` par défaut
-
-**Fichier :** `backend/src/app.js` (ligne 24)
-
-```javascript
-origin: process.env.CORS_ORIGIN || '*',
-```
-
-En production, si `CORS_ORIGIN` n'est pas défini, toute origine peut appeler l'API.
-
-**Correction :**
-1. Ajouter `CORS_ORIGIN` dans `.env.example` avec une valeur par défaut sûre
-2. En prod sans variable, refuser (pas de wildcard) :
-```javascript
-origin: process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? false : '*'),
-```
-
----
-
-### SEC-2 : Headers de sécurité manquants dans Nginx
-
-**Fichier :** `frontend/nginx.conf`
-
-**Manquant :**
-```nginx
-add_header X-Content-Type-Options "nosniff" always;
-add_header X-Frame-Options "SAMEORIGIN" always;
-add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-```
-
----
-
-### SEC-3 : Pas de healthcheck API dans `docker-compose.yml`
-
-**Fichier :** `docker-compose.yml`
-
-Le service `frontend` dépend de `api` avec un simple `depends_on: - api` (sans condition `service_healthy`). Nginx peut démarrer avant que l'API soit prête.
-
-**Correction :**
-Ajouter un healthcheck au service `api` :
-```yaml
-api:
-  # ...
-  healthcheck:
-    test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
-    interval: 5s
-    timeout: 5s
-    retries: 10
-
-frontend:
-  depends_on:
-    api:
-      condition: service_healthy
-```
-
----
-
-### SEC-4 : Cache Nginx sur `index.html` / `phishing.html`
-
-**Fichier :** `frontend/nginx.conf`
-
-Les fichiers HTML sont servis sans header `Cache-Control`. Après un déploiement, les utilisateurs peuvent avoir une version périmée.
-
-**Correction :**
-```nginx
-location ~* \.html$ {
-    add_header Cache-Control "no-cache, must-revalidate";
-}
-```
-
----
-
-## 🟡 Qualité de code
-
-### QC-1 : Doublons de fichiers racine / frontend
-
-Les fichiers suivants existent à la **racine** ET dans `frontend/` :
-- `script.js`, `style.css`, `phishing.html`, `help.html`, `emails.js`
-
-Seuls les fichiers `frontend/` sont utilisés par Docker. Les fichiers racine sont l'ancienne version standalone.
-
-**Action :** Décider si la version standalone (racine) doit être maintenue. Si oui, documenter. Si non, supprimer les doublons de la racine ou les déplacer dans `OnePageVersion/`.
-
----
-
-### QC-2 : `runSqlFile` inutilisée
-
-**Fichier :** `backend/src/db/migrate.js` (ligne 10)
-
-La fonction `runSqlFile()` est définie mais jamais appelée (le code inline fait la même chose dans `migrate()`).
-
-**Action :** Supprimer la fonction morte.
-
----
-
-### QC-3 : Pas de validation `res.ok` dans `scores.js`
-
-**Fichier :** `frontend/scores.js`
-
-Les fonctions `fetchPlayers`, `fetchServices`, `fetchServiceDetail` ne vérifient pas `res.ok` avant d'appeler `.json()`. Une erreur serveur retournera du JSON d'erreur qui sera traité comme des données valides.
-
-**Correction :**
-```javascript
-async function fetchPlayers(month, difficulty) {
-    const res = await fetch(`/api/scores/players${buildQuery(month, difficulty)}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
-}
-```
-
----
-
-### QC-4 : Pas de logging structuré
-
-Tout le backend utilise `console.log('[tag]', ...)` et `console.error('[tag]', ...)`.
-
-**Action future :** Migrer vers `pino` ou `winston` avec JSON logging pour faciliter le monitoring.
-
----
-
-### QC-5 : Seed emails à chaque démarrage
-
-**Fichier :** `backend/src/db/migrate.js`
-
-`seedEmails()` vérifie `COUNT(*) FROM emails` à chaque démarrage. Si on supprime un email manuellement, il ne sera pas re-seeded (count > 0). Et si on veut mettre à jour le contenu des emails, il faut vider la table manuellement.
-
-**Action future :** Ajouter un mécanisme de versioning des emails ou un endpoint admin pour importer/mettre à jour.
-
----
-
-## ✅ Checklist d'exécution
-
-```
-[x] BUG-1 : Supprimer les doublons dans scores.js
-[x] BUG-2 : Remplacer constantTimeEqual par crypto.timingSafeEqual
-[x] BUG-3 : Ajouter transaction dans POST /api/players
-[x] BUG-4 : Valider sessionId (isNaN) dans sessions.js
-[x] BUG-5 : Valider JWT_SECRET et ADMIN_PASSWORD au démarrage
-[x] BUG-6 : Valider serviceId dans players.js
-[x] SEC-1 : Corriger CORS wildcard en prod
-[x] SEC-2 : Ajouter headers de sécurité dans nginx.conf
-[x] SEC-3 : Ajouter healthcheck API dans docker-compose.yml
-[x] SEC-4 : Ajouter Cache-Control pour fichiers HTML
-[ ] QC-1  : Décider du sort des fichiers racine dupliqués
-[x] QC-2  : Supprimer runSqlFile() morte
-[x] QC-3  : Ajouter validation res.ok dans scores.js
-```
-
----
-
-## 🚀 Features ajoutées (Phase 0–4)
-
-```
-[x] Phase 0 : Suppression limite 30 mails + bouton abandon
-[x] Phase 1 : Dark mode + Outlook theme + faux inbox sidebar
-[x] Phase 2 : Export CSV par onglet leaderboard
-[x] Phase 3 : Dashboard admin stats (endpoints + page)
-[x] Phase 4 : Système de badges/achievements complet
-    - Migration 002_achievements.sql (tables achievements + player_achievements)
-    - Définitions (achievements-data.js) : 72 badges (tiered/per-difficulty/universal)
-    - Seed upsert dans migrate.js
-    - Moteur d'évaluation (services/achievements.js)
-    - Intégration dans sessions.js (évaluation à la fin de partie)
-    - API : GET /api/players/:id/profile, GET /api/players/:id/achievements, GET /api/achievements
-    - Page profil (profile.html + profile.js) : stats + grille de badges + filtre catégorie
-    - Popup badges débloqués en game-over + lien vers profil
-    - Liens cliquables vers profil depuis le leaderboard
-```
+Évolutions suivantes : catalogue d’emails versionné/import administrateur, rafraîchissement planifié de l’annuaire et clôture des battles, révocation/recalcul des badges après modération, pagination et recherche avancée de l’historique administratif. Ces points restent ouverts et ne sont pas présentés comme livrés.

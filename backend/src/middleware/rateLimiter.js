@@ -1,26 +1,30 @@
-'use strict';
-
-const rateLimit = require('express-rate-limit');
-
-/** General API rate limiter */
+"use strict";
+const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
+const userKey = (req) =>
+  req.user ? `player:${req.user.id}` : ipKeyGenerator(req.ip);
+const options = { standardHeaders: true, legacyHeaders: false };
 const apiLimiter = rateLimit({
-  windowMs: 60 * 1000,  // 1 minute
-  max: 120,             // 120 requests per minute per IP
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Trop de requêtes, réessaie dans une minute.' },
+  ...options,
+  windowMs: 60000,
+  limit: 240,
+  keyGenerator: userKey,
+  message: { error: "Trop de requêtes, réessayez dans une minute." },
 });
-
-/**
- * Dedicated limiter for /answer endpoint.
- * Prevents scripted auto-answers (max 10 answers per 5s per IP).
- */
 const answerLimiter = rateLimit({
-  windowMs: 5 * 1000,  // 5 seconds
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Réponses trop rapides. Ralentis un peu, champion.' },
+  ...options,
+  windowMs: 5000,
+  limit: 10,
+  keyGenerator: userKey,
+  message: {
+    error: "Réponses trop rapides. Réessayez dans quelques secondes.",
+  },
 });
-
-module.exports = { apiLimiter, answerLimiter };
+const authLimiter = rateLimit({
+  ...options,
+  windowMs: 60000,
+  limit: 15,
+  message: {
+    error: "Trop de tentatives de connexion. Réessayez dans une minute.",
+  },
+});
+module.exports = { apiLimiter, answerLimiter, authLimiter };

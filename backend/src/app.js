@@ -1,84 +1,112 @@
-'use strict';
+"use strict";
+const express = require("express");
+const helmet = require("helmet");
+const cors = require("cors");
+const { migrate } = require("./db/migrate");
+const pool = require("./db/pool");
+const { config, validateConfig } = require("./config");
+const { loadUser, requireUser, mutationOrigin } = require("./services/auth");
+const { apiLimiter } = require("./middleware/rateLimiter");
 
-const express = require('express');
-const helmet = require('helmet');
-const cors = require('cors');
-const { migrate } = require('./db/migrate');
-
-const playersRouter = require('./routes/players');
-const sessionsRouter = require('./routes/sessions');
-const scoresRouter = require('./routes/scores');
-const servicesRouter = require('./routes/services');
-const adminRouter = require('./routes/admin');
-const { apiLimiter } = require('./middleware/rateLimiter');
-
-const pool = require('./db/pool');
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Security headers
-app.use(helmet());
-
-// CORS — allow requests from the Nginx frontend (same origin via proxy in prod)
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? false : '*'),
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Token', 'X-Admin-Password'],
-}));
-
-// Body parsing
-app.use(express.json({ limit: '50kb' }));
-
-// Global rate limiter
-app.use('/api', apiLimiter);
-
-// Routes
-app.use('/api/players', playersRouter);
-app.use('/api/sessions', sessionsRouter);
-app.use('/api/scores', scoresRouter);
-app.use('/api/services', servicesRouter);
-app.use('/api/admin', adminRouter);
-
-// Health check (no rate limit)
-app.get('/health', (_req, res) => res.json({ status: 'ok' }));
-
-// All achievements catalog
-app.get('/api/achievements', async (_req, res) => {
-  const result = await pool.query(
-    'SELECT id, key, name, description, emoji, category, difficulty, tier, threshold FROM achievements ORDER BY category, difficulty, tier'
+function createApp() {
+  const app = express();
+  // Only the private reverse proxy network is trusted; forwarded addresses are ignored from other peers.
+  app.set(
+    "trust proxy",
+    process.env.TRUST_PROXY || "loopback,linklocal,uniquelocal",
   );
-  res.json({ achievements: result.rows });
-});
-
-// 404 for unknown routes
-app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
-
-// Global error handler
-// eslint-disable-next-line no-unused-vars
-app.use((err, _req, res, _next) => {
-  console.error('[error]', err);
-  res.status(500).json({ error: 'Internal server error' });
-});
-
-async function start() {
-  if (!process.env.JWT_SECRET) {
-    console.error('[api] JWT_SECRET is required');
-    process.exit(1);
-  }
-  if (!process.env.ADMIN_PASSWORD) {
-    console.error('[api] ADMIN_PASSWORD is required');
-    process.exit(1);
-  }
-  try {
-    await migrate();
-    app.listen(PORT, () => {
-      console.log(`[api] Listening on port ${PORT}`);
-    });
-  } catch (err) {
-    console.error('[api] Failed to start:', err);
-    process.exit(1);
-  }
+  app.disable("x-powered-by");
+  app.use(helmet());
+  app.use(
+    cors({
+      origin: process.env.CORS_ORIGIN || false,
+      methods: ["GET", "POST", "PUT", "DELETE"],
+      allowedHeaders: ["Content-Type", "X-Session-Token", "X-Admin-Password"],
+    }),
+  );
+  app.use(express.json({ limit: "2mb" }));
+  app.use((req, _res, next) => {
+    if (req.body === undefined) req.body = {};
+    next();
+  });
+  app.get("/health", async (_req, res) => {
+    await pool.query("SELECT 1");
+    res.json({ status: "ok" });
+  });
+  app.use("/api", mutationOrigin, loadUser, apiLimiter, (_req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    next();
+  });
+  app.use("/api/auth", require("./routes/auth"));
+  app.use("/api/players", require("./routes/players"));
+  app.use("/api/sessions", require("./routes/sessions"));
+  app.use("/api/teams", require("./routes/teams"));
+  app.use("/api/battles", require("./routes/battles"));
+  app.use("/api/scores", requireUser, require("./routes/scores"));
+  app.use("/api/services", requireUser, require("./routes/services"));
+  app.use("/api/admin", require("./routes/adminTeams"));
+  app.use("/api/admin", require("./routes/adminEnterprise"));
+  app.use("/api/admin", require("./routes/admin"));
+  app.get("/api/achievements", requireUser, async (_req, res) =>
+    res.json({
+      achievements: (
+        await pool.query(
+          "SELECT id,key,name,description,emoji,category,difficulty,tier,threshold FROM achievements WHERE active ORDER BY category,difficulty,tier",
+        )
+      ).rows,
+    }),
+  );
+  app.use((_req, res) => res.status(404).json({ error: "Route introuvable" }));
+  app.use((err, _req, res, _next) => {
+    if (res.headersSent) return _next(err);
+    const status =
+      err.status ||
+      { 23505: 409, 23503: 400, 23514: 400, 22001: 400, "22P02": 400 }[
+        err.code
+      ] ||
+      500;
+    const message = err.status
+      ? err.message
+      : status === 409
+        ? "Ce pseudo ou cet email est déjà utilisé"
+        : status === 400
+          ? "Données invalides"
+          : "Erreur serveur";
+    if (status >= 500)
+      console.error(
+        JSON.stringify({
+          event: "request_error",
+          code: err.code,
+          message: err.message,
+        }),
+      );
+    res.status(status).json({ error: message });
+  });
+  return app;
 }
-
-start();
+async function start() {
+  validateConfig();
+  await migrate();
+  const server = createApp().listen(process.env.PORT || 3000, () =>
+    console.log(
+      JSON.stringify({
+        event: "listening",
+        authMode: config().authMode,
+        port: process.env.PORT || 3000,
+      }),
+    ),
+  );
+  const shutdown = () =>
+    server.close(() => pool.end().then(() => process.exit(0)));
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
+  return server;
+}
+if (require.main === module)
+  start().catch((err) => {
+    console.error(
+      JSON.stringify({ event: "startup_error", message: err.message }),
+    );
+    process.exit(1);
+  });
+module.exports = { createApp, start };

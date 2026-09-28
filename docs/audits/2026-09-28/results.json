@@ -1,0 +1,353 @@
+{
+  "auditDate": "2026-09-28",
+  "revision": "73510df",
+  "scope": "Code review, isolated SQL probes, HTTP probes against a separate Docker Compose stack, and DOM execution. No application code changes.",
+  "docker": {
+    "project": "phishchips-audit-20260928",
+    "baseUrl": "http://127.0.0.1:18080",
+    "database": "PostgreSQL 16",
+    "node": "20.20.2",
+    "express": "4.22.1",
+    "results": [
+      {
+        "name": "headers-/phishing.html",
+        "evidence": {
+          "status": 200,
+          "nosniff": null,
+          "frame": null,
+          "referrer": null,
+          "hsts": null,
+          "cache": "no-cache, must-revalidate"
+        }
+      },
+      {
+        "name": "headers-/script.js",
+        "evidence": {
+          "status": 200,
+          "nosniff": null,
+          "frame": null,
+          "referrer": null,
+          "hsts": null,
+          "cache": "max-age=86400, public, no-transform"
+        }
+      },
+      {
+        "name": "headers-/api/services",
+        "evidence": {
+          "status": 200,
+          "nosniff": "nosniff, nosniff",
+          "frame": "SAMEORIGIN, SAMEORIGIN",
+          "referrer": "no-referrer, strict-origin-when-cross-origin",
+          "hsts": "max-age=31536000; includeSubDomains, max-age=31536000; includeSubDomains",
+          "cache": null
+        }
+      },
+      {
+        "name": "seeds",
+        "evidence": {
+          "emails": 162,
+          "badges": 85
+        }
+      },
+      {
+        "name": "admin-auth",
+        "evidence": {
+          "unauth": 401,
+          "auth": 200
+        }
+      },
+      {
+        "name": "unauthenticated-session",
+        "evidence": {
+          "status": 201,
+          "tokenIssued": true
+        }
+      },
+      {
+        "name": "fourth-joker",
+        "evidence": {
+          "status": 200,
+          "score": 4,
+          "jokersUsed": 4
+        }
+      },
+      {
+        "name": "historical-service-change",
+        "evidence": {
+          "before": [
+            "Audit Alpha"
+          ],
+          "after": [
+            "Audit Beta"
+          ]
+        }
+      },
+      {
+        "name": "ranking-ties",
+        "evidence": {
+          "leaderboardScore": "77.50",
+          "leaderboardCount": "12",
+          "detailScore": 91,
+          "detailCount": 10
+        }
+      },
+      {
+        "name": "monthly-streak",
+        "evidence": {
+          "actual": 1,
+          "expected": 2
+        }
+      },
+      {
+        "name": "normal-game-completion",
+        "evidence": {
+          "status": 200,
+          "completed": true,
+          "errors": 3,
+          "newBadges": [
+            "debut_carriere",
+            "stagiaire"
+          ]
+        }
+      },
+      {
+        "name": "profile-api",
+        "evidence": {
+          "status": 200,
+          "unlocked": 2
+        }
+      },
+      {
+        "name": "admin-stats",
+        "evidence": {
+          "status": 200,
+          "hardest": 200,
+          "activity": 200
+        }
+      },
+      {
+        "name": "open-transaction-after-conflict",
+        "evidence": {
+          "status": 409,
+          "idleTransactions": 1
+        }
+      },
+      {
+        "name": "proxy-rate-limit-shared",
+        "evidence": {
+          "statuses": [
+            401,
+            401,
+            401,
+            401,
+            401,
+            401,
+            401,
+            401,
+            401,
+            401,
+            429
+          ]
+        }
+      },
+      {
+        "name": "invalid-playerId-crashes-api",
+        "evidence": {
+          "response": 502,
+          "restartsBefore": 0,
+          "restartsAfter": 1
+        }
+      },
+      {
+        "name": "concurrent-duplicate-name",
+        "evidence": {
+          "name": "R000",
+          "statuses": [
+            201,
+            201
+          ],
+          "playerIds": [
+            15,
+            14
+          ]
+        }
+      },
+      {
+        "name": "late-answer-accepted",
+        "evidence": {
+          "elapsedSeconds": 31,
+          "reportedDecisionTime": 0,
+          "status": 200,
+          "isCorrect": true,
+          "score": 1
+        }
+      }
+    ]
+  },
+  "syntax": {
+    "filesChecked": 18,
+    "passed": 17,
+    "failed": [
+      {
+        "file": "frontend/profile.js",
+        "line": 10,
+        "error": "SyntaxError: missing ) after argument list",
+        "cause": "Unescaped apostrophe in l'URL inside a single-quoted string"
+      }
+    ]
+  },
+  "dom": [
+    {
+      "name": "answer-error-freezes-ui",
+      "evidence": {
+        "simulatedHttpStatus": 429,
+        "safeDisabled": true,
+        "phishingDisabled": true,
+        "feedbackVisible": false,
+        "visibleError": "",
+        "gameStillActive": true
+      }
+    },
+    {
+      "name": "leaderboard-dom-smoke",
+      "evidence": {
+        "playerRows": 10,
+        "serviceRows": 2,
+        "csvRows": 2
+      }
+    },
+    {
+      "name": "admin-stats-dom-smoke",
+      "evidence": {
+        "mainVisible": "block",
+        "players": 15,
+        "activityBars": 1
+      }
+    }
+  ],
+  "isolatedPostgres": [
+    {
+      "name": "migration-and-seeds",
+      "evidence": {
+        "emails": 162,
+        "badges": 85,
+        "migrations": 2
+      }
+    },
+    {
+      "name": "conflict-leaves-transaction-open",
+      "evidence": {
+        "status": 409,
+        "inTransaction": true,
+        "leakedTransactions": 1
+      }
+    },
+    {
+      "name": "create-session-without-auth",
+      "evidence": {
+        "status": 201,
+        "tokenIssued": true
+      }
+    },
+    {
+      "name": "fourth-joker-accepted",
+      "evidence": {
+        "status": 200,
+        "score": 4,
+        "jokersUsed": 4
+      }
+    },
+    {
+      "name": "no-server-timer",
+      "evidence": {
+        "status": 200,
+        "score": 5,
+        "correct": true
+      }
+    },
+    {
+      "name": "abandon-no-achievements",
+      "evidence": {
+        "ended": true,
+        "badges": 0
+      }
+    },
+    {
+      "name": "service-change-reassigns-past-scores",
+      "evidence": {
+        "before": [
+          {
+            "service": "Alpha",
+            "score": "5.00"
+          }
+        ],
+        "after": [
+          {
+            "service": "Beta",
+            "score": "5.00"
+          }
+        ]
+      }
+    },
+    {
+      "name": "top10-ties-disagreement",
+      "evidence": {
+        "leaderboardScore": "77.50",
+        "playersCounted": 12,
+        "detailScore": 91,
+        "playersInDetailTop": 10
+      }
+    },
+    {
+      "name": "monthly-streak-date-parser",
+      "evidence": {
+        "dateIsDate": true,
+        "convertedKey": "Sat Aug",
+        "streak": 1,
+        "expected": 2
+      }
+    },
+    {
+      "name": "invalid-month",
+      "evidence": {
+        "status": 500
+      }
+    },
+    {
+      "name": "duplicate-name-database-allowed",
+      "evidence": {
+        "id": 14
+      }
+    },
+    {
+      "name": "unreachable-badges",
+      "evidence": {
+        "ranking": 9,
+        "nolife": 3,
+        "poolEmails": 162
+      }
+    },
+    {
+      "name": "admin-success-includes-jokers",
+      "evidence": {
+        "successRate": 100,
+        "totalAnswers": 5
+      }
+    }
+  ],
+  "dependencyAudit": {
+    "command": "npm audit --json",
+    "moderatePackages": [
+      "body-parser",
+      "qs"
+    ],
+    "packageCount": 2,
+    "exploitability": "Not demonstrated by this dependency inventory."
+  },
+  "limitations": [
+    "No exhaustive visual browser QA",
+    "No production tenant Entra integration",
+    "No load test",
+    "No exhaustive security scan"
+  ]
+}

@@ -1,370 +1,107 @@
-🚀 Démo standalone : https://za512.github.io/PhishChips/
+# PhishChipsBattle
 
-# 🔐 Phish & Chips – Parce que tu vas en bouffer du phishing.
+Jeu de sensibilisation au phishing pour l’entreprise : entraînement individuel, équipes choisies par les collaborateurs et battles organisées. API Node.js 24 / Express 5, PostgreSQL 16 et interface servie par Nginx.
 
-Affûtez vos moustaches de détective anti-phishing et devenez le Sherlock Holmes du spam (les frites sont virtuelles, désolé) !
+La version Docker utilise exclusivement `frontend/` et `backend/`. Les fichiers de jeu à la racine sont l’ancienne version standalone de [PhishChips](https://github.com/ZA512/PhishChips). Ils sont conservés pour référence ; leur contenu ne constitue pas la version entreprise.
 
-## 📋 Description
+## Essayer localement
 
-Bienvenue chez **Phish & Chips**, le fast-food de la cybersécurité où le plat du jour, c'est du phishing ! Votre mission, si vous l'acceptez (et vous n'avez pas vraiment le choix, c'est un jeu) : devenir un pro du tri d'emails. Démasquez les arnaques sournoises, protégez les messages innocents des griffes des cyber-vilains, et faites-le avec style (ou en pyjama, on ne juge pas).
+Docker doit être démarré. Depuis la racine, sous PowerShell :
 
-Choisissez votre niveau de souffrance : de *Stagiaire en sueur* à *Cyber-Ninja vétéran qui a tout vu*. Chaque bonne réponse vous rapproche de la gloire éternelle. En cas d'erreur… non, vous ne voulez vraiment pas savoir. Mais pas de panique, chaque feedback est une pépite de sagesse pour ne plus jamais vous faire avoir par un prince nigérian en détresse financière.
-
-## 🖼️ Aperçu du jeu
-
-![Accueil](img/PhishChips-accueil.png)
-*Page d'accueil de Phish & Chips*
-
-![Email à analyser](img/PhishChips-mail.png)
-*Affichage d'un email à analyser*
-
-![Feedback](img/PhishChips-resultat.png)
-*Feedback après l'analyse d'un email*
-
----
-
-## 🎮 Fonctionnalités du jeu solo (version standalone)
-
-- **Interface plus vraie que nature** (ou presque) : On se croirait dans sa boîte mail.
-- **Trois niveaux de souffrance** :
-  - 🔰 **Facile** – 30 secondes fixes par email. Pour tremper l'orteil sans se noyer.
-  - ⚠️ **Normal** – Le chrono se réduit progressivement jusqu'à 15 secondes. Ça commence à picoter sérieusement.
-  - 💀 **Hardcore** – Le chrono fond jusqu'à 5 secondes. Préparez le café, les mouchoirs, et peut-être un psychologue.
-- **Un score qui fait frémir (ou pleurer)** : Grimpez les échelons, de *Bleu Bité du Web* à *Maître Zen de l'Anti-Phishing*, et frimez devant vos amis (ou votre chat).
-- **Feedback qui claque (et qui éduque)** : Notre agent Sécu, un brin sardonique mais toujours pédagogue, vous dit tout, sans langue de bois mais avec des images.
-- **Devenez accro aux stats (c'est légal, promis)** : Combien de méchants mails démasqués ? Quel est votre temps de réaction de super-héros ? Des chiffres pour briller en société !
-- **Le Joker "SOS Sécu"** : 3 appels à un ami virtuel (un peu bourru, mais efficace) par partie. Utilisez-les sagement, jeune padawan, la Force est limitée.
-
----
-
-## 🏢 Version Entreprise – PhishChipsBattle (Docker)
-
-Vous voulez transformer l'exercice en vrai championnat de bureau ? Bonne nouvelle : il y a une **version containerisée** avec classements, services, et compétition inter-équipes. Là, les frites sont toujours virtuelles, mais l'honneur, lui, est bien réel.
-
-### ✨ Nouveautés de la version entreprise
-
-- **Identification arcade** : pseudo 2–4 caractères (majuscules) + email professionnel. Personne ne peut voler votre pseudo si votre email le protège. Tentez quand même, on aura rigolé.
-- **Services** : chaque joueur peut se rattacher à un service (DSI, RH, Marketing…). L'admin peut les créer/modifier/supprimer depuis la page d'admin protégée par mot de passe.
-- **Anti-triche intégré** : la réponse correcte (phishing ou sain) n'est **jamais** envoyée au navigateur avant que vous ayez répondu. Pas question que le service informatique balance un script qui récupère les réponses à l'avance.
-- **Limite anti-robots** : 10 réponses maximum toutes les 5 secondes sur l'endpoint `/answer`. Les keyboards warriors sont priés de positionner leurs doigts à vitesse humaine.
-
-### 🏆 Les 4 classements
-
-Chacun filtrable par niveau de difficulté (🌐 Tous / 🔰 Facile / ⚠️ Normal / 💀 Hardcore) :
-
-| # | Classement | Description |
-|---|-----------|-------------|
-| 1 | **Joueurs – Tous temps** | Top 10 des meilleurs scores de tous les temps |
-| 2 | **Joueurs – Mensuel** | Top 10 des meilleurs scores du mois (navigable mois par mois) |
-| 3 | **Services – Tous temps** | Top 10 des services (voir formule ci-dessous) |
-| 4 | **Services – Mensuel** | Top 10 des services du mois (navigable mois par mois) |
-
-#### 🔥 Badge de séquence mensuelle
-Dans les classements mensuels, un badge **🔥N** apparaît à côté des joueurs ou services présents dans le top 10 depuis N mois consécutifs. Deux mois d'affilée ? 🔥2. Six mois sans bouger ? 🔥6. Ça donne envie de les déloger, non ?
-
-#### 📐 Formule du score service
-
-Le score d'un service = **moyenne des meilleurs scores des 10 meilleurs joueurs du service**.
-
-Pourquoi seulement les 10 meilleurs ? Parce qu'un service de 200 personnes ne devrait pas être plombé par les 50 stagiaires qui ont tenté une partie un lundi matin pour voir. Les bons joueurs portent l'équipe, les débutants apprennent tranquillement sans culpabiliser. Tout le monde y gagne, sauf peut-être l'ego des services avec seulement 2 joueurs — mais c'est leur problème.
-
-> En clair : une grande équipe avec 10 excellents joueurs bat une petite équipe avec 2 joueurs moyens. Une grande équipe avec 10 excellents joueurs **et** 190 catastrophes bat quand même les 2 joueurs moyens. Justice est faite.
-
-### 🛠️ Stack technique
-
-| Composant | Technologie |
-|-----------|-------------|
-| Frontend | HTML/CSS/JS + Nginx 1.27 |
-| API | Node.js 20 + Express 4 |
-| Base de données | PostgreSQL 16 |
-| Orchestration | Docker Compose |
-
----
-
-## 🚀 Déploiement (version entreprise Docker)
-
-### Prérequis
-
-- Docker + Docker Compose (v2)
-- Un terminal (et un peu de courage, mais vraiment très peu)
-
-### Installation
-
-```bash
-# 1. Clonez le dépôt
-git clone https://github.com/ZA512/PhishChipsBattle.git
-cd PhishChipsBattle
-
-# 2. Créez votre .env à partir du modèle
-cp .env.example .env
-# Éditez .env : changez TOUS les mots de passe (oui, vraiment)
-nano .env
-
-# 3. Générez le package-lock.json (requis par npm ci dans le Dockerfile)
-cd backend && npm install && cd ..
-
-# 4. Lancez la stack
-docker compose up -d --build
-
-# 5. Ouvrez votre navigateur
-# → http://localhost:8080
+```powershell
+./scripts/setup-local.ps1
+# Si .env existe déjà, cette commande le conserve et demande de le modifier explicitement.
+docker compose up -d --build --wait
 ```
 
-### Variables d'environnement (`.env`)
+Ouvrir **http://localhost:8080/login.html**, avec la même origine que `APP_URL`. Le port reste accessible uniquement depuis la machine locale.
 
-| Variable | Description | Exemple |
-|----------|-------------|---------|
-| `POSTGRES_DB` | Nom de la base | `phishchips` |
-| `POSTGRES_USER` | Utilisateur PostgreSQL | `phishchips` |
-| `POSTGRES_PASSWORD` | Mot de passe PostgreSQL | **à changer !** |
-| `JWT_SECRET` | Secret JWT (≥ 32 caractères aléatoires) | **à changer !** |
-| `ADMIN_PASSWORD` | Mot de passe de la page admin | **à changer !** |
-| `FRONTEND_PORT` | Port exposé sur l'hôte | `8080` |
+Pour le premier administrateur, remplir email, mot de passe personnel (12 à 128 caractères) et pseudo, puis ouvrir « Créer le premier administrateur local ». Le secret d’amorçage est la valeur `ADMIN_PASSWORD` du fichier `.env`. Cette création n’est possible qu’une fois. Le mot de passe personnel permet ensuite la connexion normale ; le secret d’amorçage n’est pas un accès aux API d’administration.
 
-> ⚠️ Ne commitez **jamais** votre `.env`. Il est dans `.gitignore`. Si vous le commitez quand même, vous méritez de rejouer une partie en Hardcore.
+Depuis « Administration », créer les équipes. Le premier administrateur peut accéder à cette page avant de choisir une équipe. Les comptes locaux servent à la démonstration et aux tests ; le déploiement entreprise utilise Entra.
 
-### Pages disponibles
+Pour arrêter sans perdre les données : `docker compose down`. Le volume PostgreSQL conserve les comptes et résultats. Ne pas ajouter `-v` si les données doivent être conservées.
 
-| URL | Description |
-|-----|-------------|
-| `/` ou `/phishing.html` | Le jeu |
-| `/scores.html` | Les 4 classements |
-| `/admin.html` | Administration des services (mot de passe requis) |
-| `/help.html` | Page d'aide |
+## Équipes et nouveaux arrivants
 
----
+Les équipes vivent **en base**, avec un nom et un code unique, et sont gérées dans l’administration. Il n’y a pas de liste à maintenir dans `.env`.
 
-## 📧 Génération d'emails
+À la connexion, une personne sans équipe reçoit une proposition :
 
-Envie de jouer les scénaristes de l'arnaque (pour la bonne cause, bien sûr) ? Le fichier `prompt.txt` est votre grimoire secret. Donnez-le à manger à une IA sympa, et hop, de nouveaux pièges diaboliques (ou des emails innocents) pour peupler la base. Le prompt est précis, il demande :
+1. L’équipe la plus représentée parmi les collègues actifs ayant le même manager.
+2. En cas d’absence de collègues affectés ou d’égalité, l’équipe du manager actif.
+3. Sinon, aucune préconisation : la personne choisit dans la liste.
 
-- Infos d'expéditeur (affichées et réelles)
-- Sujet qui claque (ou qui pue l'arnaque à des kilomètres) et corps du message
-- Type : Phishing démoniaque ou Ange gardien légitime ?
-- Indices : les miettes de pain pour retrouver le chemin de la vérité
-- Techniques utilisées : la panoplie du parfait petit arnaqueur numérique (pour mieux les contrer, évidemment)
+La personne confirme son choix et peut le modifier librement depuis « Équipes ». L’organigramme, les intitulés de poste et les remplacements de managers ne déplacent jamais une affectation déjà choisie. Sans annuaire importé ou synchronisé, le choix reste disponible sans recommandation.
 
----
+La suppression d’une équipe l’archive, retire les affectations actuelles et demande un nouveau choix à la prochaine ouverture d’une page de jeu, y compris avec une session de connexion existante. Les anciennes parties et les battles conservent leurs équipes enregistrées. Le code d’une équipe archivée reste réservé pour préserver son identité historique ; une nouvelle équipe reçoit un nouveau code.
 
-## 🗂️ Structure du projet
+## Battles
 
-```
-PhishChipsBattle/
-├── phishing.html        ← Version standalone (ouvrir directement dans le navigateur)
-├── script.js            ← Logique standalone
-├── emails.js            ← Base de 157 emails (standalone)
-├── style.css
-├── secu.png
-├── help.html
-├── prompt.txt           ← Prompt pour générer de nouveaux emails
-│
-├── backend/             ← API Node.js/Express
-│   ├── Dockerfile
-│   ├── package.json
-│   └── src/
-│       ├── app.js
-│       ├── db/
-│       │   ├── pool.js
-│       │   ├── migrate.js
-│       │   ├── emails-data.js   ← Les 157 emails, seed auto au démarrage
-│       │   └── migrations/
-│       │       └── 001_schema.sql
-│       ├── routes/
-│       │   ├── players.js
-│       │   ├── sessions.js
-│       │   ├── scores.js
-│       │   ├── services.js
-│       │   └── admin.js
-│       └── middleware/
-│           ├── adminAuth.js
-│           └── rateLimiter.js
-│
-├── frontend/            ← Assets servis par Nginx
-│   ├── nginx.conf
-│   ├── phishing.html    ← Version entreprise
-│   ├── script.js        ← Logique entreprise (API calls)
-│   ├── scores.html / scores.js
-│   ├── admin.html / admin.js
-│   ├── help.html
-│   ├── style.css
-│   └── secu.png
-│
-├── docker-compose.yml
-├── .env.example
-│
-└── OnePageVersion/      ← Version autonome en un seul fichier HTML
-    ├── phishing-onepage.html       (3,3 Mo, image intégrée en base64)
-    └── phishing-onepage-light.html (213 Ko, sans image)
+L’administrateur ou l’organisateur publie une compétition : individuelle avec des participants sélectionnés, individuelle dans une équipe, ou entre plusieurs équipes. Il fixe début, fin, difficulté, nombre d’emails, tentatives (1 à 5) et jokers (0 à 3).
+
+**La publication fige les joueurs déjà inscrits et leurs équipes**, même si le début est ultérieur. Les nouveaux arrivants participeront aux prochaines battles. Chaque participant reçoit la même sélection et le même ordre d’emails. Reprendre une tentative en cours renouvelle son accès sans consommer une tentative supplémentaire ni remettre le chrono à zéro.
+
+Le classement individuel retient le meilleur score valide, puis le temps de décision cumulé, l’heure de fin et l’identifiant en cas d’égalité. Une battle entre équipes utilise la moyenne du meilleur score de **tous les inscrits** ; un absent ou un participant disqualifié compte pour zéro. Le taux de participation est affiché. Ces classements sont séparés du classement d’entraînement (top 10 par équipe).
+
+À l’échéance, les nouvelles réponses sont refusées. La consultation des résultats clôture et enregistre le classement ; l’organisateur peut aussi clôturer plus tôt. Les essais en cours sont alors terminés avec leurs points acquis. Une correction administrative ultérieure peut mettre à jour ces résultats, avec un historique.
+
+Le chrono, le nombre de jokers, l’identité et les points sont contrôlés par le serveur. Ces contrôles n’empêchent pas le partage de réponses ou la mémorisation des emails d’entraînement.
+
+## Administration et scores
+
+- **Joueur** : jouer, choisir son équipe, consulter classements et profils internes.
+- **Organisateur** : publier et clôturer des battles.
+- **Administrateur** : gérer les équipes et l’annuaire, consulter les statistiques, corriger ou disqualifier une partie terminée.
+
+Une correction exige un motif, conserve acteur/date/ancien et nouveau score, et refuse une modification fondée sur une version périmée. Une disqualification exclut la partie des classements et des statistiques. Les réponses restent conservées pour le récapitulatif pédagogique. Les badges déjà obtenus ne sont pas révoqués automatiquement par une correction.
+
+Le taux de réussite et le temps de décision pédagogique distinguent les réponses humaines des jokers. Les 85 badges du catalogue comprennent désormais des seuils atteignables ; les badges de classement signalent une place atteinte à la fin d’une partie, pas une victoire définitivement attribuée en fin de mois.
+
+## Configurer Microsoft Entra ID
+
+1. Créer une inscription d’application **mono-tenant**, plateforme Web, avec l’URI de redirection exacte `https://votre-domaine/api/auth/entra/callback` (ou `http://localhost:8080/api/auth/entra/callback` en développement).
+2. Renseigner `.env` : `AUTH_MODE=entra`, `APP_URL`, `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID` et `ENTRA_CLIENT_SECRET`. Conserver un `JWT_SECRET` aléatoire. Entra exige HTTPS hors localhost.
+3. Définir les rôles d’application `PhishChips.Admin` et `PhishChips.Organizer` et les attribuer aux personnes ou groupes concernés. Sans rôle, un compte obtient les droits joueur. Restreindre les utilisateurs autorisés depuis l’application d’entreprise Entra.
+4. Pour la synchronisation d’annuaire, ajouter la permission **applicative** Microsoft Graph `User.Read.All` avec consentement administrateur. Vérifier dans le tenant la récupération des managers via la requête `/users?$expand=manager($select=id)` utilisée par le projet. L’import JSON complet reste disponible si cette lecture n’est pas accordée ou compatible.
+5. Relancer `docker compose up -d --build --wait`, puis tester un joueur, un organisateur et un administrateur réels.
+
+Le SSO utilise le flux code avec PKCE, état lié au navigateur, nonce et validation de signature, audience, émetteur et tenant. L’identité est liée à l’identifiant Entra `oid`, jamais à un email saisi. Le SSO et Graph sont implémentés ; **la validation avec un tenant réel reste à effectuer**.
+
+Pour un déploiement derrière un proxy HTTPS, garder interface et API sur une seule origine, adapter le proxy et `TRUST_PROXY`, et vérifier les adresses clientes. Le Nginx fourni remplace l’en-tête d’adresse transmis par son client direct ; derrière un autre proxy, configurer explicitement la chaîne de confiance et la restitution de l’IP réelle. Prévoir sauvegardes PostgreSQL et rotation du secret Entra selon vos procédures.
+
+Références officielles : [flux code Microsoft](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow), [rôles d’application](https://learn.microsoft.com/en-us/entra/identity-platform/howto-add-app-roles-in-apps), [liste des utilisateurs Graph](https://learn.microsoft.com/en-us/graph/api/user-list?view=graph-rest-1.0), [lecture du manager](https://learn.microsoft.com/en-us/graph/api/user-list-manager?view=graph-rest-1.0).
+
+## Reprendre une ancienne base
+
+La migration `003_enterprise.sql` est automatique et transactionnelle. Elle conserve les données, rend les pseudos uniques sans perdre les comptes, et ajoute comptes authentifiés, affectations historiques, battles et modération.
+
+Les anciennes parties portent `rules_version=0` : leurs scores restent en base mais sont exclus des nouveaux classements vérifiés. L’ancien logiciel ne mémorisait pas l’équipe au moment d’une partie ; la migration reprend donc l’équipe présente au moment de la migration, sans prétendre reconstruire les changements antérieurs. Un ancien compte créé avec un simple pseudo/email n’est jamais revendiqué automatiquement par un compte Entra ou une inscription locale.
+
+Faire une sauvegarde avant la migration d’une base utilisée. Le rapprochement d’anciens comptes avec des identités vérifiées et l’import versionné des emails restent à développer. Ne pas vider le catalogue pour le mettre à jour : les réponses passées référencent ses emails.
+
+## Vérifications
+
+La suite utilise une base **jetable et dédiée**, dont le nom finit par `_test`. Depuis la racine :
+
+```powershell
+docker compose -p phishchips-reprise-test -f backend/tests/compose.yml up -d --wait
+cd backend
+npm ci
+npm run check
+$env:TEST_DATABASE_URL='postgres://pcb_test:pcb_test_only@127.0.0.1:15432/phishchips_test'
+npm test
+npm audit --omit=dev
+cd ..
+docker compose -p phishchips-reprise-test -f backend/tests/compose.yml down
 ```
 
----
+La base de test est en mémoire et doit être neuve pour chaque exécution complète (premier administrateur et classement global). Elle disparaît à l’arrêt de son conteneur. La suite teste authentification, permissions, concurrence, recommandations, choix libre, archivage, chrono, reprise et réponses idempotentes, battles, corrections, classements, badges et migration historique. Un workflow GitHub Actions reproduit ces contrôles avec Node 24 et PostgreSQL 16 ; il sera exécuté après publication sur GitHub.
 
-## 🔧 Utilisation standalone (sans Docker)
+## Documents
 
-Pas besoin d'invoquer des démons informatiques :
+- [Dev book actualisé](DEV_BOOK.md) : état, décisions et travaux restants.
+- [Audit avant corrections du 28 septembre 2026](ETAT_PROJET_2026-09-28.md).
+- [Dev book historique](docs/archives/DEV_BOOK_2026-04-29.md) et [README historique](docs/archives/README_HISTORIQUE.md).
 
-1. Clonez ou téléchargez le dépôt
-2. Ouvrez `phishing.html` (ou une version OnePageVersion) dans votre navigateur
-3. Sauvez le monde virtuel, un email bidon à la fois
-
-C'est tout. Votre navigateur suffit.
-
----
-
-*Phish & Chips Battle – parce que la cybersécurité, c'est mieux quand ça fait un peu mal à l'ego.*
-
-Affûtez vos moustaches de détective anti-phishing et devenez le Sherlock Holmes du spam (les frites sont virtuelles, désolé) !
-
-## 📋 Description
-
-Bienvenue chez **Phish & Chips**, le fast-food de la cybersécurité où le plat du jour, c'est du phishing ! Votre mission, si vous l'acceptez (et vous n'avez pas vraiment le choix, c'est un jeu) : devenir un pro du tri d'emails. Démasquez les arnaques sournoises, protégez les messages innocents des griffes des cyber-vilains, et faites-le avec style (ou en pyjama, on ne juge pas).
-
-Choisissez votre niveau de difficulté : de 'Stagiaire en sueur' à 'Cyber-Ninja vétéran qui a tout vu'. Chaque bonne réponse vous rapproche de la gloire éternelle (et d'un meilleur score). En cas d'erreur?!! Non vous ne voulez pas le savoir. Mais pas de panique, chaque feedback est une pépite de sagesse pour ne plus jamais vous faire avoir par un prince nigérian en détresse financière.
-
-## 🖼️ Aperçu du jeu
-
-Voici quelques captures d'écran pour illustrer l'interface du jeu :
-
-![Accueil du jeu Phish & Chips](img/PhishChips-accueil.png)
-*Page d'accueil de Phish & Chips*
-
-![Exemple d'email dans Phish & Chips](img/PhishChips-mail.png)
-*Affichage d'un email à analyser*
-
-![Résultat d'analyse dans Phish & Chips](img/PhishChips-resultat.png)
-*Feedback après l'analyse d'un email*
-
-## 🎮 Fonctionnalités
-
-- **Interface plus vraie que nature** (ou presque) : On se croirait dans sa boîte mail. 
-- **Trois niveaux de souffrance... euh, de difficulté** : Facile (pour tremper l'orteil sans se noyer), Normal (ça commence à picoter sérieusement), et Hardcore (préparez le café, les mouchoirs, et peut-être un psychologue).
-- **Un score qui fait frémir (ou pleurer)** : Grimpez les échelons, de 'Bleu Bité du Web' à 'Maître Zen de l'Anti-Phishing', et frimez devant vos amis (ou votre chat).
-- **Feedback qui claque (et qui éduque)** : Notre agent Sécu, un brin sardonique mais toujours pédagogue, vous dit tout, sans langue de bois mais avec des images (et parfois des blagues de papa).
-- **Devenez accro aux stats (c'est légal, promis)** : Combien de méchants mails démasqués ? Quel est votre temps de réaction de super-héros ? Des chiffres pour briller en société !
-- **Le Joker "SOS Sécu"** : 3 appels à un ami (virtuel, un peu bourru, mais efficace) par partie. Utilisez-les sagement, jeune padawan, la Force est limitée.
-
-## 🛠️ Structure du Projet
-
-### Fichiers Principaux
-
-- **phishing.html** : Structure HTML du jeu
-- **style.css** : Styles et mise en page
-- **script.js** : Logique du jeu et interactions
-- **emails.js** : Base de données des emails (légitimes et phishing)
-- **secu.png** : Image de l'agent de sécurité qui fournit le feedback
-- **help.html** : Page d'aide et d'instructions
-- **OnePageVersion/phishing-onepage.html** : Version complète du jeu en un seul fichier HTML avec image en base64 (3.3Mo).
-- **OnePageVersion/phishing-onepage-light.html** : Version complète du jeu en un seul fichier HTML sans image donc plus légère (213Ko).
-- **prompt.txt** : Prompt pour générer de nouveaux scénarios d'emails
-
-### Dossiers
-
-- **OnePageVersion/** : Versions du jeu en une seule page HTML :
-  - **phishing-onepage.html** : Version complète avec l'image de l'agent de sécurité intégrée en base64
-  - **phishing-onepage-light.html** : Version légère sans l'image de l'agent de sécurité pour un fichier plus petit
-- **SupabaseVersion/** : Version avec stockage des scores sur Supabase (en développement)
-
-## 📧 Génération d'Emails
-
-Envie de jouer les scénaristes de l'arnaque (pour la bonne cause, bien sûr !) ? Le fichier `prompt.txt` est votre grimoire secret. Donnez-le à manger à une IA sympa, et hop, de nouveaux pièges diaboliques (ou des emails innocents, faut varier les plaisirs) pour peupler `emails.js`. Et qui sait, votre création deviendra peut-être le cauchemar (ou le fou rire) du prochain joueur !
-
-Le prompt est super précis, il demande même la couleur des chaussettes de l'expéditeur :
-- Infos d'expéditeur (affichées et réelles)
-- Sujet qui claque (ou qui pue l'arnaque à des kilomètres) et corps du message (où le diable est souvent dans les détails... et les fautes d'orthographe)
-- Type : Phishing démoniaque ou Ange gardien légitime ? Faites vos jeux !
-- Indices : les miettes de pain pour retrouver le chemin de la vérité (ou du précipice)
-- Techniques de Sioux : la panoplie du parfait petit arnaqueur numérique (pour mieux les contrer, évidemment).
-
-## 🚀 Évolutions Prévues
-
-### Version One Page : Le jeu à emporter partout, même aux toilettes !
-Plus besoin de jongler avec une brouette de fichiers ! Un seul HTML pour les gouverner tous. Parfait pour partager votre nouveau jeu préféré avec mamie Georgette (attention à la crise cardiaque), votre boss (pour lui prouver que vous êtes un AS de la cyber), ou même le faire tourner sur un grille-pain connecté (on n'a pas testé, mais si vous y arrivez, envoyez une photo !).
-
-### Version Supabase : La compétition entre en jeu (et ça va saigner... virtuellement) !
-Bientôt, quand on aura soudoyé assez de hamsters pour faire tourner les serveurs, préparez-vous à :
-- Voir votre nom en lettres de feu (ou juste en gras, c'est moins cher) en haut du classement.
-- Défier vos collègues pour savoir qui est le vrai boss de l'anti-phishing (et gagner le droit de choisir le café pendant une semaine).
-- Analyser vos stats comme un profiler du FBI pour devenir une machine imbattable (ou juste pour voir où vous vous êtes lamentablement planté).
-- Peut-être même des badges et des succès, si on trouve des dessins rigolos et pas trop chers.
-
-## 🔧 Installation et Utilisation
-
-1. **Récupérez le trésor (sans vous faire hameçonner en chemin)** : Tapez `git clone https://github.com/ZA512/PhishingGame.git` dans votre terminal préféré. Si vous ne savez pas ce qu'est un terminal, demandez à votre canard en plastique, il sait peut-être, ou cherchez sur Google, c'est plein de gens sympas qui expliquent des trucs.
-2. **Double-cliquez comme si votre vie (numérique) en dépendait** : Trouvez le fichier `phishing.html` (ou une des versions OnePage si vous êtes du genre minimaliste) et ouvrez-le avec votre navigateur web favori.
-3. **Sauvez le monde (virtuel), un email bidon à la fois** : Cliquez sur "Démarrer l'Analyse" et que la chasse aux malandrins du web commence !
-
-C'est tout ! Pas besoin d'invoquer des démons informatiques, de sacrifier un poulet ou d'installer 150 paquets mystérieux. Votre navigateur suffit. Si ça c'est pas de la magie moderne !
-
----
-
-# 🔐 Phish & Chips – Because you're gonna get a lot of phishing.
-
-Sharpen your anti-phishing detective 'stache and become the Sherlock Holmes of spam (sorry, the chips are virtual)!
-
-## 📋 Description
-
-Welcome to **Phish & Chips**, the cybersecurity fast-food joint where today's special is... phishing! Your mission, should you choose to accept it (and you don't really have a choice, it's a game): become an email-sorting guru. Unmask sneaky scams, shield innocent messages from the clutches of cyber-villains, and do it with style (or in your PJs, no judgment here).
-
-Pick your difficulty level: from 'Sweaty Intern' to 'Seen-it-all Cyber Ninja.' Every right answer gets you closer to eternal glory (and a better score). Make a mistake?!! You *really* don't want to know. But don't panic, every piece of feedback is a nugget of wisdom to ensure you're never again fooled by a financially distressed Nigerian prince.
-
-## 🎮 Features
-
-- **An interface truer than life** (almost): Feels just like your inbox.
-- **Three levels of suffering... er, difficulty**: Easy (dip your toe in without drowning), Normal (it's starting to tingle seriously), and Hardcore (get the coffee, tissues, and maybe a therapist ready).
-- **A score that'll make you shiver (or cry)**: Climb the ranks from 'Web Newbie' to 'Anti-Phishing Zen Master,' and show off to your friends (or your cat).
-- **Feedback that slaps (and educates)**: Our Security Agent, a tad sarcastic but always a teacher, tells you everything, straight up, with pictures (and sometimes dad jokes).
-- **Get hooked on stats (it's legal, we swear)**: How many baddie emails unmasked? What's your superhero reaction time? Numbers to make you shine at parties!
-- **The "Security SOS" Joker**: 3 phone-a-friends (virtual, a bit grumpy, but effective) per game. Use them wisely, young padawan, the Force is limited.
-
-## 🛠️ Project Structure
-
-### Main Files
-
-- **phishing.html**: HTML structure of the game
-- **style.css**: Styles and layout
-- **script.js**: Game logic and interactions
-- **emails.js**: Email database (legitimate and phishing)
-- **secu.png**: Image of the security agent providing feedback
-- **help.html**: Help and instructions page
-- **OnePageVersion/phishing-onepage.html**: Complete game version in a single HTML file with base64 embedded image (3.3MB).
-- **OnePageVersion/phishing-onepage-light.html**: Complete game version in a single HTML file, lighter version without the image (213KB).
-- **prompt.txt**: Prompt to generate new email scenarios
-
-### Folders
-
-- **OnePageVersion/**: Single-page HTML versions of the game:
-  - **phishing-onepage.html**: Complete version with the security agent image embedded in base64
-  - **phishing-onepage-light.html**: Lightweight version without the security agent image for a smaller file size
-- **SupabaseVersion/**: Version with score storage on Supabase (in development)
-
-## 📧 Email Generation
-
-Fancy playing scam screenwriter (for a good cause, of course!)? The `prompt.txt` file is your secret spellbook. Feed it to a friendly AI, and poof, new diabolical traps (or innocent emails, gotta mix it up) to populate `emails.js`. And who knows, your creation might become the next player's nightmare (or laugh riot)!
-
-The prompt is super specific, it even asks for the sender's sock color:
-- Sender info (displayed and real)
-- A subject line that pops (or stinks of a scam from a mile away) and a message body (where the devil is often in the details... and the typos)
-- Type: Demonic phishing or legitimate guardian angel? Place your bets!
-- Clues: breadcrumbs to find the path to truth (or the abyss)
-- Cunning Tricks: the toolkit of the perfect little digital con artist (the better to thwart them, naturally).
-
-## 🚀 Planned Developments
-
-### One Page Version: The game to take everywhere, even to the loo!
-No more juggling a wheelbarrow of files! One HTML to rule them all. Perfect for sharing your new favorite game with Grandma Agnes (watch out for heart attacks with those tricky emails), your boss (to prove you're a cyber-whiz), or even running it on a smart toaster (we haven't tried, but if you do, send pics!).
-
-### Supabase Version: The competition begins (and there will be blood... virtually)!
-Soon, when we've bribed enough hamsters to power the servers, get ready to:
-- See your name in lights (or just bold, it's cheaper) at the top of the leaderboard.
-- Challenge your colleagues to see who's the real anti-phishing boss (and win coffee-choosing rights for a week).
-- Analyze your stats like an FBI profiler to become an unbeatable machine (or just to see where you epically failed).
-- Maybe even badges and achievements, if we find some funny, not-too-expensive designs.
-
-## 🔧 Installation and Usage
-
-1. **Grab the treasure (without getting hooked yourself)**: Type `git clone https://github.com/ZA512/PhishingGame.git` into your favorite terminal. If you don't know what a terminal is, ask your rubber ducky, it might know, or Google it – the internet is full of nice people explaining stuff.
-2. **Double-click like your (digital) life depends on it**: Find the `phishing.html` file (or one of the OnePage versions if you're a minimalist) and open it with your favorite web browser.
-3. **Save the (virtual) world, one bogus email at a time**: Click "Start Analysis" and let the hunt for web scoundrels begin!
-
-That's it! No need to summon IT demons, sacrifice a chicken, or install 150 mysterious packages. Your browser is all you need. If that's not modern magic, what is?
-
+Licence GPLv3. Projet original : Matthieu Girard / ZA512.

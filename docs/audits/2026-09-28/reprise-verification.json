@@ -1,0 +1,85 @@
+{
+  "date": "2026-09-28",
+  "branch": "codex/reprise-entreprise",
+  "node": "24.21.0",
+  "postgres": "16",
+  "nginx": "1.30.5",
+  "automaticTests": {
+    "report": "reprise-tests.tap",
+    "failed": 0,
+    "passed": 13
+  },
+  "syntax": "passed",
+  "npmAuditProduction": {
+    "vulnerabilities": 0
+  },
+  "browser": {
+    "adminWithoutTeam": "passed",
+    "chooseTeam": "passed",
+    "startGameAndJoker": "passed",
+    "createTeam": "passed",
+    "consoleErrors": 0,
+    "login": "passed",
+    "adminMobile390px": "passed"
+  },
+  "http": [
+    {
+      "path": "/login.html",
+      "status": 200,
+      "csp": true,
+      "noSniff": true,
+      "cache": "must-revalidate, no-cache"
+    },
+    {
+      "path": "/account.js",
+      "status": 200,
+      "csp": true,
+      "noSniff": true,
+      "cache": "must-revalidate, no-cache"
+    },
+    {
+      "path": "/enterprise.css",
+      "status": 200,
+      "csp": true,
+      "noSniff": true,
+      "cache": "must-revalidate, no-cache"
+    },
+    {
+      "path": "/api/auth/config",
+      "status": 200,
+      "csp": true,
+      "noSniff": true,
+      "cache": "no-store"
+    },
+    {
+      "path": "/api/auth/me",
+      "status": 401,
+      "csp": true,
+      "noSniff": true,
+      "cache": "no-store"
+    },
+    {
+      "path": "/nginx.conf",
+      "status": 403,
+      "csp": true,
+      "noSniff": true,
+      "cache": ""
+    },
+    {
+      "path": "/security-headers.conf",
+      "status": 403,
+      "csp": true,
+      "noSniff": true,
+      "cache": ""
+    }
+  ],
+  "entraRealTenant": "not configured / not tested",
+  "githubWorkflow": "not run remotely",
+  "demo": {
+    "url": "http://localhost:8080/login.html",
+    "mode": "local",
+    "users": 0,
+    "activeBadges": 85,
+    "emails": 162
+  }
+}
