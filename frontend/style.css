@@ -81,17 +81,23 @@ body {
   background: var(--bg-color);
   color: var(--text-color);
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  justify-content: flex-start;
   align-items: center;
   min-height: 100vh;
+  overflow-y: auto;
+}
+
+body.game-page {
+  height: 100dvh;
   overflow: hidden;
 }
 
 #game-container {
-  width: 90%;
+  width: calc(100% - 32px);
   max-width: 1400px;
-  height: 95vh;
-  max-height: 840px;
+  flex: 1;
+  min-height: 0;
   background: var(--primary-color);
   border: 1px solid var(--border-color);
   border-radius: 4px;
@@ -259,15 +265,38 @@ body {
 
 /* Styles pour le format diplôme */
 #game-over-screen {
+  justify-content: flex-start;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding: 24px;
+  gap: 16px;
   background-image: linear-gradient(
     to bottom,
     var(--secondary-color),
     var(--primary-color)
   );
-  border: 15px solid var(--border-color);
+  border: 8px solid var(--border-color);
   box-shadow:
     0 0 20px rgba(0, 0, 0, 0.1),
     inset 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+#game-over-screen > * {
+  flex-shrink: 0;
+  max-width: 100%;
+}
+
+#game-over-screen h2,
+#game-over-screen .score-link {
+  margin: 0;
+}
+
+.result-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 /* Styles pour le score et l'appréciation */
@@ -275,7 +304,7 @@ body {
   display: block;
   font-size: 1.3em;
   color: var(--text-color);
-  margin: 15px 0;
+  margin: 0;
   padding: 10px;
   border-top: 1px solid var(--border-color);
   border-bottom: 1px solid var(--border-color);
@@ -373,163 +402,229 @@ body {
   font-size: 1.2em;
 }
 
-/* --- Rank Slot Machine --- */
+/* --- Rank cylinder --- */
 #rank-display {
-  margin: 20px auto;
-  position: relative;
-  width: 90%;
-  max-width: 750px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.rank-arrow {
-  font-size: 2.5em;
-  color: var(--accent-color);
-  margin-bottom: 5px;
-  z-index: 10; /* S'assurer qu'elle est au-dessus du cylindre */
-  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 760px;
 }
 
 #rank-cylinder-fixed {
+  --rank-face-height: 160px;
+  --rank-radius: 193px;
   width: 100%;
-  max-width: 700px; /* Augmenté de 500px à 700px */
-  margin: 0 auto;
-  perspective: 1200px; /* Augmenté pour un effet plus prononcé */
+  height: calc(var(--rank-face-height) * 2.5 + 32px);
   position: relative;
-  height: 320px; /* Augmenté de 240px à 320px pour mieux voir les panneaux */
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  transform-style: preserve-3d; /* Assure que les enfants conservent leur position 3D */
+  perspective: 1100px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: linear-gradient(
+    to bottom,
+    var(--secondary-color),
+    var(--primary-color) 35%,
+    var(--primary-color) 65%,
+    var(--secondary-color)
+  );
+  box-shadow: inset 0 1px 12px var(--shadow-color);
+}
+
+#rank-cylinder-fixed::before,
+#rank-cylinder-fixed::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 36px;
+  z-index: 4;
+  pointer-events: none;
+}
+
+#rank-cylinder-fixed::before {
+  top: 0;
+  background: linear-gradient(var(--secondary-color), transparent);
+}
+
+#rank-cylinder-fixed::after {
+  bottom: 0;
+  background: linear-gradient(transparent, var(--secondary-color));
+}
+
+.rank-reel-rotor {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: translateZ(calc(-1 * var(--rank-radius))) rotateX(0deg);
 }
 
 .rank-panel {
-  width: 100%;
-  background-color: var(--secondary-color);
-  border: 2px solid var(--border-color);
-  border-radius: 8px;
-  padding: 15px 25px; /* Augmenté le padding horizontal de 15px à 25px */
-  box-sizing: border-box;
   position: absolute;
-  left: 0;
+  top: 50%;
+  left: 20px;
+  right: 20px;
+  height: var(--rank-face-height);
+  margin-top: calc(var(--rank-face-height) / -2);
+  background-color: var(--secondary-color);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px;
+  min-width: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  min-height: 80px; /* Hauteur minimum au lieu de hauteur fixe */
+  backface-visibility: hidden;
+  transform: rotateX(var(--face-angle)) translateZ(var(--rank-radius));
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s;
 }
 
-.current-rank {
-  transform: translateY(0);
+.rank-face-content {
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.rank-panel.rank-in-view {
+  opacity: 0.78;
+  visibility: visible;
+}
+
+.rank-panel.current-rank {
+  background: var(--primary-color);
+  box-shadow: 0 3px 10px var(--shadow-color);
+  opacity: 1;
+}
+
+.rank-reel-focus {
+  position: absolute;
+  top: 50%;
+  left: 19px;
+  right: 19px;
+  height: calc(var(--rank-face-height) + 2px);
+  transform: translateY(-50%);
+  border: 2px solid var(--accent-color);
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 3px var(--highlight-color),
+    0 4px 16px var(--shadow-color);
   z-index: 3;
-  border: 3px solid var(--accent-color);
-  box-shadow: 0 4px 15px rgba(var(--accent-color-rgb), 0.5);
-  animation: highlight-rank 2s ease-in-out infinite alternate;
-  min-height: 100px; /* Hauteur minimum au lieu de hauteur fixe */
+  pointer-events: none;
 }
 
-.previous-rank {
-  transform: translateY(-120px) rotateX(35deg) scale(0.8);
-  z-index: 1;
-  opacity: 0.65;
-  filter: brightness(0.8);
-  box-shadow: 0 -8px 15px rgba(0, 0, 0, 0.1);
+.rank-reel-focus::before {
+  content: "";
+  position: absolute;
+  top: calc(50% - 7px);
+  left: -13px;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-left: 9px solid var(--accent-color);
 }
 
-.next-rank {
-  transform: translateY(120px) rotateX(-35deg) scale(0.8);
-  z-index: 2;
-  opacity: 0.65;
-  filter: brightness(0.8);
-  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+.is-spinning .rank-panel {
+  opacity: 1;
+  visibility: visible;
 }
 
-@keyframes highlight-rank {
-  from {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  }
-  to {
-    box-shadow: 0 4px 15px rgba(var(--accent-color-rgb), 0.5);
-  }
+.rank-reel-caption {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding-top: 12px;
+  font-size: 0.8rem;
+  color: var(--text-color);
 }
 
-/* Styles conservés pour les éléments à l'intérieur du panneau */
+#rank-position {
+  font-weight: 600;
+}
+
+#rank-replay-btn {
+  color: var(--link-color);
+  font: inherit;
+  border: 1px solid var(--border-color);
+  background: var(--primary-color);
+  border-radius: 20px;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+#rank-replay-btn:hover {
+  background: var(--highlight-color);
+}
+
+#rank-replay-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 3px;
+}
+
+#rank-replay-btn[hidden] {
+  display: none;
+}
+
+.rank-context {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+  color: var(--text-color);
+}
+
 .rank-panel-header {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 10px;
+  gap: 12px;
+  margin-bottom: 8px;
   width: 100%;
-  margin-bottom: 5px;
-  width: 100%;
-  min-height: 40px; /* Hauteur minimale pour assurer un alignement uniforme */
 }
 
 .rank-panel .rank-emoji {
   font-size: 1.5em;
-  margin-right: 15px;
+  flex-shrink: 0;
   line-height: 1;
 }
 
 .rank-panel .rank-title {
-  font-size: 1.4em; /* Augmenté de 1.2em à 1.4em */
+  font-size: 1.4rem;
   font-weight: bold;
   color: var(--accent-color);
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
   line-height: 1.2;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 0;
+  margin: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .rank-panel .rank-description {
-  font-size: 0.9em;
+  font-size: 0.95rem;
   color: var(--text-color);
-  margin-top: 2px;
-  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.05);
-  width: 95%;
-  margin-left: auto;
-  margin-right: auto;
-  line-height: 1.2;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  line-height: 1.45;
 }
 
-/* Styles spécifiques pour le panneau actuel (plus grand) */
 .current-rank .rank-emoji {
-  font-size: 2.2em; /* Augmenté de 2em à 2.2em */
-  margin-right: 20px; /* Augmenté de 15px à 20px */
+  font-size: 2.2em;
 }
 
 .current-rank .rank-title {
-  font-size: 2em; /* Augmenté de 1.8em à 2em */
-  white-space: nowrap; /* Changé de normal à nowrap car nous avons plus d'espace */
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 1.6rem;
 }
 
-/* Styles pour les titres longs */
-.rank-panel .long-title {
-  font-size: 1.2em; /* Augmenté de 0.9em à 1.2em */
-}
-
-.current-rank .long-title {
-  font-size: 1.7em; /* Augmenté de 1.5em à 1.7em */
-}
-
-.current-rank .rank-description {
-  font-size: 1.1em;
-  margin-top: 5px;
-  line-height: 1.3;
+@media (prefers-reduced-motion: reduce) {
+  .rank-panel {
+    transition: none;
+  }
 }
 
 /* --- Game UI --- */
 #game-ui {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  grid-template-rows: minmax(0, 1fr);
   height: 100%;
   width: 100%;
   opacity: 1;
@@ -544,7 +639,8 @@ body {
 }
 
 #email-viewer {
-  flex: 2.5;
+  min-width: 0;
+  min-height: 0;
   background-color: var(--primary-color);
   padding: 20px;
   border-right: 1px solid var(--border-color);
@@ -560,21 +656,27 @@ body {
   position: relative;
   z-index: 2;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .email-header-content {
-  flex: 1;
+  width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
 }
 
 #email-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  margin-top: 5px;
+  width: 100%;
 }
 
 .email-btn {
+  white-space: nowrap;
+  min-height: 40px;
   padding: 6px 12px;
   font-family: var(--font-main);
   font-size: 0.85em;
@@ -782,7 +884,9 @@ body {
 }
 
 #analysis-panel {
-  flex: 1.5;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -1183,7 +1287,8 @@ body {
 
 /* --- New Badges Popup (game-over screen) --- */
 #new-badges-popup {
-  margin-top: 1.5rem;
+  max-width: 760px;
+  margin-top: 0;
   padding: 1rem 1.5rem;
   background: linear-gradient(135deg, #fef9c3, #fef3c7);
   border: 2px solid #f59e0b;
@@ -1211,6 +1316,7 @@ body {
 }
 .badge-item {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
   padding: 0.4rem 0.6rem;
@@ -1256,4 +1362,75 @@ body.dark .badge-desc {
 }
 .profile-link-btn:hover {
   background: #005a9e;
+}
+
+.result-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+@media (max-width: 700px) {
+  #game-container {
+    width: 100%;
+    border-radius: 0;
+  }
+  #game-ui {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  #email-viewer {
+    grid-column: 1;
+    grid-row: 2;
+    padding: 12px;
+    border-right: 0;
+  }
+  #email-header,
+  #email-body-container {
+    padding: 8px;
+  }
+  #analysis-panel {
+    grid-column: 1;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    padding: 12px;
+    border-left: 0;
+    border-bottom: 1px solid var(--border-color);
+    max-height: 35dvh;
+  }
+  .panel-section {
+    margin-bottom: 0;
+    font-size: 0.8rem;
+  }
+  .panel-section h3 {
+    font-size: 0.85rem;
+    margin-bottom: 4px;
+  }
+  .panel-section:nth-child(4) {
+    grid-column: span 2;
+    text-align: left;
+  }
+  #timer {
+    font-size: 2em;
+  }
+  #analysis-panel .abandon-btn {
+    padding: 6px;
+    font-size: 0.75rem;
+  }
+  #game-over-screen {
+    padding: 20px 12px;
+    border-width: 4px;
+  }
+  .rank-panel .rank-title {
+    font-size: 1.1rem;
+  }
+  .current-rank .rank-title {
+    font-size: 1.25rem;
+  }
+  .rank-panel .rank-description {
+    font-size: 0.85rem;
+  }
 }

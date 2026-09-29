@@ -942,6 +942,103 @@ function getRankDetails(finalScore) {
   return { index: idx, rank: RANKS[idx] };
 }
 
+// Eight faces form a cylinder. Only the earned rank and its neighbours remain
+// visible after the spin; the ends of the scale never wrap into a false neighbour.
+let rankReelController = null;
+function renderRankReel(index) {
+  rankReelController?.destroy();
+  const viewport = document.getElementById("rank-cylinder-fixed");
+  const rotor = viewport.querySelector(".rank-reel-rotor");
+  const replay = document.getElementById("rank-replay-btn");
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  const offsets = [0, -1, -2, -3, -4, 3, 2, 1];
+  rotor.replaceChildren();
+  const faces = offsets.map((offset, slot) => {
+    const rankIndex = index + offset;
+    const rank = RANKS[(rankIndex + RANKS.length) % RANKS.length];
+    const neighbour =
+      Math.abs(offset) <= 1 && rankIndex >= 0 && rankIndex < RANKS.length;
+    const face = document.createElement("div");
+    face.className = `rank-panel ${offset === 0 ? "current-rank" : offset === -1 ? "previous-rank" : offset === 1 ? "next-rank" : "extra-rank"}`;
+    face.classList.toggle("rank-in-view", neighbour);
+    face.setAttribute("aria-hidden", String(!neighbour));
+    face.style.setProperty("--face-angle", `${slot * 45}deg`);
+    const context = !neighbour
+      ? "Échelle des rangs"
+      : offset === 0
+        ? "Votre rang"
+        : offset < 0
+          ? "Niveau supérieur"
+          : "Niveau inférieur";
+    face.innerHTML = `<div class="rank-face-content"><p class="rank-context">${context}</p><div class="rank-panel-header"><span class="rank-emoji">${rank.emoji}</span><span class="rank-title">${rank.title}</span></div><p class="rank-description">${rank.desc}</p></div>`;
+    rotor.appendChild(face);
+    return face;
+  });
+  document.getElementById("rank-position").textContent =
+    `Niveau ${RANKS.length - index} sur ${RANKS.length}`;
+  let animation = null;
+  let radius = 0;
+  let lastWidth = 0;
+  const settle = () => {
+    if (animation) animation.onfinish = null;
+    animation?.cancel();
+    animation = null;
+    viewport.classList.remove("is-spinning");
+  };
+  const size = () => {
+    if (!viewport.clientWidth || viewport.clientWidth === lastWidth) return;
+    lastWidth = viewport.clientWidth;
+    settle();
+    // Measure untransformed content, including wrapped titles and descriptions.
+    // Reserving the cylinder's full height keeps it away from the score and badges.
+    const height = Math.ceil(
+      Math.max(
+        130,
+        ...faces.map(
+          (face) => face.querySelector(".rank-face-content").offsetHeight + 32,
+        ),
+      ),
+    );
+    radius = height / (2 * Math.tan(Math.PI / 8));
+    viewport.style.setProperty("--rank-face-height", `${height}px`);
+    viewport.style.setProperty("--rank-radius", `${radius}px`);
+  };
+  const spin = () => {
+    settle();
+    size();
+    if (reducedMotion.matches || !radius) return;
+    viewport.classList.add("is-spinning");
+    const from = index === RANKS.length - 1 ? -765 : -675;
+    animation = rotor.animate(
+      [
+        { transform: `translateZ(${-radius}px) rotateX(${from}deg)` },
+        { transform: `translateZ(${-radius}px) rotateX(0deg)` },
+      ],
+      { duration: 1800, easing: "cubic-bezier(0.12, 0.7, 0.12, 1)" },
+    );
+    animation.onfinish = settle;
+  };
+  const motionChanged = () => {
+    replay.hidden = reducedMotion.matches;
+    if (reducedMotion.matches) settle();
+  };
+  const observer = new ResizeObserver(size);
+  observer.observe(viewport);
+  replay.addEventListener("click", spin);
+  reducedMotion.addEventListener("change", motionChanged);
+  motionChanged();
+  const frame = requestAnimationFrame(spin);
+  rankReelController = {
+    destroy() {
+      cancelAnimationFrame(frame);
+      settle();
+      observer.disconnect();
+      replay.removeEventListener("click", spin);
+      reducedMotion.removeEventListener("change", motionChanged);
+    },
+  };
+}
+
 // --- End Game ---
 async function endGame(won, abandoned = false) {
   gameActive = false;
@@ -950,37 +1047,25 @@ async function endGame(won, abandoned = false) {
   hideTooltip();
   gameUi.classList.add("hidden");
   gameOverScreen.classList.remove("hidden");
+  gameOverScreen.scrollTop = 0;
 
   const { index: curIdx, rank: curRank } = getRankDetails(score);
   const emailsPlayed = emailsSuccessfullyClassified;
   finalScoreEl.innerHTML = `<span class="score-diploma">Vous avez atteint le score <strong>${curRank.appreciation}</strong> de ${score} (${emailsPlayed} emails traités)</span>`;
 
-  const prev = document.querySelector(".previous-rank");
-  const curr = document.querySelector(".current-rank");
-  const next = document.querySelector(".next-rank");
-
-  const gen = (r) =>
-    `<div class="rank-panel-header"><span class="rank-emoji">${r.emoji}</span><span class="rank-title ${r.title.length > 30 ? "long-title" : ""}">${r.title}</span></div><p class="rank-description">${r.desc}</p>`;
-
-  if (prev && curr && next) {
-    prev.innerHTML = gen(RANKS[Math.max(0, curIdx - 1)]);
-    curr.innerHTML = gen(curRank);
-    next.innerHTML = gen(RANKS[Math.min(RANKS.length - 1, curIdx + 1)]);
-    prev.style.visibility = curIdx === 0 ? "hidden" : "";
-    next.style.visibility = curIdx === RANKS.length - 1 ? "hidden" : "";
-  }
+  renderRankReel(curIdx);
 
   if (abandoned) {
     gameOverTitleEl.textContent = "ABANDON";
-    gameOverTitleEl.style.color = getCssVariableValue("--warning-color");
+    gameOverTitleEl.style.color = "var(--warning-color)";
     gameOverMessageEl.textContent = `${playerName}, vous avez quitté la mission. Score conservé !`;
   } else if (won) {
     gameOverTitleEl.textContent = "TILT ! TOUS LES MAILS TRAITÉS";
-    gameOverTitleEl.style.color = getCssVariableValue("--safe-color");
+    gameOverTitleEl.style.color = "var(--safe-color)";
     gameOverMessageEl.textContent = `Incroyable ${playerName} ! Vous avez traité tous les emails disponibles !`;
   } else {
     gameOverTitleEl.textContent = "MISSION ÉCHOUÉE";
-    gameOverTitleEl.style.color = getCssVariableValue("--phishing-color");
+    gameOverTitleEl.style.color = "var(--phishing-color)";
     gameOverMessageEl.textContent = `Dommage ${playerName}. L'entreprise a été compromise.`;
   }
 
@@ -1045,13 +1130,17 @@ function renderNewBadges(badges) {
     ? `<a href="profile.html?id=${playerId}" class="profile-link-btn">👤 Voir mon profil & tous mes badges</a>`
     : "";
 
-  container.innerHTML = badgesHtml + profileLink;
+  container.innerHTML = badgesHtml;
+  const links = document.createElement("div");
+  links.className = "result-links";
+  links.innerHTML = profileLink;
+  container.appendChild(links);
   if (sessionId) {
     const recap = document.createElement("a");
     recap.href = "/recap.html?id=" + sessionId;
     recap.className = "profile-link-btn";
     recap.textContent = "Voir les emails et mes réponses";
-    container.appendChild(recap);
+    links.appendChild(recap);
   }
   gameOverScreen.appendChild(container);
 
@@ -1062,6 +1151,8 @@ function renderNewBadges(badges) {
 // --- Event Listeners ---
 startBtn.addEventListener("click", startGame);
 restartBtn.addEventListener("click", () => {
+  rankReelController?.destroy();
+  rankReelController = null;
   if (new URLSearchParams(location.search).has("battle")) {
     location.assign("/battles.html");
     return;

@@ -78,9 +78,6 @@
         margin: 0;
         font-family: sans-serif;
       }
-      #game-container {
-        flex: 1 0 auto;
-      }
       .game-footer {
         flex-shrink: 0;
         width: 100%;
@@ -136,12 +133,13 @@
       /* ---- Start Screen : login card ---- */
       #start-screen {
         align-items: center;
-        justify-content: center;
+        justify-content: safe center;
         padding: 20px;
         overflow-y: auto;
       }
       .start-card {
         width: 100%;
+        flex-shrink: 0;
         max-width: 500px;
         background: var(--primary-color);
         border: 1px solid var(--border-color);
@@ -264,7 +262,7 @@
       }
     </style>
   </head>
-  <body>
+  <body class="game-page">
     <!-- Theme Toggle -->
     <div id="theme-controls">
       <button
@@ -377,14 +375,7 @@
       <div id="game-ui" class="hidden">
         <div id="email-viewer">
           <div id="email-header">
-            <div class="email-header-content">
-              <p>
-                <strong>De :</strong>
-                <span id="email-sender" class="inspectable"></span>
-              </p>
-              <p><strong>Sujet :</strong> <span id="email-subject"></span></p>
-            </div>
-            <div id="email-actions">
+            <div id="email-actions" role="group" aria-label="Actions du mail">
               <button id="classify-safe-btn" class="email-btn" disabled>
                 ↩️ Répondre
               </button>
@@ -394,6 +385,13 @@
               <button id="auto-analyze-btn" class="email-btn">
                 🔍 SOS Sécu (<span id="auto-analyzes-left">3</span>)
               </button>
+            </div>
+            <div class="email-header-content">
+              <p>
+                <strong>De :</strong>
+                <span id="email-sender" class="inspectable"></span>
+              </p>
+              <p><strong>Sujet :</strong> <span id="email-subject"></span></p>
             </div>
           </div>
           <div id="email-body-container">
@@ -446,17 +444,24 @@
         <p id="game-over-message">L'entreprise a été compromise.</p>
         <p><span id="final-score">0</span></p>
 
-        <div id="rank-cylinder-fixed">
-          <div class="rank-panel previous-rank"></div>
-          <div class="rank-panel current-rank"></div>
-          <div class="rank-panel next-rank"></div>
-        </div>
+        <section id="rank-display" aria-label="Votre niveau">
+          <div id="rank-cylinder-fixed">
+            <div class="rank-reel-rotor"></div>
+            <div class="rank-reel-focus" aria-hidden="true"></div>
+          </div>
+          <div class="rank-reel-caption">
+            <span id="rank-position"></span>
+            <button id="rank-replay-btn" type="button">
+              ↻ Rejouer l’animation
+            </button>
+          </div>
+        </section>
 
         <p id="game-mode-message"></p>
-        <br />
-        <button id="restart-btn" class="btn">Recommencer</button>
-        <br />
-        <a href="scores.html" class="score-link">🏆 Voir les classements</a>
+        <div class="result-actions">
+          <button id="restart-btn" class="btn">Recommencer</button>
+          <a href="scores.html" class="score-link">🏆 Voir les classements</a>
+        </div>
       </div>
 
       <!-- Feedback Modal -->

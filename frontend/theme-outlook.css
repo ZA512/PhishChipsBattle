@@ -13,21 +13,17 @@ body.theme-outlook #game-ui::before {
   font-size: 0.75rem;
   padding: 6px 16px;
   letter-spacing: 0.3px;
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 10;
 }
 
 /* --- Main layout override: sidebar + email --- */
 body.theme-outlook #game-ui {
   position: relative;
   display: grid;
-  grid-template-columns: 280px 1fr 320px;
-  grid-template-rows: 32px 1fr;
+  grid-template-columns: 240px minmax(0, 1fr) 260px;
+  grid-template-rows: 32px minmax(0, 1fr);
   gap: 0;
   padding-top: 0;
-  height: 100vh;
+  height: 100%;
   max-width: 100%;
   border: 1px solid var(--border-color);
 }
@@ -38,13 +34,6 @@ body.theme-outlook #game-ui::before {
 }
 
 /* --- Fake Inbox Sidebar --- */
-body.theme-outlook #game-ui::after {
-  content: "";
-  display: block;
-  grid-column: 1;
-  grid-row: 2;
-}
-
 body.theme-outlook .outlook-sidebar {
   grid-column: 1;
   grid-row: 2;
@@ -140,9 +129,9 @@ body.theme-outlook #analysis-panel {
 }
 
 /* --- Responsive: hide sidebar on narrow screens --- */
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
   body.theme-outlook #game-ui {
-    grid-template-columns: 1fr 280px;
+    grid-template-columns: minmax(0, 1fr) 240px;
   }
   body.theme-outlook .outlook-sidebar {
     display: none;
@@ -155,17 +144,17 @@ body.theme-outlook #analysis-panel {
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 700px) {
   body.theme-outlook #game-ui {
-    grid-template-columns: 1fr;
-    grid-template-rows: 32px 1fr auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 32px auto minmax(0, 1fr);
   }
   body.theme-outlook #email-viewer {
     grid-column: 1;
-    grid-row: 2;
+    grid-row: 3;
   }
   body.theme-outlook #analysis-panel {
     grid-column: 1;
-    grid-row: 3;
+    grid-row: 2;
   }
 }

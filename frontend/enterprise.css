@@ -83,6 +83,7 @@ body.enterprise {
   box-sizing: border-box;
   width: 100%;
   align-self: stretch;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 18px;
@@ -94,10 +95,10 @@ body.enterprise {
     14px system-ui,
     sans-serif;
 }
-.theme-controls {
-  position: static !important;
-  align-self: flex-end;
-  margin: 12px 24px;
+.account-nav #theme-controls {
+  position: static;
+  z-index: auto;
+  flex-shrink: 0;
 }
 .start-field select {
   box-sizing: border-box;
@@ -118,13 +119,20 @@ body.enterprise {
 .account-nav a:hover {
   text-decoration: underline;
 }
-.account-nav span {
+.account-nav > span {
   margin-left: auto;
 }
 .account-nav .btn {
   margin: 0;
   font-size: 13px;
   padding: 6px 12px;
+}
+
+@media (max-width: 700px) {
+  .account-nav {
+    gap: 8px 14px;
+    padding: 10px 12px;
+  }
 }
 .notice {
   padding: 12px 16px;

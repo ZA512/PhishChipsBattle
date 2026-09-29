@@ -70,6 +70,8 @@ PCB.ready = (async () => {
       location.assign("/login.html");
     });
     bar.appendChild(logout);
+    const themeControls = document.getElementById("theme-controls");
+    if (themeControls) bar.appendChild(themeControls);
     document.body.prepend(bar);
     return player;
   } catch (error) {
