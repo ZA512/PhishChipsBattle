@@ -1,7 +1,8 @@
-name: API enterprise checks
+name: Enterprise checks and container images
 on:
   push:
   pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -23,8 +24,8 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
           cache: npm
@@ -35,3 +36,134 @@ jobs:
         env:
           TEST_DATABASE_URL: postgres://pcb_test:pcb_test_only@127.0.0.1:5432/phishchips_test
       - run: npm audit --omit=dev
+  images:
+    name: Build and smoke-test packaged images
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Image names
+        shell: bash
+        run: |
+          echo "IMAGE_PREFIX=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=ci-$GITHUB_SHA" >> "$GITHUB_ENV"
+      - name: Build API
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ./backend
+          load: true
+          tags: ${{ env.IMAGE_PREFIX }}-api:${{ env.IMAGE_TAG }}
+          cache-from: type=gha,scope=api-amd64
+          cache-to: type=gha,mode=max,scope=api-amd64
+      - name: Build frontend
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ./frontend
+          load: true
+          tags: ${{ env.IMAGE_PREFIX }}-frontend:${{ env.IMAGE_TAG }}
+          cache-from: type=gha,scope=frontend-amd64
+          cache-to: type=gha,mode=max,scope=frontend-amd64
+      - name: Start deployment Compose without source mounts or a build
+        run: node scripts/smoke-images.mjs
+  publish:
+    name: Publish images to GHCR
+    needs: images
+    if: >-
+      github.event_name != 'pull_request' &&
+      (github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
+       startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    # Serialize publication. A separate branch-head check prevents stale latest tags.
+    concurrency:
+      group: ghcr-publish-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Image names and release tag
+        shell: bash
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          echo "IMAGE_PREFIX=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+          if [ "$REF_TYPE" = tag ]; then
+            if [[ ! "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "Expected a version tag such as v1.2.3" >&2
+              exit 1
+            fi
+            echo "RELEASE_TAG=$REF_NAME" >> "$GITHUB_ENV"
+          else
+            echo "RELEASE_TAG=latest" >> "$GITHUB_ENV"
+          fi
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish API by commit
+        id: api
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ./backend
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}-api:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: |
+            type=gha,scope=api-amd64
+            type=gha,scope=api-multi
+          cache-to: type=gha,mode=max,scope=api-multi
+      - name: Publish frontend by commit
+        id: frontend
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ./frontend
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}-frontend:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: |
+            type=gha,scope=frontend-amd64
+            type=gha,scope=frontend-multi
+          cache-to: type=gha,mode=max,scope=frontend-multi
+      - name: Promote the pair after both builds succeed
+        shell: bash
+        env:
+          API_DIGEST: ${{ steps.api.outputs.digest }}
+          FRONTEND_DIGEST: ${{ steps.frontend.outputs.digest }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          if [ "$REF_TYPE" = branch ]; then
+            HEAD_SHA="$(git ls-remote origin "refs/heads/$DEFAULT_BRANCH" | cut -f1)"
+            if [ "$HEAD_SHA" != "$GITHUB_SHA" ]; then
+              echo "A newer commit exists; published commit images only, leaving latest unchanged." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
+          docker buildx imagetools create \
+            --tag "$IMAGE_PREFIX-api:$RELEASE_TAG" \
+            "$IMAGE_PREFIX-api@$API_DIGEST"
+          docker buildx imagetools create \
+            --tag "$IMAGE_PREFIX-frontend:$RELEASE_TAG" \
+            "$IMAGE_PREFIX-frontend@$FRONTEND_DIGEST"
+          {
+            echo "### Published container images"
+            echo "- $IMAGE_PREFIX-api:$RELEASE_TAG"
+            echo "- $IMAGE_PREFIX-frontend:$RELEASE_TAG"
+            echo "- Commit tag for both: sha-$GITHUB_SHA"
+            echo "- Platforms: linux/amd64, linux/arm64"
+          } >> "$GITHUB_STEP_SUMMARY"

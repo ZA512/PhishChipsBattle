@@ -62,6 +62,7 @@ L’audit a révélé des défauts absents du précédent document :
 | Résultats | Provisoires puis conservés à clôture ; absents à zéro pour la moyenne des équipes | Clôture à la consultation après échéance ou manuelle ; pas de tâche planifiée dédiée. |
 | Modération | Motif obligatoire, acteur/date/avant-après, disqualification et contrôle de version | Les badges déjà obtenus ne sont pas automatiquement révoqués. |
 | Interface | Identité Phish & Chips commune, clair/sombre partagé, connexion/inscription séparées, administration par rubriques, badges regroupés, messagerie simulée dans sa fenêtre | Voir [la refonte et ses vérifications](docs/UI_REFONTE_2026-10-01.md). SSO réel toujours à valider dans le tenant. |
+| Déploiement | Compose sans build ni sources, images API et interface publiées sur GHCR après tests et démarrage de la stack packagée ; amd64/arm64, tags de version et de commit ; Compose de développement séparé | Première publication distante à exécuter après push sur la branche principale. Visibilité des packages GHCR à configurer. |
 | Vérifications | Tests Node + PostgreSQL, migration ancienne base, identités OIDC signées, parcours navigateur et Docker | Le workflow GitHub n’a pas été exécuté à distance tant que les changements ne sont pas publiés. |
 
 ## Règles de résultats

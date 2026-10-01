@@ -4,14 +4,41 @@ Jeu de sensibilisation au phishing pour l’entreprise : entraînement individue
 
 La version Docker utilise exclusivement `frontend/` et `backend/`. Les fichiers de jeu à la racine sont l’ancienne version standalone de [PhishChips](https://github.com/ZA512/PhishChips). Ils sont conservés pour référence ; leur contenu ne constitue pas la version entreprise.
 
-## Essayer localement
+## Déployer les images publiées — Unraid ou autre serveur
+
+Le Compose principal télécharge deux images depuis **GitHub Container Registry** :
+
+- ghcr.io/za512/phishchipsbattle-api
+- ghcr.io/za512/phishchipsbattle-frontend (interface et configuration Nginx incluses)
+
+Il ne contient aucun build ni montage des sources. Sur le NAS, seuls docker-compose.yml et .env sont nécessaires. PostgreSQL reste dans le volume db_data.
+
+1. Attendre une publication réussie du workflow GitHub Actions sur la branche principale. Après la première publication, rendre les **deux packages publics** dans leurs paramètres GitHub pour permettre le téléchargement sans authentification. Sinon, connecter le NAS à GHCR avec un jeton disposant de read:packages.
+2. Copier docker-compose.yml et créer .env à partir de .env.example, avec des secrets aléatoires propres au serveur. Ne pas copier des mots de passe d’exemple.
+3. Pour une démo locale accessible sur le réseau, renseigner AUTH_MODE=local, FRONTEND_BIND_IP=0.0.0.0, FRONTEND_PORT et APP_URL avec l’adresse exacte du NAS (par exemple http://192.168.1.50:8080). Pour Entra, utiliser le domaine HTTPS du reverse proxy et la configuration décrite plus bas.
+4. Dans Compose Manager, démarrer la stack, ou dans un terminal depuis son dossier :
+
+```bash
+docker compose pull
+docker compose up -d --no-build --wait
+```
+
+Pour mettre à jour, reprendre ces deux commandes. Conserver le nom de la stack et le volume PostgreSQL existants. Ne pas supprimer le volume pour une mise à jour.
+
+IMAGE_TAG=latest suit la dernière publication de la branche principale. Une version publiée via un tag Git tel que v1.2.3 peut être choisie avec IMAGE_TAG=v1.2.3 ; les builds par commit utilisent sha- suivi du SHA Git complet. Le même tag est utilisé pour les deux images. IMAGE_PREFIX permet d’utiliser les images d’un fork.
+
+Le workflow effectue les tests API, construit les deux images, puis démarre le **Compose de déploiement sans build ni sources** pour vérifier les fichiers statiques, les en-têtes, le proxy API et la base. Après réussite, il publie linux/amd64 et linux/arm64. Les pull requests et les branches secondaires sont vérifiées sans publier. Un lancement manuel sur la branche principale est également disponible. Les alias latest/version sont promus après la construction réussie des deux images ; un ancien commit ne remplace pas latest si la branche a avancé.
+
+Références : [publication GHCR avec GITHUB_TOKEN](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images), [visibilité et authentification GHCR](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
+
+## Développer et essayer les sources localement
 
 Docker doit être démarré. Depuis la racine, sous PowerShell :
 
 ```powershell
 ./scripts/setup-local.ps1
 # Si .env existe déjà, cette commande le conserve et demande de le modifier explicitement.
-docker compose up -d --build --wait
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build --wait
 ```
 
 Ouvrir **http://localhost:8080/login.html**, avec la même origine que `APP_URL`. Le port reste accessible uniquement depuis la machine locale.
@@ -20,7 +47,7 @@ Pour le premier administrateur, remplir email, mot de passe personnel (12 à 128
 
 Depuis « Administration », créer les équipes. Le premier administrateur peut accéder à cette page avant de choisir une équipe. Les comptes locaux servent à la démonstration et aux tests ; le déploiement entreprise utilise Entra.
 
-Pour arrêter sans perdre les données : `docker compose down`. Le volume PostgreSQL conserve les comptes et résultats. Ne pas ajouter `-v` si les données doivent être conservées.
+Pour arrêter sans perdre les données : `docker compose -f docker-compose.yml -f docker-compose.dev.yml down`. Le volume PostgreSQL conserve les comptes et résultats. Ne pas ajouter `-v` si les données doivent être conservées.
 
 ## Équipes et nouveaux arrivants
 
@@ -64,7 +91,7 @@ Le taux de réussite et le temps de décision pédagogique distinguent les répo
 2. Renseigner `.env` : `AUTH_MODE=entra`, `APP_URL`, `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID` et `ENTRA_CLIENT_SECRET`. Conserver un `JWT_SECRET` aléatoire. Entra exige HTTPS hors localhost.
 3. Définir les rôles d’application `PhishChips.Admin` et `PhishChips.Organizer` et les attribuer aux personnes ou groupes concernés. Sans rôle, un compte obtient les droits joueur. Restreindre les utilisateurs autorisés depuis l’application d’entreprise Entra.
 4. Pour la synchronisation d’annuaire, ajouter la permission **applicative** Microsoft Graph `User.Read.All` avec consentement administrateur. Vérifier dans le tenant la récupération des managers via la requête `/users?$expand=manager($select=id)` utilisée par le projet. L’import JSON complet reste disponible si cette lecture n’est pas accordée ou compatible.
-5. Relancer `docker compose up -d --build --wait`, puis tester un joueur, un organisateur et un administrateur réels.
+5. Relancer `docker compose up -d --no-build --wait`, puis tester un joueur, un organisateur et un administrateur réels. En développement, utiliser aussi le fichier docker-compose.dev.yml et --build.
 
 Le SSO utilise le flux code avec PKCE, état lié au navigateur, nonce et validation de signature, audience, émetteur et tenant. L’identité est liée à l’identifiant Entra `oid`, jamais à un email saisi. Le SSO et Graph sont implémentés ; **la validation avec un tenant réel reste à effectuer**.
 
@@ -97,6 +124,16 @@ docker compose -p phishchips-reprise-test -f backend/tests/compose.yml down
 ```
 
 La base de test est en mémoire et doit être neuve pour chaque exécution complète (premier administrateur et classement global). Elle disparaît à l’arrêt de son conteneur. La suite teste authentification, permissions, concurrence, recommandations, choix libre, archivage, chrono, reprise et réponses idempotentes, battles, corrections, classements, badges et migration historique. Un workflow GitHub Actions reproduit ces contrôles avec Node 24 et PostgreSQL 16 ; il sera exécuté après publication sur GitHub.
+
+Pour reproduire le contrôle des images avant publication, depuis la racine :
+
+```bash
+docker build -t ghcr.io/za512/phishchipsbattle-api:ci-smoke ./backend
+docker build -t ghcr.io/za512/phishchipsbattle-frontend:ci-smoke ./frontend
+node scripts/smoke-images.mjs
+```
+
+Le script utilise des secrets de test, un port disponible et un nom de stack aléatoire. Il supprime uniquement sa stack et son volume dédiés, même en cas d’échec. Il ne lit pas le .env de l’application. Ces constructions locales servent au développement ; le NAS télécharge les images publiées.
 
 ## Documents
 
