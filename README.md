@@ -1,8 +1,75 @@
-# PhishChipsBattle
+# Phish & Chips Battle
 
-Jeu de sensibilisation au phishing pour l’entreprise : entraînement individuel, équipes choisies par les collaborateurs et battles organisées. API Node.js 24 / Express 5, PostgreSQL 16 et interface servie par Nginx.
+**Le fast-food de la cybersécurité. Classez les emails avant qu’ils classent votre carrière.**
 
-La version Docker utilise exclusivement `frontend/` et `backend/`. Les fichiers de jeu à la racine proviennent de l’ancienne version standalone de [PhishChips](https://github.com/ZA512/PhishChips). Son catalogue public a été retiré ; les autres fichiers restent des références historiques.
+Phish & Chips Battle est l’évolution entreprise de [PhishChips](https://github.com/ZA512/PhishChips). On inspecte des mails dans une messagerie simulée, on distingue les messages légitimes des pièges, puis on découvre ce qui devait alerter et le bon réflexe. Le service sécurité fournit les explications. Les appréciations, elles, n’ont pas reçu de formation à la bienveillance.
+
+- **Entraînement individuel** : trois difficultés, un chrono, trois erreurs maximum et des SOS Sécu.
+- **Battles** : compétitions individuelles, dans une équipe ou entre équipes, avec la même série de mails et des règles communes.
+- **Équipes choisies** : proposition à partir de l’organigramme, choix libre du collaborateur, sans réaffectation automatique.
+- **Classements et profils** : résultats d’entraînement et de battle séparés, statistiques personnelles, 19 rangs et 85 badges.
+- **Administration** : équipes, catalogue privé de mails avec import/export JSON, battles, annuaire et corrections de score tracées.
+- **Connexion** : comptes locaux pour les essais ou SSO Microsoft Entra ID pour l’entreprise.
+
+**Une installation neuve ne contient aucun mail.** L’administrateur importe ses propres scénarios, avec les [prompts français](prompt.txt) ou [anglais](prompt-en.txt) pour préparer des lots variés. Les mails réservés aux battles peuvent être séparés de ceux d’entraînement.
+
+## Aperçu de l’interface
+
+Le portail possède son propre thème Phish & Chips, avec une apparence claire ou sombre commune aux pages. La simulation de messagerie garde ses apparences Outlook et Classique dans une fausse fenêtre.
+
+**Entraînement — choisir sa difficulté avant de mettre la prod en danger.**
+
+![Écran d’entraînement avec l’équipe actuelle, les trois difficultés et le bouton de démarrage](docs/images/entrainement.png)
+
+<details>
+<summary>Connexion — on aimerait savoir à qui envoyer le rapport d’incident</summary>
+
+Connexion et création de compte sont séparées. Cette capture montre le mode local ; en mode Entra, le parcours passe par Microsoft. L’amorçage du premier administrateur n’est proposé que tant qu’aucun admin n’existe.
+
+![Formulaire de connexion locale de Phish & Chips, avec un onglet distinct pour créer un compte](docs/images/connexion.png)
+
+</details>
+
+<details>
+<summary>Classements — le tableau des responsabilités</summary>
+
+Comparer les joueurs ou les équipes, filtrer par période et difficulté, puis exporter les résultats en CSV. Les résultats de battle restent dans la compétition concernée.
+
+![Classement d’entraînement avec filtres joueurs ou équipes, période, difficulté et export CSV](docs/images/classements.png)
+
+</details>
+
+<details>
+<summary>Mon dossier — les clics passent, les preuves restent</summary>
+
+Statistiques personnelles, derniers badges obtenus et collection regroupée en familles, avec filtres par état et catégorie.
+
+![Profil du joueur avec statistiques, derniers badges et collection de badges regroupée en familles](docs/images/profil-badges.png)
+
+</details>
+
+<details>
+<summary>Administration — les clés du bureau</summary>
+
+La rubrique Équipes permet d’ajouter, renommer ou retirer une équipe. Les autres rubriques donnent accès au catalogue de mails, aux battles, à la modération, à l’annuaire et aux statistiques.
+
+![Administration, rubrique Équipes, avec les actions ajouter, modifier et supprimer](docs/images/administration-equipes.png)
+
+</details>
+
+Captures fournies le 1er octobre 2026, en thème clair. La [note de refonte](docs/UI_REFONTE_2026-10-01.md) détaille les écrans et leurs vérifications.
+
+## Installation et utilisation
+
+- [Déployer sur Unraid ou un autre serveur](#déployer-les-images-publiées--unraid-ou-autre-serveur)
+- [Essayer les sources localement](#développer-et-essayer-les-sources-localement)
+- [Importer et gérer les mails](#catalogue-privé-de-mails)
+- [Gérer les équipes](#équipes-et-nouveaux-arrivants) et [organiser des battles](#battles)
+- [Administrer et corriger les scores](#administration-et-scores)
+- [Configurer Microsoft Entra ID](#configurer-microsoft-entra-id)
+- [Reprendre une ancienne base](#reprendre-une-ancienne-base) et [exécuter les vérifications](#vérifications)
+
+API Node.js 24 / Express 5, PostgreSQL 16 et interface servie par Nginx. La version Docker utilise exclusivement `frontend/` et `backend/`. Les fichiers de jeu à la racine proviennent de l’ancienne version standalone ; son catalogue public a été retiré et les autres fichiers restent des références historiques.
 
 ## Déployer les images publiées — Unraid ou autre serveur
 
@@ -101,7 +168,7 @@ Le chrono, le nombre de jokers, l’identité et les points sont contrôlés par
 
 - **Joueur** : jouer, choisir son équipe, consulter classements et profils internes.
 - **Organisateur** : publier et clôturer des battles.
-- **Administrateur** : gérer les équipes et l’annuaire, consulter les statistiques, corriger ou disqualifier une partie terminée.
+- **Administrateur** : gérer les équipes, le catalogue de mails et l’annuaire, consulter les statistiques, corriger ou disqualifier une partie terminée.
 
 Une correction exige un motif, conserve acteur/date/ancien et nouveau score, et refuse une modification fondée sur une version périmée. Une disqualification exclut la partie des classements et des statistiques. Les réponses restent conservées pour le récapitulatif pédagogique. Les badges déjà obtenus ne sont pas révoqués automatiquement par une correction.
 
@@ -145,7 +212,7 @@ cd ..
 docker compose -p phishchips-reprise-test -f backend/tests/compose.yml down
 ```
 
-La base de test est en mémoire et doit être neuve pour chaque exécution complète (premier administrateur et classement global). Elle disparaît à l’arrêt de son conteneur. La suite teste authentification, permissions, concurrence, recommandations, choix libre, archivage, chrono, reprise et réponses idempotentes, battles, corrections, classements, badges et migration historique. Un workflow GitHub Actions reproduit ces contrôles avec Node 24 et PostgreSQL 16 ; il sera exécuté après publication sur GitHub.
+La base de test est en mémoire et doit être neuve pour chaque exécution complète (premier administrateur et classement global). Elle disparaît à l’arrêt de son conteneur. La suite teste authentification, permissions, concurrence, recommandations, choix libre, archivage, chrono, reprise et réponses idempotentes, battles, corrections, classements, badges, catalogue de mails et migration historique. Un workflow GitHub Actions reproduit ces contrôles avec Node 24 et PostgreSQL 16 à chaque push ou pull request.
 
 Pour reproduire le contrôle des images avant publication, depuis la racine :
 
@@ -164,11 +231,3 @@ Le script utilise des secrets de test, un port disponible et un nom de stack al�
 - [Dev book historique](docs/archives/DEV_BOOK_2026-04-29.md) et [README historique](docs/archives/README_HISTORIQUE.md).
 
 Licence GPLv3. Projet original : Matthieu Girard / ZA512.
-
-## Interface
-
-Le portail possède son propre thème Phish & Chips, avec une apparence claire ou sombre commune à toutes les pages. La simulation de messagerie garde ses apparences Outlook et Classique dans une fausse fenêtre. Les équipes se gèrent dans l’administration, pas dans les préférences graphiques.
-
-La connexion locale sépare connexion et création de compte ; l’amorçage du premier administrateur disparaît dès qu’un admin existe. En mode Entra, le bouton Microsoft est le seul parcours de connexion proposé.
-
-La [note de refonte](docs/UI_REFONTE_2026-10-01.md) décrit les écrans, les vérifications et les limites restantes.
