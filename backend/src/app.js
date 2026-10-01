@@ -24,6 +24,7 @@ function createApp() {
       allowedHeaders: ["Content-Type", "X-Session-Token", "X-Admin-Password"],
     }),
   );
+  app.use("/api/admin/emails/import", express.json({ limit: "10mb" }));
   app.use(express.json({ limit: "2mb" }));
   app.use((req, _res, next) => {
     if (req.body === undefined) req.body = {};
@@ -46,6 +47,7 @@ function createApp() {
   app.use("/api/services", requireUser, require("./routes/services"));
   app.use("/api/admin", require("./routes/adminTeams"));
   app.use("/api/admin", require("./routes/adminEnterprise"));
+  app.use("/api/admin", require("./routes/adminEmails"));
   app.use("/api/admin", require("./routes/admin"));
   app.get("/api/achievements", requireUser, async (_req, res) =>
     res.json({
@@ -65,13 +67,18 @@ function createApp() {
         err.code
       ] ||
       500;
-    const message = err.status
-      ? err.message
-      : status === 409
-        ? "Ce pseudo ou cet email est déjà utilisé"
-        : status === 400
-          ? "Données invalides"
-          : "Erreur serveur";
+    const message =
+      err.type === "entity.too.large"
+        ? "Le JSON dépasse la taille autorisée (10 Mo pour un import de mails)"
+        : err.type === "entity.parse.failed"
+          ? "JSON invalide"
+          : err.status
+            ? err.message
+            : status === 409
+              ? "Ce pseudo ou cet email est déjà utilisé"
+              : status === 400
+                ? "Données invalides"
+                : "Erreur serveur";
     if (status >= 500)
       console.error(
         JSON.stringify({

@@ -155,6 +155,221 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
     manager.id,
   ]);
   await t.test(
+    "Catalogue privé : import atomique, droits, sélection, export et séries préservées",
+    async () => {
+      const fixtures = require("./mail-fixtures");
+      const count = async () =>
+        (
+          await pool.query(
+            "SELECT COUNT(*)::int AS n FROM emails WHERE archived_at IS NULL",
+          )
+        ).rows[0].n;
+      const importCatalog = async (catalog, options = {}) =>
+        ok("/api/admin/emails/import", {
+          user: admin,
+          method: "POST",
+          body: { catalog, ...options },
+        });
+      assert.equal(
+        await count(),
+        0,
+        "Une installation neuve ne contient aucun mail",
+      );
+      await migrate();
+      assert.equal(
+        await count(),
+        0,
+        "Un redémarrage ne recharge pas le catalogue",
+      );
+      assert.equal((await request("/api/admin/emails")).status, 401);
+      for (const u of [alice, manager]) {
+        assert.equal(
+          (await request("/api/admin/emails", { user: u })).status,
+          403,
+        );
+        for (const path of ["import", "export", "delete"])
+          assert.equal(
+            (
+              await request(`/api/admin/emails/${path}`, {
+                user: u,
+                method: "POST",
+                body: {
+                  catalog: fixtures,
+                  all: true,
+                  confirm: "SUPPRIMER TOUT",
+                },
+              })
+            ).status,
+            403,
+          );
+      }
+      assert.equal(
+        (
+          await request("/api/sessions", {
+            user: alice,
+            method: "POST",
+            body: { difficulty: "easy" },
+          })
+        ).status,
+        503,
+      );
+      const initial = [
+        ...fixtures,
+        {
+          ...fixtures[0],
+          subject: "Entraînement uniquement",
+          usage: "training",
+        },
+        { ...fixtures[1], subject: "Battle uniquement", usage: "battle" },
+      ];
+      const preview = await importCatalog(initial, { preview: true });
+      assert.equal(preview.added, 26);
+      assert.equal(await count(), 0);
+      const invalid = await request("/api/admin/emails/import", {
+        user: admin,
+        method: "POST",
+        body: {
+          catalog: [fixtures[0], { ...fixtures[1], type: "bad" }],
+          replace: true,
+        },
+      });
+      assert.equal(invalid.status, 400);
+      assert.match(invalid.data.error, /Mail 2/);
+      assert.equal(await count(), 0);
+      assert.equal((await importCatalog(initial)).added, 26);
+      assert.equal(
+        (await importCatalog([fixtures[0], fixtures[0]])).duplicates,
+        2,
+      );
+      const exported = await ok("/api/admin/emails/export", {
+        user: admin,
+        method: "POST",
+        body: {},
+      });
+      assert.equal(exported.schemaVersion, 1);
+      assert.equal(exported.emails.length, 26);
+      assert.equal((await importCatalog(exported)).added, 0);
+      const started = await begin(alice);
+      const oldOrder = (
+        await pool.query("SELECT email_order FROM game_sessions WHERE id=$1", [
+          started.sessionId,
+        ])
+      ).rows[0].email_order;
+      const special = (
+        await pool.query(
+          "SELECT id,usage FROM emails WHERE usage IN ('training','battle')",
+        )
+      ).rows;
+      assert.ok(
+        !oldOrder.includes(special.find((e) => e.usage === "battle").id),
+      );
+      const battle = await ok(
+        "/api/battles",
+        {
+          user: admin,
+          method: "POST",
+          body: {
+            name: "Catalogue figé",
+            mode: "individual",
+            playerIds: [alice.id, bob.id],
+            difficulty: "easy",
+            startsAt: new Date(Date.now() - 1000).toISOString(),
+            endsAt: new Date(Date.now() + 3600000).toISOString(),
+            emailCount: 25,
+            jokerLimit: 0,
+            maxAttempts: 1,
+          },
+        },
+        201,
+      );
+      const battleOrder = (
+        await pool.query("SELECT email_order FROM battles WHERE id=$1", [
+          battle.id,
+        ])
+      ).rows[0].email_order;
+      assert.ok(
+        !battleOrder.includes(special.find((e) => e.usage === "training").id),
+      );
+      assert.equal(
+        (
+          await importCatalog(
+            [
+              {
+                ...fixtures[0],
+                subject: "Sans utilisation explicite",
+                usage: undefined,
+              },
+            ],
+            { replace: true },
+          )
+        ).removed,
+        26,
+      );
+      assert.equal(
+        (await ok("/api/admin/emails", { user: admin })).totals.battle,
+        0,
+      );
+      assert.equal((await next(alice, started)).emailId, oldOrder[0]);
+      await answer(alice, started, oldOrder[0], "safe");
+      await end(alice, started);
+      const frozen = await begin(bob, battle.id);
+      assert.equal((await next(bob, frozen)).emailId, battleOrder[0]);
+      await end(bob, frozen);
+      const active = (await ok("/api/admin/emails", { user: admin })).emails[0];
+      const selected = await ok("/api/admin/emails/export", {
+        user: admin,
+        method: "POST",
+        body: { ids: [active.id] },
+      });
+      assert.equal(selected.emails.length, 1);
+      assert.equal(selected.emails[0].usage, "training");
+      assert.equal(
+        (
+          await ok("/api/admin/emails/delete", {
+            user: admin,
+            method: "POST",
+            body: { ids: [active.id] },
+          })
+        ).removed,
+        1,
+      );
+      await migrate();
+      assert.equal(await count(), 0);
+      assert.equal(
+        (await ok(`/api/sessions/${started.sessionId}/recap`, { user: alice }))
+          .answers.length,
+        1,
+      );
+      await importCatalog(fixtures);
+      assert.equal(
+        (
+          await request("/api/admin/emails/delete", {
+            user: admin,
+            method: "POST",
+            body: { all: true },
+          })
+        ).status,
+        400,
+      );
+      assert.equal(
+        (
+          await ok("/api/admin/emails/delete", {
+            user: admin,
+            method: "POST",
+            body: { all: true, confirm: "SUPPRIMER TOUT" },
+          })
+        ).removed,
+        24,
+      );
+      assert.equal((await importCatalog(fixtures)).added, 24);
+      // These catalog exercises must not contribute to the later scoring fixtures.
+      await pool.query(
+        "UPDATE game_sessions SET disqualified=TRUE WHERE id=ANY($1::int[])",
+        [[started.sessionId, frozen.sessionId]],
+      );
+    },
+  );
+  await t.test(
     "Authentification, identité et origine des mutations",
     async () => {
       assert.equal((await request("/api/scores/players")).status, 401);

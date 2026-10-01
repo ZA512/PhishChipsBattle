@@ -26,6 +26,11 @@ test("Migration de données historiques : doublons, affectation et résultats pr
         "INSERT INTO services(name,code) VALUES('Ancienne équipe','OLD') RETURNING id",
       )
     ).rows[0];
+    const oldEmail = (
+      await client.query(
+        "INSERT INTO emails(sender,real_sender,subject,body,type) VALUES('Historique','historique@example.test','Ancien scénario','Contenu historique','safe') RETURNING id",
+      )
+    ).rows[0];
     const players = (
       await client.query(
         "INSERT INTO players(name,email,service_id) VALUES('AB','old1@example.test',$1),('ab','old2@example.test',$1),('AB#2','old3@example.test',$1) RETURNING id",
@@ -47,6 +52,39 @@ test("Migration de données historiques : doublons, affectation et résultats pr
     const names = (
       await client.query("SELECT name FROM players ORDER BY id")
     ).rows.map((p) => p.name.toLowerCase());
+    await client.query(
+      fs.readFileSync(
+        path.join(__dirname, "../src/db/migrations/004_mail_catalog.sql"),
+        "utf8",
+      ),
+    );
+    const preserved = (
+      await client.query(
+        "SELECT subject,usage,archived_at FROM emails WHERE id=$1",
+        [oldEmail.id],
+      )
+    ).rows[0];
+    assert.equal(preserved.subject, "Ancien scénario");
+    assert.equal(preserved.usage, "both");
+    assert.equal(preserved.archived_at, null);
+    const { importEmails } = require("../src/services/mailCatalog");
+    const legacyPreview = await importEmails(
+      client,
+      [
+        {
+          sender: "Historique",
+          realSender: "historique@example.test",
+          subject: "Ancien scénario",
+          body: "Contenu historique",
+          type: "safe",
+          usage: "both",
+          clues: [],
+        },
+      ],
+      { preview: true },
+    );
+    assert.equal(legacyPreview.added, 0);
+    assert.equal(legacyPreview.duplicates, 1);
     assert.equal(new Set(names).size, 3);
     const historical = (
       await client.query("SELECT * FROM game_sessions WHERE id=$1", [game.id])

@@ -7,47 +7,6 @@ const pool = require("./pool");
 const MIGRATIONS_DIR = path.join(__dirname, "migrations");
 
 /**
- * Seed emails from emails-data.js if the emails table is empty
- */
-async function seedEmails(client) {
-  const { rows } = await client.query("SELECT COUNT(*) FROM emails");
-  if (parseInt(rows[0].count, 10) > 0) {
-    console.log("[migrate] Emails already seeded, skipping.");
-    return;
-  }
-
-  const emails = require("./emails-data");
-  console.log(`[migrate] Seeding ${emails.length} emails…`);
-
-  for (const email of emails) {
-    const res = await client.query(
-      `INSERT INTO emails (original_id, sender, real_sender, subject, body, type)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id`,
-      [
-        email.id,
-        email.sender,
-        email.realSender,
-        email.subject,
-        email.body,
-        email.type,
-      ],
-    );
-    const emailDbId = res.rows[0].id;
-
-    if (Array.isArray(email.clues)) {
-      for (let i = 0; i < email.clues.length; i++) {
-        await client.query(
-          `INSERT INTO email_clues (email_id, clue_text, display_order) VALUES ($1, $2, $3)`,
-          [emailDbId, email.clues[i], i],
-        );
-      }
-    }
-  }
-  console.log("[migrate] Emails seeded successfully.");
-}
-
-/**
  * Seed achievements from achievements-data.js (upsert by key)
  */
 async function seedAchievements(client) {
@@ -125,7 +84,6 @@ async function migrate() {
       console.log(`[migrate] Applied ${file}`);
     }
 
-    await seedEmails(client);
     await seedAchievements(client);
     await client.query("COMMIT");
     console.log("[migrate] All migrations complete.");

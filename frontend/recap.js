@@ -36,13 +36,9 @@ PCB.ready
       result.className = answer.is_correct ? "notice success" : "notice error";
       result.textContent = `${answer.is_correct ? "Correct" : "Erreur"} · Votre choix : ${labels[answer.user_choice] || answer.user_choice} · Email : ${labels[answer.type] || answer.type} · ${answer.decision_time}s`;
       card.appendChild(result);
-      const list = document.createElement("ul");
-      answer.clues.forEach((clue) => {
-        const li = document.createElement("li");
-        li.textContent = clue;
-        list.appendChild(li);
-      });
-      card.appendChild(list);
+      const feedback = document.createElement("div");
+      PCBFeedback.render(feedback, answer.clues);
+      card.appendChild(feedback);
       container.appendChild(card);
     }
   })

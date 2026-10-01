@@ -1512,6 +1512,44 @@ body.game-page #analysis-panel {
   overflow: visible;
 }
 
+.feedback-points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.feedback-points li {
+  margin: 0 0 16px;
+}
+.feedback-points li:last-child {
+  margin-bottom: 0;
+}
+.feedback-label,
+.game-page #feedback-clues .feedback-label {
+  display: block;
+  margin: 0 0 4px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 750;
+}
+.feedback-copy {
+  margin: 0;
+  line-height: 1.55;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.feedback-technical {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.feedback-technical summary {
+  cursor: pointer;
+}
+.feedback-technical ul {
+  margin-top: 10px;
+}
+
 .scores-container table {
   min-width: 600px;
 }
@@ -1567,6 +1605,31 @@ body.game-page #analysis-panel {
 
 .stats-container h1 {
   text-align: left;
+}
+
+.mail-preview {
+  max-width: 800px;
+  width: calc(100% - 48px);
+  max-height: 85vh;
+  overflow: auto;
+}
+.mail-preview pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  text-align: left;
+}
+#mail-list td {
+  overflow-wrap: anywhere;
+}
+#mail-list td:nth-child(2) {
+  min-width: 180px;
+}
+#mail-list small {
+  color: var(--muted);
+}
+#mail-json {
+  font-family: ui-monospace, monospace;
 }
 .stats-container .section-title {
   color: var(--ink);

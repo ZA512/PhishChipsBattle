@@ -136,7 +136,7 @@ function formatDate(value) {
 }
 function selectAdminSection(name) {
   const allowed = admin
-    ? ["teams", "battles", "moderation", "directory", "stats"]
+    ? ["teams", "battles", "mails", "moderation", "directory", "stats"]
     : ["battles"];
   if (!allowed.includes(name)) name = allowed[0];
   document.querySelectorAll("[data-panel]").forEach((p) => {

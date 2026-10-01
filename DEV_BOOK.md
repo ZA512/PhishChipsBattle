@@ -28,11 +28,11 @@ L’administration constitue donc le bon endroit pour gérer les équipes ; `.en
 | SEC-2 · En-têtes Nginx | Réappliqués dans les locations HTML/JS/CSS ; CSP et protection d’intégration incluses. |
 | SEC-3 · Healthcheck | Présent pour API et base ; le healthcheck API vérifie PostgreSQL. |
 | SEC-4 · Cache HTML | HTML, JS et CSS revalidés afin de recevoir un déploiement cohérent. |
-| QC-1 · Racine/standalone | Décision documentée : préserver la version historique ; Docker ne sert que `frontend/`. |
+| QC-1 · Racine/standalone | Docker ne sert que `frontend/`. Catalogue historique retiré des sources actuelles, encore présent dans l’historique Git. |
 | QC-2 · Fonction SQL morte | Déjà supprimée dans la version auditée. |
 | QC-3 · `res.ok` des classements | Déjà présent ; erreur de réponse du jeu désormais récupérable depuis l’interface. |
 | QC-4 · Logs | Démarrage et erreurs de requêtes/succès structurés ; migration/seed encore en logs texte. Centralisation et journal d’exploitation à prévoir. |
-| QC-5 · Catalogue d’emails versionné | **À faire.** Le seed initialise une base vide, sans versionner les contenus existants. |
+| QC-5 · Catalogue d’emails versionné | Import/export JSON v1 administrateur, validation préalable, retrait sélectif/global et remplacement atomique. Pas de seed de mails. Contenus immuables et archivés pour les anciennes séries. Usage entraînement/battle distinct ; journal des imports/retraits. Édition en place et publication éditoriale par lot restent à définir. |
 
 ## Corrections supplémentaires
 
@@ -92,7 +92,7 @@ Priorités avant usage entreprise :
 3. Mettre en place HTTPS, adresses clientes du proxy, sauvegarde/restauration, rotation des secrets et règles de conservation des données.
 4. Prévoir le rapprochement contrôlé des anciens comptes si leurs données doivent être réutilisées.
 
-Évolutions suivantes : catalogue d’emails versionné/import administrateur, rafraîchissement planifié de l’annuaire et clôture des battles, révocation/recalcul des badges après modération, pagination et recherche avancée de l’historique administratif. Ces points restent ouverts et ne sont pas présentés comme livrés.
+Évolutions suivantes : validation éditoriale des lots de mails et report des corrections de battle à la clôture, rafraîchissement planifié de l’annuaire et clôture des battles, révocation/recalcul des badges après modération, pagination et recherche avancée de l’historique administratif. Ces points restent ouverts et ne sont pas présentés comme livrés.
 
 ## Refonte de l’interface · octobre 2026
 
@@ -100,7 +100,7 @@ Priorités avant usage entreprise :
 - Connexion et inscription dans des formulaires distincts. Le formulaire du premier administrateur local apparaît seulement si aucun admin n’existe ; le serveur conserve son contrôle transactionnel. Entra n’affiche que la connexion Microsoft.
 - Entraînement : équipe actuelle avec lien pour la changer, difficultés avec leurs règles, fausse fenêtre de messagerie avec agrandissement/restauration et confirmation de sortie.
 - Le mail courant est marqué dans la boîte de réception ; ses actions occupent une ligne séparée des champs De/Sujet. La lecture conserve ses propres couleurs de messagerie.
-- Feedback : explications avant les détails techniques repliables, illustration SOS contenue dans la composition. Actions de fin de partie accessibles avant le cylindre, débrief indépendant des badges.
+- Feedback : nouveaux lots en deux blocs courts (« À repérer » / « Ce qui concorde », puis « Le bon réflexe »), affichage commun au jeu et au récapitulatif ; anciennes catégories affichées en langage courant, noms techniques repliés. Prompts français/anglais revus : équilibre 50/50, diversité, seuls indices accessibles au joueur, longueur standard/express. Relecture éditoriale requise ; les corrections historiques ne sont pas réécrites automatiquement. Illustration SOS contenue dans la composition. Actions de fin de partie accessibles avant le cylindre, débrief indépendant des badges.
 - Profil : 85 badges conservés et regroupés en 24 familles, filtres par état et catégorie, paliers consultables sans une longue liste de variantes.
 - Administration : équipes, battles, modération, annuaire et statistiques dans des rubriques distinctes. Participants recherchables avec cases à cocher ; aperçu du roster et de la correction avant/après.
 - Classements d’entraînement : filtres séparés joueurs/équipes, période et difficulté, ligne du joueur repérée, détails d’équipe au clavier. Les résultats des battles restent dans leur propre page.

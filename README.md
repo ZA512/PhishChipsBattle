@@ -2,7 +2,7 @@
 
 Jeu de sensibilisation au phishing pour l’entreprise : entraînement individuel, équipes choisies par les collaborateurs et battles organisées. API Node.js 24 / Express 5, PostgreSQL 16 et interface servie par Nginx.
 
-La version Docker utilise exclusivement `frontend/` et `backend/`. Les fichiers de jeu à la racine sont l’ancienne version standalone de [PhishChips](https://github.com/ZA512/PhishChips). Ils sont conservés pour référence ; leur contenu ne constitue pas la version entreprise.
+La version Docker utilise exclusivement `frontend/` et `backend/`. Les fichiers de jeu à la racine proviennent de l’ancienne version standalone de [PhishChips](https://github.com/ZA512/PhishChips). Son catalogue public a été retiré ; les autres fichiers restent des références historiques.
 
 ## Déployer les images publiées — Unraid ou autre serveur
 
@@ -45,9 +45,31 @@ Ouvrir **http://localhost:8080/login.html**, avec la même origine que `APP_URL`
 
 Pour le premier administrateur, remplir email, mot de passe personnel (12 à 128 caractères) et pseudo, puis ouvrir « Créer le premier administrateur local ». Le secret d’amorçage est la valeur `ADMIN_PASSWORD` du fichier `.env`. Cette création n’est possible qu’une fois. Le mot de passe personnel permet ensuite la connexion normale ; le secret d’amorçage n’est pas un accès aux API d’administration.
 
-Depuis « Administration », créer les équipes. Le premier administrateur peut accéder à cette page avant de choisir une équipe. Les comptes locaux servent à la démonstration et aux tests ; le déploiement entreprise utilise Entra.
+Depuis « Administration », créer les équipes et importer les scénarios dans l’onglet **Mails**. Une installation neuve ne contient aucun mail. Le premier administrateur peut accéder à cette page avant de choisir une équipe. Les comptes locaux servent à la démonstration et aux tests ; le déploiement entreprise utilise Entra.
 
 Pour arrêter sans perdre les données : `docker compose -f docker-compose.yml -f docker-compose.dev.yml down`. Le volume PostgreSQL conserve les comptes et résultats. Ne pas ajouter `-v` si les données doivent être conservées.
+
+## Catalogue privé de mails
+
+L’onglet **Administration → Mails** permet de rechercher, consulter, sélectionner sur plusieurs pages, exporter et supprimer les scénarios, ou d’importer un fichier JSON / du JSON collé. Seuls les administrateurs peuvent lire le catalogue et ses corrections ; le rôle organisateur ne le permet pas.
+
+Format : un tableau d’objets, ou `{ "schemaVersion": 1, "emails": [...] }` comme les exports. Champs requis : `sender`, `realSender`, `subject`, `body`, `type` (`safe` ou `phishing`), `clues` (tableau de textes). `usage` vaut `training`, `battle` ou `both` ; sans ce champ, le mail est réservé à l’entraînement. Les éventuels `id` externes sont ignorés : le serveur attribue ses identifiants. Le format des liens du prompt existant (`<a href='…' data-real-link='…'>…</a>`) reste compatible. Le corps est du texte avec ces liens simulés ; les balises HTML générales, images et fichiers ne sont pas exécutés ni chargés. Les liens ne naviguent pas vers Internet.
+
+Limites : 5 000 mails actifs, 5 000 par import, 10 Mio par requête, 6 000 caractères par corps, 8 indices de 500 caractères maximum. Un phishing exige au moins un indice. Les noms, adresses et sujets sont limités à 300 caractères. Les lots volumineux doivent être divisés ; l’export d’une sélection permet de faire des lots. Le contrôle préalable vérifie la structure et annonce les ajouts, doublons et retraits ; il ne juge pas la véracité pédagogique des corrections.
+
+**Remplacer tout le catalogue** retire les scénarios actifs et insère le lot dans une même transaction. Un import invalide ne modifie rien. Les doublons exacts d’un même import sont ignorés ; en mode ajout, les doublons exacts déjà actifs sont aussi ignorés. Changer le contenu, les indices ou l’utilisation crée un nouveau scénario : aucun mail historique n’est modifié en place.
+
+**Supprimer** retire les mails des nouvelles sélections. Les copies en base restent archivées pour les parties déjà démarrées, les battles publiées et leurs récapitulatifs. Ce n’est pas une purge des données historiques. Les suppressions et imports sont journalisés avec leur auteur et leurs volumes. Un redémarrage ne remet jamais l’ancien catalogue. La migration conserve les mails d’une installation existante avec l’utilisation « Les deux » ; pour remplacer l’ancien catalogue public, utiliser l’import avec remplacement. Aucun effacement automatique des données existantes n’est effectué.
+
+Pour une compétition, importer des mails **Battle** différents de ceux d’entraînement. Les corrections sont encore retournées après chaque réponse en battle : cette séparation empêche de les collecter en entraînement, mais n’empêche pas leur partage entre participants pendant la compétition. Le report des corrections à la clôture reste une évolution distincte. Les nouvelles parties d’entraînement prennent au maximum 162 mails aléatoires ; les battles restent limitées à 162, pour conserver l’échelle des rangs.
+
+Ne pas versionner les fichiers d’import/export privés. Les anciens scénarios restent consultables dans l’historique Git et les anciennes images : leur suppression du code ne les rend pas secrets. Les fixtures dans `backend/tests/mail-fixtures.js` sont synthétiques, ne sont pas embarquées dans l’image API et ne sont jamais utilisées en production.
+
+L’[analyse pédagogique du catalogue](docs/ANALYSE_MAILS_2026-10-01.md) décrit les techniques couvertes, les limites et les évolutions proposées. Aucun nouveau lot de mails pédagogiques n’est livré à cette étape.
+
+Le [prompt français](prompt.txt) et sa [version anglaise](prompt-en.txt) demandent par défaut 20 mails équilibrés, des familles variées et des pièges décelables avec les éléments visibles ou inspectables dans le jeu. Format standard : 35 à 80 mots, avec quelques mails plus courts ; demander un lot « express » pour les lectures rapides. Le prompt exclut les compromissions invisibles, les verdicts ambigus et les mécaniques pas encore prises en charge (QR, pièces jointes réelles, étapes après clic).
+
+Les nouveaux lots utilisent exactement deux textes dans `clues` : **« À repérer : … »** pour un phishing ou **« Ce qui concorde : … »** pour un légitime, puis **« Le bon réflexe : … »**. L’explication cite un fait accessible et propose une action, sans catégorie technique imposée. Le jeu et le récapitulatif affichent ces deux blocs. Les anciennes catégories restent compatibles, avec des intitulés courants et les noms techniques repliés ; le texte des corrections historiques n’est pas réécrit automatiquement. La vérification d’import valide la structure, pas l’équilibre, la longueur en mots ou la qualité pédagogique : relire chaque lot avant une compétition.
 
 ## Équipes et nouveaux arrivants
 
@@ -105,7 +127,7 @@ La migration `003_enterprise.sql` est automatique et transactionnelle. Elle cons
 
 Les anciennes parties portent `rules_version=0` : leurs scores restent en base mais sont exclus des nouveaux classements vérifiés. L’ancien logiciel ne mémorisait pas l’équipe au moment d’une partie ; la migration reprend donc l’équipe présente au moment de la migration, sans prétendre reconstruire les changements antérieurs. Un ancien compte créé avec un simple pseudo/email n’est jamais revendiqué automatiquement par un compte Entra ou une inscription locale.
 
-Faire une sauvegarde avant la migration d’une base utilisée. Le rapprochement d’anciens comptes avec des identités vérifiées et l’import versionné des emails restent à développer. Ne pas vider le catalogue pour le mettre à jour : les réponses passées référencent ses emails.
+Faire une sauvegarde avant la migration d’une base utilisée. Le rapprochement d’anciens comptes avec des identités vérifiées reste à développer. L’import/remplacement administratif retire les mails du catalogue sans supprimer les références nécessaires aux réponses passées.
 
 ## Vérifications
 

@@ -34,6 +34,15 @@
         ><button
           type="button"
           role="tab"
+          aria-controls="admin-mails"
+          aria-selected="false"
+          data-admin-tab="mails"
+          data-admin
+        >
+          Mails</button
+        ><button
+          type="button"
+          role="tab"
           aria-controls="admin-battles"
           aria-selected="false"
           data-admin-tab="battles"
@@ -309,8 +318,147 @@
         <p class="meta">Les chiffres. Ils ne négocient pas.</p>
         <a class="btn" href="/admin-stats.html">Statistiques pédagogiques</a>
       </section>
+      <section
+        class="card admin-panel hidden"
+        id="admin-mails"
+        data-panel="mails"
+        data-admin
+      >
+        <span class="eyebrow">Le buffet des pièces jointes douteuses</span>
+        <h2>Le catalogue de mails</h2>
+        <p class="meta">
+          Vos scénarios restent sur votre serveur. Un mail retiré disparaît des
+          nouvelles parties ; les parties et battles déjà créées conservent leur
+          série et leurs corrections.
+        </p>
+        <p id="mail-totals" class="notice" role="status">
+          Chargement du catalogue…
+        </p>
+        <details class="editor" id="mail-import-editor">
+          <summary class="btn">Importer des mails en JSON</summary>
+          <p class="meta">
+            Tableau JSON ou fichier exporté par ce module. 5 000 mails et 10 Mo
+            maximum par import. Sans champ usage, les mails sont réservés à
+            l’entraînement. Les identifiants sont attribués par le serveur.
+          </p>
+          <label for="mail-file">Charger un fichier</label
+          ><input id="mail-file" type="file" accept="application/json,.json" />
+          <label for="mail-json">Ou coller le JSON</label
+          ><textarea
+            id="mail-json"
+            rows="10"
+            spellcheck="false"
+            placeholder='[{"sender":"…","realSender":"…","subject":"…","body":"…","type":"phishing","usage":"battle","clues":["…"]}]'
+          ></textarea>
+          <label for="mail-import-usage"
+            >Utilisation des mails sans champ usage</label
+          >
+          <select id="mail-import-usage">
+            <option value="training">Entraînement</option>
+            <option value="battle">Battle uniquement</option>
+            <option value="both">
+              Entraînement et battle (corrections réutilisables)
+            </option>
+          </select>
+          <label class="mail-replace"
+            ><input id="mail-replace" type="checkbox" /> Remplacer tout le
+            catalogue par cet import</label
+          >
+          <p class="meta">
+            Le remplacement est effectué d’un seul coup : si le fichier est
+            invalide, votre catalogue reste intact. Il conserve les séries des
+            battles existantes.
+          </p>
+          <div class="form-actions">
+            <button class="btn btn-secondary" id="mail-check" type="button">
+              Vérifier le JSON</button
+            ><button class="btn" id="mail-import" type="button" disabled>
+              Importer
+            </button>
+          </div>
+          <p id="mail-import-summary" class="meta" role="status">
+            La machine vérifie la structure. Les pièges et leurs explications
+            méritent une relecture humaine.
+          </p>
+        </details>
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="mail-export-all" type="button">
+            Exporter tout le catalogue
+          </button>
+          <button
+            class="btn btn-secondary"
+            id="mail-export-selected"
+            type="button"
+            disabled
+          >
+            Exporter la sélection
+          </button>
+          <button
+            class="btn btn-danger"
+            id="mail-delete-selected"
+            type="button"
+            disabled
+          >
+            Supprimer la sélection
+          </button>
+          <button class="btn btn-danger" id="mail-delete-all" type="button">
+            Supprimer tout le catalogue
+          </button>
+        </div>
+        <div class="grid">
+          <div>
+            <label for="mail-search">Rechercher un sujet ou un expéditeur</label
+            ><input
+              id="mail-search"
+              type="search"
+              maxlength="100"
+              placeholder="Facture, RH, colis…"
+            />
+          </div>
+          <div>
+            <label for="mail-type">Classification</label
+            ><select id="mail-type">
+              <option value="">Tous les mails</option>
+              <option value="phishing">Phishing</option>
+              <option value="safe">Légitime</option>
+            </select>
+          </div>
+          <div>
+            <label for="mail-usage">Utilisation</label
+            ><select id="mail-usage">
+              <option value="">Toutes les utilisations</option>
+              <option value="training">Entraînement</option>
+              <option value="battle">Battle</option>
+              <option value="both">Les deux</option>
+            </select>
+          </div>
+        </div>
+        <p class="meta" id="mail-selection" role="status">0 mail sélectionné</p>
+        <div id="mail-list" class="table-scroll"></div>
+        <div class="form-actions">
+          <button id="mail-prev" class="btn btn-secondary" type="button">
+            Précédente</button
+          ><span id="mail-page"></span
+          ><button id="mail-next" class="btn btn-secondary" type="button">
+            Suivante
+          </button>
+        </div>
+
+        <dialog id="mail-preview" class="portal-confirm mail-preview">
+          <h2 id="mail-preview-title">Mail</h2>
+          <pre id="mail-preview-content"></pre>
+          <button
+            class="btn btn-secondary"
+            id="mail-preview-close"
+            type="button"
+          >
+            Fermer
+          </button>
+        </dialog>
+      </section>
     </main>
     <script src="account.js"></script>
     <script src="enterprise-admin.js"></script>
+    <script src="mail-catalog.js"></script>
   </body>
 </html>

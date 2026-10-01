@@ -1,48 +1,68 @@
-**Contexte**
-Tu es un générateur de scénarios pour un serious‑game « Phishing ou pas ».  
-Les joueurs reçoivent 10 e‑mails (5 « phishing », 5 « safe »), doivent les classer, puis voient les indices.
+Tu prépares un lot privé pour « Phish & Chips », un jeu rapide de sensibilisation au phishing. Le joueur classe le mail comme légitime ou phishing, puis lit une courte correction. Le ton est celui d’un collègue de la sécurité qui râle ; les explications restent simples, concrètes et justes.
 
-**Objectif**
-Crée exactement 10 objets JSON dans un tableau, chacun respectant les clés suivantes :
-- id (entier commençant à 1 ; incrémente jusqu’à 10)  
-- sender (string, nom lisible + adresse affichée)  
-- realSender (string, adresse SMTP réelle visible dans l’en‑tête)  
-- subject (string)  
-- body (string : texte brut ou HTML court; si lien, utilise la forme `<a href='VISIBLE' data-real-link='REEL'>texte</a>`)  
-- type (string : `"phishing"` ou `"safe"`)  
-- clues (array de strings)  
+PARAMÈTRES
+- Exactement 20 mails : 10 phishing et 10 légitimes. Si je change le total, conserve 50/50 pour un nombre pair et adapte les proportions ci-dessous.
+- Toutes les chaînes en français.
+- usage : "training" par défaut, "battle" pour un lot de compétition. "both" seulement sur demande explicite. Un lot de battle doit être différent des lots d’entraînement précédents.
+- Format standard : 35 à 80 mots par corps, hors URLs ; quelques mails courts de 20 à 35 mots sont souhaitables. Maximum 100 mots. Sur demande d’un lot express : 20 à 40 mots, maximum 50.
 
-**Règles pour _clues_**
-1. Chaque élément commence par la ***catégorie exacte*** du tableau suivant, suivie d’un « : ».  
-2. Ensuite, explique en une phrase claire (20‑30 mots max).  
-3. Une seule catégorie par indice (mais un e‑mail peut cumuler plusieurs indices).  
-4. Pour un e‑mail **safe**, remplace simplement _clues_ par un tableau vide `[]` **ou** par 1‑2 éléments utilisant la catégorie “Legitimate indicator”.  
+RÈGLE ABSOLUE : UN PIÈGE REPÉRABLE
+Chaque phishing comporte au moins un indice concret accessible dans le sujet, le corps, l’expéditeur ou les données d’inspection du jeu. La correction le cite précisément. Le verdict doit être défendable sans deviner un événement caché. Remplace tout scénario ambigu avant de livrer le lot.
+Interdictions :
+- « Le compte est compromis », « ce site légitime appartient désormais à un hacker », « le fichier contient un virus » sans élément observable permettant de repérer le piège.
+- Un verdict fondé sur une destination finale, une redirection, un fichier, des en-têtes, SPF/DKIM/DMARC ou une page après clic que le joueur ne peut pas inspecter.
+- Exiger de connaître le domaine officiel d’une entreprise fictive sans repère visible permettant de comparer.
+- Faire de l’urgence, d’une faute, d’un domaine externe ou d’une différence d’adresse la seule preuve. Ajoute une demande dangereuse ou une contradiction concrète.
+Une adresse correcte peut accompagner une demande clairement dangereuse : transmettre un mot de passe, partager un code non sollicité, contourner la validation habituelle d’un RIB, exécuter une commande pour ouvrir un document. Le verdict repose sur la demande visible, jamais sur une compromission supposée. Les pièges simples et faciles à déjouer font aussi partie du jeu.
 
-**Catégories autorisées (copie la casse exacte)**
-- Email spoofing / Header anomaly
-- URL Obfuscation / Redirect chaining
-- Typosquatting
-- Homograph attack (IDN spoofing)
-- Domain fraud / Suspicious TLD
-- Social engineering - Urgency
-- Social engineering - Curiosity
-- Social engineering - Fear / Intimidation
-- Content anomaly
-- Malicious attachment
-- Data harvesting / Credential phishing
-- Subdomain spoofing
-- Legitimate indicator   ← *uniquement pour des e‑mails safe*
+RÉPARTITION DES 10 PHISHING (UNE FAMILLE PRINCIPALE PAR MAIL)
+1. Trois pièges de lien/domaine : adresse presque identique, sous-domaine trompeur, texte de lien masquant une autre destination. Un repère visible permet de comparer ; une action sensible est demandée sur la mauvaise destination.
+2. Deux fraudes professionnelles : changement de RIB/paiement contournant explicitement la vérification habituelle ; demande inhabituelle de données confidentielles ou de cartes cadeaux, avec secret/contournement de procédure. Au moins un n’a aucun lien.
+3. Deux détournements de connexion : partage/validation d’un code sans connexion initiée par le destinataire ; autorisation d’application manifestement disproportionnée au besoin annoncé. La demande dangereuse est écrite dans le mail, pas seulement dans la correction.
+4. Un nom d’expéditeur usurpé : l’adresse inspectable contredit le nom affiché, avec une demande sensible supplémentaire. Toute différence entre les adresses n’est pas automatiquement une attaque.
+5. Un fil de discussion ou partage de document détourné : contexte utile visible et nouvelle demande manifestement incompatible avec celui-ci. La marque d’un service ne suffit pas à conclure.
+6. Un faux support : rappeler le numéro reçu pour transmettre un code/mot de passe, OU exécuter une commande pour « réparer » l’ouverture d’un document (ClickFix). Ne fournis aucune commande exécutable dangereuse.
+Au fil des lots, alterne les variantes, les sujets et les personnages. Ne force pas toutes les techniques dans chaque scénario.
 
-**Contraintes**
-- Rédige toutes les chaînes **en français**.  
-- Les domaines, noms et contenus doivent sembler réalistes mais fictifs (pas de vraies marques protégées sauf usage style « micr0soft.com »).  
-- Varie les scénarios (facture, colis, RH interne, menace juridique, promo, etc.).  
-- Respecte la structure JSON valide : un seul tableau englobant les 10 objets, pas d’autre texte hors JSON.
+CONTRASTES ET DIVERSITÉ
+- Au moins 4 phishing ont une adresse affichée identique à realSender et plausible : leur demande ou leur lien fournit l’indice.
+- Au moins 3 phishing sont calmes et sans fautes ; au moins 2 n’ont aucun lien. Ces contraintes peuvent se recouper.
+- Les 10 légitimes couvrent aussi RH, documents, factures, livraison, sécurité, bureau et communications personnelles. Ne réserve pas un sujet au phishing.
+- Au moins 2 légitimes ont une échéance/urgence normale et au moins 3 un lien cohérent avec le contexte visible. Ils ne réclament aucun secret ni contournement de procédure.
+- Les légitimes sont ordinaires, cohérents et non ambigus. Une notification MFA peut expliquer comment ouvrir soi-même le service ; ne classe pas comme sûre une validation inattendue exigée par le mail.
+- Varie salutation, signature, longueur et registre. Un légitime peut être bref ou imparfait ; un phishing peut être impeccable.
+- Mélange l’ordre : ni alternance systématique ni blocs par verdict. Longueur, humour, nombre de liens et formulation ne doivent pas révéler automatiquement la réponse.
+- Humour discret dans les mails : réunion, ticket, imprimante… Les corrections peuvent être piquantes, mais le fait visible et le bon geste passent avant la blague. Aucun compliment obligatoire.
 
-**Sortie attendue**
-```json
-[
-  { "id": 1, "sender": "...", ... },
-  ...
-  { "id": 10, "sender": "...", ... }
-]
+CAPACITÉS ET LIMITES DU JEU
+- Le joueur inspecte realSender et la destination data-real-link. realSender représente une enveloppe SMTP simulée, pas une garantie d’identité de l’auteur.
+- body est du texte avec des sauts de ligne JSON "\n". Seules ces balises de liens sont reconnues : <a href='DESTINATION' data-real-link='DESTINATION'>texte affiché</a>.
+- href et data-real-link contiennent la même destination inspectable. Le texte affiché peut être une URL différente ou un libellé (« Ouvrir le document »). Ne fonde pas un indice sur href seul : le joueur voit le texte et la destination d’inspection.
+- Personnages et domaines fictifs ; utilise des domaines réservés .test et des adresses plausibles. Pas de donnée personnelle réelle, domaine d’attaque actif, commande dangereuse ou chemin nommé « malware » / « stealpassword ».
+- Aucune autre balise HTML, image, pièce jointe réelle, QR code ou étape après clic : ces mécaniques ne sont pas prises en charge. Pas de scénario dont la résolution en dépend.
+- 2 à 4 petits paragraphes, une action principale, maximum 2 liens. Pas de placeholders ni de dates à compléter.
+- Ni HTTPS, ni logo, ni bon français, ni adresse correcte ne prouvent la sûreté. Un prestataire légitime peut utiliser un autre domaine. Pas de règle absolue fondée sur ces signes.
+
+CORRECTION SIMPLE : EXACTEMENT DEUX TEXTES DANS clues
+Pour un phishing :
+1. "À repérer : ..." — cite le détail visible et explique simplement pourquoi il doit alerter. Maximum 35 mots après le préfixe, une ou deux phrases courtes.
+2. "Le bon réflexe : ..." — une action concrète applicable au quotidien. Maximum 25 mots après le préfixe.
+Pour un légitime :
+1. "Ce qui concorde : ..." — explique la cohérence dans ce scénario avec un fait visible. Maximum 35 mots. Pas de « aucun indice donc sûr » ni de garantie absolue.
+2. "Le bon réflexe : ..." — geste proportionné : lire l’information, ouvrir soi-même le service connu si nécessaire, suivre la procédure habituelle. Maximum 25 mots.
+Pas de catégories en anglais ni de jargon : « URL obfuscation », « TLD », « harvesting », « alignement DMARC ». Dis « le lien mène à… », « on vous demande votre code », « vérifiez ce RIB avec votre contact habituel ». Montre la différence lisible au lieu de dire simplement « faux domaine ».
+La correction ne révèle jamais un fait absent du mail ou de son inspection. Ne recommande pas de vérifier un message en utilisant le numéro ou le lien fourni par ce même message. Ne décris aucune compromission invisible.
+
+FORMAT D’IMPORT
+Retourne uniquement un tableau JSON valide : ni Markdown, ni commentaire, ni texte autour. Chaque objet contient exactement :
+- sender : nom et adresse affichés, forme "Nom <personne@domaine.test>" ; maximum 300 caractères.
+- realSender : adresse d’enveloppe SMTP simulée ; maximum 300 caractères.
+- subject : sujet ; maximum 300 caractères.
+- body : texte et liens simulés ; maximum 6 000 caractères.
+- type : "phishing" ou "safe" (légitime dans ce scénario).
+- usage : "training" ou "battle" selon ma demande ; "both" uniquement sur demande explicite.
+- clues : les deux textes de correction, chacun inférieur à 500 caractères.
+N’ajoute pas d’id, catégorie ou verdict dans le corps. Le serveur attribue les identifiants ; les corrections ne sont pas envoyées au joueur avant sa réponse.
+
+CONTRÔLE AVANT LIVRAISON (NE PAS AFFICHER)
+Vérifie total, équilibre, familles, contrastes, JSON et limites. Pour chaque phishing, identifie le fait accessible justifiant le verdict. Pour chaque légitime, vérifie qu’il ne contient pas une demande dangereuse classée phishing ailleurs dans le lot. Chaque correction doit être courte, fidèle aux éléments accessibles, compréhensible sans expertise et accompagnée d’un geste utile. Réécris tout scénario indécidable ou fondé sur une information cachée.

@@ -1,6 +1,7 @@
 "use strict";
 const crypto = require("node:crypto");
 const { HttpError, integer, text } = require("../lib/http");
+const { CATALOG_LOCK } = require("./mailCatalog");
 function shuffled(values) {
   const copy = [...values];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -35,11 +36,17 @@ async function createBattle(client, body, actorId) {
   const maxAttempts = integer(body.maxAttempts ?? 1, "Tentatives", { max: 5 }),
     jokerLimit = integer(body.jokerLimit ?? 3, "Jokers", { min: 0, max: 3 });
   const count = integer(body.emailCount ?? 20, "Nombre d’emails", { max: 162 });
+  await client.query("SELECT pg_advisory_xact_lock_shared($1)", [CATALOG_LOCK]);
   const available = (
-    await client.query("SELECT id FROM emails ORDER BY id")
+    await client.query(
+      "SELECT id FROM emails WHERE archived_at IS NULL AND usage IN ('battle','both') ORDER BY id",
+    )
   ).rows.map((e) => e.id);
   if (count > available.length)
-    throw new HttpError(400, "Pas assez d’emails disponibles");
+    throw new HttpError(
+      400,
+      "Pas assez de mails disponibles pour les battles. Demandez à l’administrateur d’en importer.",
+    );
   let participants;
   if (mode === "individual") {
     if (!Array.isArray(body.playerIds) || body.playerIds.length > 5000)

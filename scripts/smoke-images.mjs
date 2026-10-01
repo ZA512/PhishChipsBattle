@@ -100,6 +100,8 @@ try {
     "portal.css",
     "theme-outlook.css",
     "account.js",
+    "mail-catalog.js",
+    "feedback.js",
     "script.js",
     "secu.png",
     "img/PhishChips-mail.png",

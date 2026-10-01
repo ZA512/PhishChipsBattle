@@ -7,6 +7,7 @@ const { requireUser } = require("../services/auth");
 const { answerLimiter } = require("../middleware/rateLimiter");
 const { evaluateAchievements } = require("../services/achievements");
 const { shuffled, openBattle } = require("../services/battles");
+const { CATALOG_LOCK } = require("../services/mailCatalog");
 router.use(requireUser);
 
 function tokenCheck(req, id) {
@@ -100,6 +101,9 @@ router.post("/", async (req, res) => {
     throw new HttpError(403, "Vous ne pouvez jouer que pour votre compte");
   const battleId = integer(req.body.battleId, "Battle", { optional: true });
   const result = await transaction(async (client) => {
+    await client.query("SELECT pg_advisory_xact_lock_shared($1)", [
+      CATALOG_LOCK,
+    ]);
     let battle = null,
       roster = null;
     if (battleId) {
@@ -154,11 +158,17 @@ router.post("/", async (req, res) => {
     const order =
       battle?.email_order ||
       shuffled(
-        (await client.query("SELECT id FROM emails ORDER BY id")).rows.map(
-          (e) => e.id,
-        ),
+        (
+          await client.query(
+            "SELECT id FROM emails WHERE archived_at IS NULL AND usage IN ('training','both') ORDER BY id",
+          )
+        ).rows.map((e) => e.id),
+      ).slice(0, 162);
+    if (!order.length)
+      throw new HttpError(
+        503,
+        "Le buffet est vide : l’administrateur doit importer des mails d’entraînement.",
       );
-    if (!order.length) throw new HttpError(503, "Aucun email disponible");
     const { rows } = await client.query(
       `INSERT INTO game_sessions(player_id,difficulty,email_order,total_emails,service_id,service_name,battle_id,rules_version)
       VALUES($1,$2,$3,$4,$5,$6,$7,1) RETURNING *`,

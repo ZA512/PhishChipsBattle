@@ -621,29 +621,7 @@ function showFeedbackPopup(
         : isCorrect
           ? "Bonne classification. "
           : "Mauvaise classification. ") + verdict;
-  feedbackCluesEl.replaceChildren();
-  const list = document.createElement("ul");
-  (emailData.clues || []).forEach((clue) => {
-    const li = document.createElement("li"),
-      cut = clue.indexOf(":");
-    if (cut > -1) {
-      const explanation = document.createElement("p");
-      explanation.textContent = clue.slice(cut + 1).trim();
-      explanation.className = "clue-explanation";
-      const detail = document.createElement("details"),
-        summary = document.createElement("summary");
-      detail.className = "clue-detail";
-      summary.textContent = "Nom technique : " + clue.slice(0, cut).trim();
-      const technical = document.createElement("p");
-      technical.textContent = clue;
-      detail.append(summary, technical);
-      li.append(explanation, detail);
-    } else {
-      li.textContent = clue;
-    }
-    list.appendChild(li);
-  });
-  feedbackCluesEl.appendChild(list);
+  PCBFeedback.render(feedbackCluesEl, emailData.clues);
   feedbackModalEl.classList.toggle("has-assistant", assisted && !isTimeout);
   if (isTimeout) {
     secuGuyContainer.classList.remove("visible");
