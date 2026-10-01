@@ -604,6 +604,7 @@ body.game-page {
   padding: 0;
   background: transparent;
   line-height: 1.45;
+  white-space: pre-line;
 }
 
 .current-rank .rank-emoji {

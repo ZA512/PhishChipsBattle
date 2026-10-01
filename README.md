@@ -105,3 +105,11 @@ La base de test est en mémoire et doit être neuve pour chaque exécution compl
 - [Dev book historique](docs/archives/DEV_BOOK_2026-04-29.md) et [README historique](docs/archives/README_HISTORIQUE.md).
 
 Licence GPLv3. Projet original : Matthieu Girard / ZA512.
+
+## Interface
+
+Le portail possède son propre thème Phish & Chips, avec une apparence claire ou sombre commune à toutes les pages. La simulation de messagerie garde ses apparences Outlook et Classique dans une fausse fenêtre. Les équipes se gèrent dans l’administration, pas dans les préférences graphiques.
+
+La connexion locale sépare connexion et création de compte ; l’amorçage du premier administrateur disparaît dès qu’un admin existe. En mode Entra, le bouton Microsoft est le seul parcours de connexion proposé.
+
+La [note de refonte](docs/UI_REFONTE_2026-10-01.md) décrit les écrans, les vérifications et les limites restantes.

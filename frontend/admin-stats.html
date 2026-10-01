@@ -32,36 +32,6 @@
         text-decoration: underline;
       }
 
-      /* Login */
-      #login-section {
-        max-width: 400px;
-        margin: 80px auto;
-        text-align: center;
-      }
-      #login-section input {
-        padding: 8px 12px;
-        border: 2px solid #e1dfdd;
-        border-radius: 6px;
-        font-size: 1rem;
-        width: 100%;
-        margin: 10px 0;
-      }
-      #login-section button {
-        padding: 8px 20px;
-        background: #0078d4;
-        color: #fff;
-        border: none;
-        border-radius: 6px;
-        font-size: 1rem;
-        cursor: pointer;
-      }
-      #login-error {
-        color: #d13438;
-        font-size: 0.85rem;
-        min-height: 1.2em;
-        margin-top: 8px;
-      }
-
       /* Cards */
       .stats-grid {
         display: grid;
@@ -188,29 +158,25 @@
       }
     </style>
     <link rel="stylesheet" href="enterprise.css" />
+    <link rel="stylesheet" href="portal.css" />
+    <script src="appearance.js"></script>
   </head>
-  <body>
+  <body class="enterprise">
     <div class="stats-container">
-      <!-- Login -->
-      <div id="login-section">
-        <h2>📊 Statistiques Admin</h2>
-        <input
-          type="password"
-          id="admin-password"
-          placeholder="Mot de passe admin"
-        />
-        <br />
-        <button id="login-btn">Se connecter</button>
-        <p id="login-error"></p>
-      </div>
+      <p id="stats-message" class="notice" role="status">
+        Ouverture des dossiers…
+      </p>
 
       <!-- Main content (hidden until auth) -->
       <div id="main-section" style="display: none">
-        <a href="admin.html" class="back-link">← Administration</a>
+        <a href="enterprise-admin.html#stats" class="back-link"
+          >← Administration</a
+        >
         <a href="phishing.html" class="back-link" style="margin-left: 16px"
           >← Retour au jeu</a
         >
-        <h1>📊 Tableau de bord</h1>
+        <span class="eyebrow">Administration · statistiques</span>
+        <h1>Les chiffres ne négocient pas.</h1>
 
         <!-- Overview cards -->
         <div class="stats-grid">

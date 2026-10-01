@@ -3,34 +3,17 @@
    Simulates Outlook Web App layout with a fake inbox sidebar
    ============================================================ */
 
-/* --- Outlook Ribbon (fake top bar) --- */
-body.theme-outlook #game-ui::before {
-  content: "📬 Outlook  |  Accueil   Affichage   Aide";
-  display: block;
-  width: 100%;
-  background: var(--accent-color);
-  color: #fff;
-  font-size: 0.75rem;
-  padding: 6px 16px;
-  letter-spacing: 0.3px;
-}
-
 /* --- Main layout override: sidebar + email --- */
 body.theme-outlook #game-ui {
   position: relative;
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr) 260px;
-  grid-template-rows: 32px minmax(0, 1fr);
+  grid-template-rows: 40px minmax(0, 1fr);
   gap: 0;
   padding-top: 0;
   height: 100%;
   max-width: 100%;
   border: 1px solid var(--border-color);
-}
-
-body.theme-outlook #game-ui::before {
-  grid-column: 1 / -1;
-  grid-row: 1;
 }
 
 /* --- Fake Inbox Sidebar --- */
@@ -147,7 +130,7 @@ body.theme-outlook #analysis-panel {
 @media (max-width: 700px) {
   body.theme-outlook #game-ui {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 32px auto minmax(0, 1fr);
+    grid-template-rows: 40px auto minmax(0, 1fr);
   }
   body.theme-outlook #email-viewer {
     grid-column: 1;

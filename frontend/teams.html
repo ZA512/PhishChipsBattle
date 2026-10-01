@@ -5,31 +5,39 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Mon équipe — Phish & Chips</title>
     <link rel="stylesheet" href="enterprise.css" />
+    <link rel="stylesheet" href="portal.css" />
+    <script src="appearance.js"></script>
   </head>
   <body class="enterprise">
     <main>
-      <h1>Votre équipe, votre choix.</h1>
+      <h1>L’organigramme propose. Vous disposez.</h1>
       <p class="lead">
         L’organigramme aide à vous proposer une équipe. Vous pouvez choisir
         celle qui vous correspond, puis la changer ici. Les battles déjà créées
         conservent leurs équipes d’origine.
       </p>
-      <section class="card">
-        <p id="message" class="notice" role="status">Chargement…</p>
-        <form id="team-form">
-          <label for="team-select">Mon équipe</label
-          ><select id="team-select" required>
-            <option value="">Choisissez une équipe</option></select
-          ><button class="btn" id="save" type="submit" disabled>
-            Confirmer mon équipe
-          </button>
-        </form>
-        <p id="recommendation" class="meta"></p>
-      </section>
-      <section class="card">
-        <h2>Historique</h2>
-        <div id="history"></div>
-      </section>
+      <div class="team-layout">
+        <section class="card">
+          <span class="eyebrow">Affectation</span>
+          <p class="team-name" id="team-current"></p>
+          <p id="message" class="notice" role="status">Chargement…</p>
+          <form id="team-form">
+            <label for="team-select">Mon équipe</label
+            ><select id="team-select" required>
+              <option value="">Choisissez une équipe</option></select
+            ><button class="btn" id="save" type="submit" disabled>
+              Confirmer mon équipe
+            </button>
+          </form>
+          <p id="recommendation" class="meta"></p>
+        </section>
+        <section class="card">
+          <details>
+            <summary>Historique des affectations</summary>
+            <div id="history"></div>
+          </details>
+        </section>
+      </div>
     </main>
     <script src="account.js"></script>
     <script src="teams.js"></script>

@@ -57,12 +57,15 @@ function renderPlayersTable(rows, showStreak = false) {
   }
   return `<table>
         <thead><tr>
-            <th>#</th><th>Pseudo</th><th>Service</th><th>Meilleur score</th><th>Parties</th>
+            <th>#</th><th>Pseudo</th><th>Équipe</th><th>Meilleur score</th><th>Parties</th>
         </tr></thead>
         <tbody>
         ${rows
           .map(
-            (r, i) => `<tr>
+            (
+              r,
+              i,
+            ) => `<tr class="${Number(r.id) === PCB.player?.id ? "self-row" : ""}">
             <td>${medal(i)}</td>
             <td><a href="profile.html?id=${r.id}" class="player-link">${escHtml(r.name)}</a>${showStreak ? streakBadge(r.streak) : ""}</td>
             <td>${r.service_name ? escHtml(r.service_name) : '<span style="color:#aaa">—</span>'}</td>
@@ -78,11 +81,11 @@ function renderPlayersTable(rows, showStreak = false) {
 // --- Services table ---
 function renderServicesTable(rows, showStreak = false) {
   if (!rows || rows.length === 0) {
-    return '<p class="empty-state">Aucun service avec des parties terminées pour cette période.</p>';
+    return '<p class="empty-state">Aucune équipe avec des parties terminées pour cette période.</p>';
   }
   return `<table>
         <thead><tr>
-            <th>#</th><th>Service</th><th>Code</th><th>Score moyen*</th><th>Participants</th>
+            <th>#</th><th>Équipe</th><th>Code</th><th>Score moyen*</th><th>Participants</th>
         </tr></thead>
         <tbody>
         ${rows
@@ -149,6 +152,7 @@ const pmMonth = { current: nowYYYYMM() };
 const smMonth = { current: nowYYYYMM() };
 let currentModalSvcId = null;
 let currentModalMonth = null;
+let modalReturnFocus = null;
 
 // --- Load per tab ---
 async function loadTab(tab) {
@@ -224,6 +228,15 @@ function renderMonthLabel(prefix, ym) {
 
 function attachServiceClicks(container, month) {
   container.querySelectorAll(".clickable-row[data-svcid]").forEach((row) => {
+    row.tabIndex = 0;
+    row.setAttribute("role", "button");
+    row.setAttribute("aria-label", "Voir l’équipe " + row.dataset.svcname);
+    row.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        row.click();
+      }
+    });
     row.addEventListener("click", () =>
       openServiceModal(row.dataset.svcid, row.dataset.svcname, month),
     );
@@ -232,6 +245,10 @@ function attachServiceClicks(container, month) {
 
 // --- Service detail modal ---
 async function openServiceModal(svcId, svcName, month) {
+  if (!document.getElementById("service-modal").classList.contains("open"))
+    modalReturnFocus = document.activeElement;
+  document.querySelector(".scores-container").inert = true;
+  document.querySelector(".account-nav").inert = true;
   currentModalSvcId = svcId;
   currentModalMonth = month;
   document.getElementById("modal-service-name").textContent = svcName;
@@ -240,6 +257,7 @@ async function openServiceModal(svcId, svcName, month) {
   document.getElementById("modal-others").innerHTML = "";
   document.getElementById("modal-others-section").style.display = "none";
   document.getElementById("service-modal").classList.add("open");
+  document.getElementById("modal-close").focus();
 
   try {
     const data = await fetchServiceDetail(svcId, month, activeDifficulty);
@@ -281,9 +299,10 @@ function diffLabel(d) {
 document.querySelectorAll(".diff-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     activeDifficulty = btn.dataset.diff;
-    document
-      .querySelectorAll(".diff-btn")
-      .forEach((b) => b.classList.toggle("active", b === btn));
+    document.querySelectorAll(".diff-btn").forEach((b) => {
+      b.classList.toggle("active", b === btn);
+      b.setAttribute("aria-pressed", String(b === btn));
+    });
     // Reload active tab with new difficulty
     loadTab(activeTab);
     // If modal is open, reload it too
@@ -329,16 +348,53 @@ document.getElementById("sm-next").addEventListener("click", async () => {
   await loadServicesMonthly();
 });
 
-// Modal close
-document.getElementById("modal-close").addEventListener("click", () => {
+function closeServiceModal() {
   document.getElementById("service-modal").classList.remove("open");
-});
+  document.querySelector(".scores-container").inert = false;
+  document.querySelector(".account-nav").inert = false;
+  if (modalReturnFocus?.isConnected) modalReturnFocus.focus();
+}
+document
+  .getElementById("modal-close")
+  .addEventListener("click", closeServiceModal);
 document.getElementById("service-modal").addEventListener("click", (e) => {
-  if (e.target === e.currentTarget) e.currentTarget.classList.remove("open");
+  if (e.target === e.currentTarget) closeServiceModal();
 });
 
+document.addEventListener("keydown", (e) => {
+  const modal = document.getElementById("service-modal");
+  if (!modal.classList.contains("open")) return;
+  if (e.key === "Escape") document.getElementById("modal-close").click();
+  if (e.key === "Tab") {
+    const controls = [
+      ...modal.querySelectorAll("button,a[href],[tabindex='0']"),
+    ];
+    const next =
+      (controls.indexOf(document.activeElement) +
+        (e.shiftKey ? -1 : 1) +
+        controls.length) %
+      controls.length;
+    e.preventDefault();
+    controls[next]?.focus();
+  }
+});
 // Load default tab
-loadTab("players-global");
+function updateScoreSelection() {
+  loadTab(
+    document.getElementById("score-audience").value +
+      "-" +
+      document.getElementById("score-period").value,
+  );
+}
+document
+  .getElementById("score-audience")
+  .addEventListener("change", updateScoreSelection);
+document
+  .getElementById("score-period")
+  .addEventListener("change", updateScoreSelection);
+PCB.ready.then((player) => {
+  if (player) updateScoreSelection();
+});
 
 // --- CSV Export ---
 function exportCsv(type) {
@@ -347,7 +403,7 @@ function exportCsv(type) {
 
   let headers, mapRow;
   if (type.startsWith("players")) {
-    headers = ["Rang", "Pseudo", "Service", "Meilleur score", "Parties"];
+    headers = ["Rang", "Pseudo", "Équipe", "Meilleur score", "Parties"];
     mapRow = (r, i) => [
       i + 1,
       r.name,
@@ -356,7 +412,7 @@ function exportCsv(type) {
       r.games_played,
     ];
   } else {
-    headers = ["Rang", "Service", "Code", "Score moyen", "Participants"];
+    headers = ["Rang", "Équipe", "Code", "Score moyen", "Participants"];
     mapRow = (r, i) => [
       i + 1,
       r.name,

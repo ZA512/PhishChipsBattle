@@ -184,10 +184,15 @@ async function loadServices() {
     data.services.forEach((svc) => {
       const opt = document.createElement("option");
       opt.value = svc.id;
-      opt.textContent = `${svc.name} (${svc.code})`;
+      opt.textContent = svc.name;
       playerServiceSelect.appendChild(opt);
     });
     playerServiceSelect.value = String(player.service_id || "");
+    document.getElementById("current-team-name").textContent =
+      data.services.find((svc) => svc.id === player.service_id)?.name ||
+      "À choisir";
+    document.getElementById("result-profile-link").href =
+      "/profile.html?id=" + player.id;
     const battleId = new URLSearchParams(location.search).get("battle");
     if (battleId) {
       const battle = (await PCB.request("/api/battles")).battles.find(
@@ -270,6 +275,7 @@ async function startGame() {
     gameOverScreen.classList.add("hidden");
     feedbackModalEl.classList.remove("visible");
     gameUi.classList.remove("hidden");
+    document.body.classList.add("playing");
     updateScoreDisplay();
     updateSecurityBar();
     updateAutoAnalyzeDisplay();
@@ -333,6 +339,7 @@ async function loadNextEmail() {
     emailSubjectEl.textContent = data.subject;
 
     renderEmailBody(data.body);
+    updateCurrentInbox();
 
     addInspectionListeners();
     resetTimer();
@@ -594,66 +601,107 @@ function showFeedbackPopup(
   assisted = false,
 ) {
   feedbackTitleEl.textContent =
-    assisted && !isTimeout ? "SOS Sécu" : isCorrect ? "Correct !" : "Erreur !";
+    assisted && !isTimeout
+      ? "SOS Sécu : le collègue qui soupire."
+      : isCorrect
+        ? "Cette fois, ça passe."
+        : "Incident confirmé.";
   feedbackTitleEl.style.color = isCorrect
     ? getCssVariableValue("--safe-color")
     : getCssVariableValue("--phishing-color");
-
-  feedbackExplanationEl.textContent = isTimeout
-    ? "Vous avez mis trop de temps à analyser cet email."
-    : assisted
-      ? "SOS Sécu a identifié cet email. Retrouvez les indices ci-dessous."
-      : isCorrect
-        ? "Vous avez correctement identifié cet email."
-        : "Vous n'avez pas correctement identifié cet email.";
-
-  feedbackCluesEl.innerHTML = "";
+  const verdict =
+    emailData.type === "phishing"
+      ? "C’était un phishing."
+      : "C’était un email légitime.";
+  feedbackExplanationEl.textContent =
+    (isTimeout
+      ? "Le temps est écoulé. "
+      : assisted
+        ? "Le SOS a fait le travail. " + autoAnalyzesLeft + " SOS restant(s). "
+        : isCorrect
+          ? "Bonne classification. "
+          : "Mauvaise classification. ") + verdict;
+  feedbackCluesEl.replaceChildren();
   const list = document.createElement("ul");
   (emailData.clues || []).forEach((clue) => {
-    const li = document.createElement("li");
-    if (clue.includes(":")) {
-      const cut = clue.indexOf(":");
-      const tech = clue.slice(0, cut),
-        expl = clue.slice(cut + 1);
-      const t = document.createElement("span");
-      t.textContent = tech + " :";
-      t.className = "clue-technique";
-      const e = document.createElement("span");
-      e.textContent = expl;
-      e.className = "clue-explanation";
-      li.appendChild(t);
-      li.appendChild(e);
+    const li = document.createElement("li"),
+      cut = clue.indexOf(":");
+    if (cut > -1) {
+      const explanation = document.createElement("p");
+      explanation.textContent = clue.slice(cut + 1).trim();
+      explanation.className = "clue-explanation";
+      const detail = document.createElement("details"),
+        summary = document.createElement("summary");
+      detail.className = "clue-detail";
+      summary.textContent = "Nom technique : " + clue.slice(0, cut).trim();
+      const technical = document.createElement("p");
+      technical.textContent = clue;
+      detail.append(summary, technical);
+      li.append(explanation, detail);
     } else {
       li.textContent = clue;
     }
     list.appendChild(li);
   });
   feedbackCluesEl.appendChild(list);
-
-  feedbackModalEl.style.cssText =
-    "position:fixed;top:0;left:0;width:100%;height:100%;display:flex;justify-content:center;align-items:center;";
-  setTimeout(() => feedbackModalEl.classList.add("visible"), 0);
+  feedbackModalEl.classList.toggle("has-assistant", assisted && !isTimeout);
+  if (isTimeout) {
+    secuGuyContainer.classList.remove("visible");
+    secuGuyContainer.classList.add("hidden");
+  }
+  gameUi.inert = true;
+  document.querySelector(".account-nav").inert = true;
+  feedbackModalEl.classList.add("visible");
+  feedbackContinueBtn.focus();
 }
-
 feedbackContinueBtn.addEventListener("click", () => {
   feedbackModalEl.classList.remove("visible");
   secuGuyContainer.classList.remove("visible");
   secuGuyContainer.classList.add("hidden");
+  gameUi.inert = false;
+  document.querySelector(".account-nav").inert = false;
   playSound("click");
-
   if (!gameActive) {
     endGame(errors < maxErrors, false);
     return;
   }
   autoAnalyzeBtn.disabled = autoAnalyzesLeft <= 0;
-  loadNextEmail();
+  loadNextEmail().then(() => {
+    if (gameActive) classifySafeBtn.focus();
+  });
 });
-
 document.addEventListener("keydown", (e) => {
-  if (feedbackModalEl.classList.contains("visible") && e.key === "Enter") {
+  if (document.querySelector(".portal-confirm")) return;
+  if (!feedbackModalEl.classList.contains("visible")) return;
+  if (e.key === "Enter" && !e.target.closest("summary")) {
     e.preventDefault();
     feedbackContinueBtn.click();
   }
+  if (e.key === "Tab") {
+    const controls = [
+      ...feedbackModalEl.querySelectorAll("summary,button:not(:disabled)"),
+    ];
+    const next =
+      (controls.indexOf(document.activeElement) +
+        (e.shiftKey ? -1 : 1) +
+        controls.length) %
+      controls.length;
+    e.preventDefault();
+    controls[next]?.focus();
+  }
+});
+document
+  .getElementById("window-close")
+  .addEventListener("click", () => abandonBtn.click());
+document.getElementById("window-expand").addEventListener("click", (e) => {
+  const expanded = document
+    .getElementById("game-container")
+    .classList.toggle("window-expanded");
+  e.currentTarget.setAttribute("aria-pressed", String(expanded));
+  e.currentTarget.setAttribute(
+    "aria-label",
+    expanded ? "Restaurer la fenêtre" : "Agrandir la fenêtre",
+  );
 });
 
 // --- Display helpers ---
@@ -802,116 +850,116 @@ function hideTooltip() {
 const RANKS = [
   {
     emoji: "🥇",
-    title: "Chuck Norris de la Cybersécurité",
-    desc: "Il a trouvé une faille dans le temps, l'a patchée, et redémarré l'univers sans downtime.",
+    title: "Chuck Norris de la cybersécurité",
+    desc: "Il a patché le temps et redémarré l’univers sans interruption. N’a pas rempli le ticket de changement. Travail bâclé.",
     appreciation: "Super méga giga ultra top excellent",
   },
   {
     emoji: "🥈",
-    title: "Batman (version cybersécurité)",
-    desc: "N'a aucun pouvoir mais des scripts pour tout. Il a un BatSIEM.",
+    title: "Batman, version cybersécurité",
+    desc: "BatSIEM, BatSOC, BatEDR, bunker sécurisé et douze écrans. Tout ça pour découvrir que l’attaque venait de Gérard et de son faux colis Chronopost.",
     appreciation: "Épique en toute circonstance",
   },
   {
     emoji: "🥉",
-    title: "Edward Snowden",
-    desc: "Il sait tout, voit tout, sauf ton historique YouTube... trop dark.",
+    title: "Ethan Hunt",
+    desc: "Il repère le phishing avant même que le mail arrive. Il décide de faire exploser l’entreprise pour la protéger.",
     appreciation: "Héroïque mais humble",
   },
   {
     emoji: "🧠",
-    title: "Mr Robot (Elliot Alderson)",
-    desc: "Il code dans sa tête et déploie dans tes rêves.",
+    title: "Mr Robot",
+    desc: "Il a copié toutes les données de l’entreprise sur un disque chiffré. Puis il a laissé le disque sur son bureau avec une étiquette « CONFIDENTIEL ».",
     appreciation: "Stylé comme un terminal noir",
   },
   {
     emoji: "🧞‍♂️",
-    title: "Tony Stark (mais sans l'armure)",
-    desc: "Trop occupé à parler pour patcher, mais il te vendrait un ransomware comme un produit Apple.",
+    title: "Tony Stark",
+    desc: "Trois millions d’euros d’IA, de SOC et d’automatisation. Le mot de passe du Wi-Fi invité est toujours « Bienvenue2026 ».",
     appreciation: "Solide comme une VM qui redémarre pas",
   },
   {
     emoji: "🕶️",
-    title: "Neo (de Matrix)",
-    desc: 'A vu les paquets réseau tomber au ralenti. "There is no firewall".',
+    title: "Neo",
+    desc: "Il voit les paquets réseau défiler dans la Matrice. Il a quand même validé la notification MFA parce qu’il en avait marre qu’elle revienne.",
     appreciation: "Respectable (même en chaussettes)",
   },
   {
     emoji: "💼",
     title: "Fox Mulder",
-    desc: "Il croit que le phishing est fait par les extraterrestres. Il n'a pas tort.",
+    desc: "Il soupçonne la NSA, les Russes et les extraterrestres. Mais la vérité est ailleurs...",
     appreciation: "Pas mal du tout, vraiment",
   },
   {
     emoji: "👓",
-    title: "Q (de James Bond)",
-    desc: "Inventeur de gadgets inutiles mais stylés, genre le stylo USB qui clignote quand tu te fais hacker.",
+    title: "Q, de James Bond",
+    desc: "Montre laser, voiture invisible, stylo explosif. Pour réinitialiser ton mot de passe, en revanche, il faut créer un ticket et attendre 48 heures.",
     appreciation: "Prometteur à condition d'éviter les cafés renversés",
   },
   {
     emoji: "🎮",
-    title: "Lara Croft (spécialiste des ruines numériques)",
-    desc: "Elle récupère des backups dans des serveurs oubliés de tous depuis 1998.",
+    title: "Lara Croft, archéologue du SI",
+    desc: "Elle explore des serveurs oubliés depuis 1998. Le vestige le plus ancien reste le mot de passe de production.",
     appreciation: "On sent le potentiel",
   },
   {
     emoji: "🍕",
-    title: "Peter Parker (stagiaire en cybersécu)",
-    desc: "Il est rapide… sauf pour répondre aux tickets.",
+    title: "Peter Parker, stagiaire cyber",
+    desc: "Un grand pouvoir implique de grandes responsabilités. Il a donc demandé les droits administrateur « au cas où ».",
     appreciation: "Correct mais cliquouille",
   },
   {
     emoji: "🛸",
     title: "Rick Sanchez",
-    desc: "Il a créé un malware intelligent par accident. Depuis, il lui parle parfois.",
+    desc: "Il a automatisé toute la sécurité de l’entreprise. Maintenant, le seul moyen de comprendre comment ça marche serait de remonter dans le temps et de l’empêcher de le faire.",
     appreciation: "Peut mieux faire",
   },
   {
     emoji: "📼",
     title: "MacGyver",
-    desc: "A redémarré un datacenter avec un trombone, une pile et un vieux modem 56k.",
+    desc: "Un trombone, deux scripts récupérés sur Internet et une tâche planifiée que personne n’ose supprimer. Le système tient depuis six ans.",
     appreciation: "Un peu mieux que rien",
   },
   {
     emoji: "🧓",
-    title: "Obi-Wan Kenobi",
-    desc: '"Le mot de passe que tu cherches n\'est plus là, jeune padawan."',
+    title: "Obi-Wan Kenobi, en fin d’astreinte",
+    desc: "« Ce n’est pas le mail que vous recherchez. »\nDommage, il avait déjà cliqué sur la pièce jointe.",
     appreciation: "Mouais… bof",
   },
   {
     emoji: "💩",
     title: "Jar Jar Binks",
-    desc: "Tente d'aider... déclenche une fuite de données.",
+    desc: "Il voulait juste aider. Trois clics plus tard, toute l’entreprise participe à l’incident.",
     appreciation: "Pas fameux",
   },
   {
-    emoji: "🛴",
-    title: "Steve Urkel (version admin réseau)",
-    desc: '"C\'est pas moi qui ai crashé le serveur ? Oups."',
+    emoji: "🕵️",
+    title: "Inspecteur Gadget",
+    desc: "Il possède douze outils de sécurité. Mais il a oublié de dire : « Go Go Gadget sécurité ! »",
     appreciation: "Assez pathétique",
   },
   {
     emoji: "🧃",
-    title: "Kevin, 3e stagiaire non payé",
-    desc: "Il confond phishing et pêche à la ligne.",
+    title: "Le stagiaire promu par erreur",
+    desc: "On lui a demandé d’ouvrir un port. Il a ouvert la fenêtre. C’était sa meilleure décision de la journée.",
     appreciation: "Affligeant mais divertissant",
   },
   {
     emoji: "🚽",
-    title: "Ron Weasley (sans baguette)",
-    desc: "Fait disparaître les tickets... sans les résoudre.",
+    title: "Ron Weasley, sans Hermione",
+    desc: "Face à un mail suspect, il a paniqué, cliqué partout et appelé quelqu’un de plus compétent. Dans cet ordre.",
     appreciation: "Presque gênant",
   },
   {
     emoji: "🐌",
-    title: "Bob l'Éponge",
-    desc: "Toujours connecté. Mais à quoi ? On ne sait pas.",
+    title: "Bob l’Éponge",
+    desc: "Il a saisi son mot de passe sur un site qui ressemblait vaguement à Microsoft. Bon, on passe l’éponge pour cette fois.",
     appreciation: "Pathétique tout court",
   },
   {
     emoji: "🥴",
-    title: "Homer Simpson (RSSI par accident)",
-    desc: 'Il a cliqué sur "Mettre à jour plus tard" 126 fois. Le SI tient encore.',
+    title: "Homer Simpson, RSSI par accident",
+    desc: "Il clique sur tout ce qui bouge. Heureusement, il bouge assez peu.",
     appreciation: "Très pathétique",
   },
 ];
@@ -1046,6 +1094,11 @@ async function endGame(won, abandoned = false) {
   feedbackModalEl.classList.remove("visible");
   hideTooltip();
   gameUi.classList.add("hidden");
+  document.body.classList.remove("playing");
+  document.getElementById("game-container").classList.remove("window-expanded");
+  document
+    .getElementById("window-expand")
+    .setAttribute("aria-pressed", "false");
   gameOverScreen.classList.remove("hidden");
   gameOverScreen.scrollTop = 0;
 
@@ -1111,40 +1164,37 @@ async function endGame(won, abandoned = false) {
 }
 
 function renderNewBadges(badges) {
-  // Remove previous badge popup if any
-  const old = document.getElementById("new-badges-popup");
-  if (old) old.remove();
-
+  document.getElementById("new-badges-popup")?.remove();
+  const recap = document.getElementById("recap-link");
+  recap.hidden = !sessionId;
+  recap.href = "/recap.html?id=" + sessionId;
+  document.getElementById("result-profile-link").href =
+    "/profile.html?id=" + playerId;
+  if (!badges?.length) return;
   const container = document.createElement("div");
   container.id = "new-badges-popup";
-
-  const badgesHtml =
-    badges && badges.length > 0
-      ? `<div class="badges-popup-title">🏆 Nouveaux badges débloqués !</div>
-         <div class="badges-popup-list">
-           ${badges.map((b) => `<div class="badge-item"><span class="badge-emoji">${b.emoji}</span><span class="badge-name">${b.name}</span><span class="badge-desc">${b.description}</span></div>`).join("")}
-         </div>`
-      : "";
-
-  const profileLink = playerId
-    ? `<a href="profile.html?id=${playerId}" class="profile-link-btn">👤 Voir mon profil & tous mes badges</a>`
-    : "";
-
-  container.innerHTML = badgesHtml;
-  const links = document.createElement("div");
-  links.className = "result-links";
-  links.innerHTML = profileLink;
-  container.appendChild(links);
-  if (sessionId) {
-    const recap = document.createElement("a");
-    recap.href = "/recap.html?id=" + sessionId;
-    recap.className = "profile-link-btn";
-    recap.textContent = "Voir les emails et mes réponses";
-    links.appendChild(recap);
-  }
+  const title = document.createElement("div");
+  title.className = "badges-popup-title";
+  title.textContent = "🏆 Nouveaux badges débloqués !";
+  const list = document.createElement("div");
+  list.className = "badges-popup-list";
+  badges.forEach((b) => {
+    const item = document.createElement("div");
+    item.className = "badge-item";
+    for (const [className, text] of [
+      ["badge-emoji", b.emoji],
+      ["badge-name", b.name],
+      ["badge-desc", b.description],
+    ]) {
+      const span = document.createElement("span");
+      span.className = className;
+      span.textContent = text;
+      item.appendChild(span);
+    }
+    list.appendChild(item);
+  });
+  container.append(title, list);
   gameOverScreen.appendChild(container);
-
-  // Animate in
   requestAnimationFrame(() => container.classList.add("visible"));
 }
 
@@ -1170,9 +1220,9 @@ restartBtn.addEventListener("click", () => {
 classifySafeBtn.addEventListener("click", () => classifyEmail("safe"));
 classifyPhishingBtn.addEventListener("click", () => classifyEmail("phishing"));
 autoAnalyzeBtn.addEventListener("click", useAutoAnalyze);
-abandonBtn.addEventListener("click", () => {
+abandonBtn.addEventListener("click", async () => {
   if (!gameActive) return;
-  if (confirm("Abandonner la partie ? Votre score sera conservé.")) {
+  if (await PCB.confirm("Abandonner la partie ? Votre score sera conservé.")) {
     endGame(false, true);
   }
 });
@@ -1220,37 +1270,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // --- Theme Management ---
 function initTheme() {
-  const savedDark = localStorage.getItem("pcb-dark") === "true";
-  const savedTheme = localStorage.getItem("pcb-theme") || "outlook";
-  if (savedDark) document.body.classList.add("dark");
+  const savedTheme =
+    localStorage.getItem("pcb-theme") === "classic" ? "classic" : "outlook";
   applyTheme(savedTheme);
-  updateDarkToggleIcon();
-
-  const darkToggle = document.getElementById("dark-toggle");
-  const themeSelect = document.getElementById("theme-select");
-  if (themeSelect) themeSelect.value = savedTheme;
-
-  if (darkToggle)
-    darkToggle.addEventListener("click", () => {
-      document.body.classList.toggle("dark");
-      localStorage.setItem(
-        "pcb-dark",
-        document.body.classList.contains("dark"),
-      );
-      updateDarkToggleIcon();
-    });
-  if (themeSelect)
-    themeSelect.addEventListener("change", () => {
-      applyTheme(themeSelect.value);
-      localStorage.setItem("pcb-theme", themeSelect.value);
-    });
-}
-function updateDarkToggleIcon() {
-  const btn = document.getElementById("dark-toggle");
-  if (btn)
-    btn.textContent = document.body.classList.contains("dark") ? "☀️" : "🌙";
+  const select = document.getElementById("theme-select");
+  select.value = savedTheme;
+  select.addEventListener("change", () => {
+    applyTheme(select.value);
+    localStorage.setItem("pcb-theme", select.value);
+  });
 }
 function applyTheme(theme) {
+  document.getElementById("mail-window-title").textContent =
+    theme === "outlook"
+      ? "Outlook · Boîte de réception"
+      : "Messagerie · Boîte de réception";
   document.body.classList.remove("theme-outlook");
   const existing = document.getElementById("theme-css");
   if (existing) existing.remove();
@@ -1263,8 +1297,12 @@ function applyTheme(theme) {
     link.rel = "stylesheet";
     link.id = "theme-css";
     link.href = "theme-outlook.css";
-    document.head.appendChild(link);
+    document.head.insertBefore(
+      link,
+      document.querySelector('link[href="portal.css"]'),
+    );
     injectOutlookSidebar();
+    updateCurrentInbox();
   }
 }
 
@@ -1289,9 +1327,33 @@ function injectOutlookSidebar() {
         `,
         ).join("")}
     `;
+  const current = document.createElement("div");
+  current.id = "current-inbox-mail";
+  current.className = "fake-email current-mail";
+  current.setAttribute("aria-current", "true");
+  for (const [id, className] of [
+    ["inbox-sender", "fe-sender"],
+    ["inbox-subject", "fe-subject"],
+    ["inbox-preview", "fe-preview"],
+  ]) {
+    const span = document.createElement("div");
+    span.id = id;
+    span.className = className;
+    current.appendChild(span);
+  }
+  sidebar.querySelector(".sidebar-search").after(current);
   gameUi.insertBefore(sidebar, gameUi.firstChild);
 }
 
+function updateCurrentInbox() {
+  if (!currentEmailData || !document.getElementById("inbox-sender")) return;
+  document.getElementById("inbox-sender").textContent = currentEmailData.sender;
+  document.getElementById("inbox-subject").textContent =
+    currentEmailData.subject;
+  document.getElementById("inbox-preview").textContent = emailBodyEl.textContent
+    .trim()
+    .replace(/\s+/g, " ");
+}
 const FAKE_INBOX_EMAILS = [
   {
     sender: "Jean-Michel D.",

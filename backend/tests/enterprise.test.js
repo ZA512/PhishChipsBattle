@@ -118,11 +118,13 @@ async function end(u, s) {
 }
 
 test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
+  assert.equal((await ok("/api/auth/config")).bootstrapAvailable, true);
   const admin = await user("admin", true),
     alice = await user("alice"),
     bob = await user("bob"),
     newcomer = await user("entrant"),
     manager = await user("manager");
+  assert.equal((await ok("/api/auth/config")).bootstrapAvailable, false);
   const a = (
     await ok(
       "/api/admin/services",

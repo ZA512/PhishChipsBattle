@@ -10,9 +10,14 @@ router.use((_req, res, next) => {
   res.set("Cache-Control", "no-store");
   next();
 });
-router.get("/config", (_req, res) =>
-  res.json({ mode: config().authMode, teamPolicy: config().teamPolicy }),
-);
+router.get("/config", async (_req, res) => {
+  const mode = config().authMode;
+  const bootstrapAvailable =
+    mode === "local" &&
+    !(await pool.query("SELECT 1 FROM players WHERE role='admin' LIMIT 1")).rows
+      .length;
+  res.json({ mode, teamPolicy: config().teamPolicy, bootstrapAvailable });
+});
 router.get("/me", auth.requireUser, (req, res) =>
   res.json({ player: req.user }),
 );

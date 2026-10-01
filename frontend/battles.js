@@ -1,26 +1,51 @@
 "use strict";
 const message = document.getElementById("message");
+let battleData = [];
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
 function table(headers, rows) {
-  const table = document.createElement("table"),
-    thead = table.createTHead(),
-    head = thead.insertRow();
-  headers.forEach((h) => {
-    const th = document.createElement("th");
-    th.textContent = h;
-    head.appendChild(th);
-  });
-  const tbody = table.createTBody();
+  const table = el("table"),
+    head = table.createTHead().insertRow(),
+    body = table.createTBody();
+  headers.forEach((h) => head.append(el("th", "", h)));
   rows.forEach((row) => {
-    const tr = tbody.insertRow();
+    const tr = body.insertRow();
     row.forEach(
       (value) => (tr.insertCell().textContent = String(value ?? "—")),
     );
   });
   return table;
 }
+function state(b) {
+  if (b.status === "closed" || Date.now() >= Date.parse(b.ends_at))
+    return "closed";
+  return Date.now() < Date.parse(b.starts_at) ? "upcoming" : "active";
+}
+const stateNames = {
+  closed: "Terminée",
+  upcoming: "À venir",
+  active: "En cours",
+};
+const difficultyNames = {
+  easy: "Facile",
+  normal: "Normal",
+  hardcore: "Hardcore",
+};
+function date(value) {
+  return new Date(value).toLocaleString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 async function showResults(id) {
   try {
-    const data = await PCB.request(`/api/battles/${id}/results`);
+    const data = await PCB.request("/api/battles/" + id + "/results");
     document.getElementById("results").classList.remove("hidden");
     document.getElementById("results-title").textContent = data.battle.name;
     document.getElementById("results-note").textContent =
@@ -36,14 +61,14 @@ async function showResults(id) {
             i + 1,
             t.name,
             t.score,
-            `${t.played}/${t.participants}`,
+            t.played + "/" + t.participants,
           ])
         : data.results.players.map((p, i) => [
             i + 1,
             p.name,
             p.service_name,
             p.score,
-            p.played ? `${p.decision_seconds}s` : "Non joué",
+            p.played ? p.decision_seconds + "s" : "Non joué",
           ]);
     document
       .getElementById("results-table")
@@ -55,58 +80,94 @@ async function showResults(id) {
           rows,
         ),
       );
-  } catch (e) {
+    document
+      .getElementById("results")
+      .scrollIntoView({
+        behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "instant"
+          : "smooth",
+        block: "start",
+      });
+  } catch (error) {
     message.className = "notice error";
-    message.textContent = e.message;
+    message.textContent = error.message;
   }
 }
-async function loadBattles() {
-  const data = await PCB.request("/api/battles");
-  message.textContent = data.battles.length
-    ? "Vos compétitions."
-    : "Aucune battle pour le moment.";
-  const container = document.getElementById("battle-list");
-  container.replaceChildren();
-  for (const b of data.battles) {
-    const card = document.createElement("section");
-    card.className = "card";
-    const title = document.createElement("h2");
-    title.textContent = b.name;
-    card.appendChild(title);
-    const info = document.createElement("p");
-    info.className = "meta";
-    info.textContent = `${{ individual: "Individuelle", internal: "Dans une équipe", teams: "Entre équipes" }[b.mode]} · ${b.difficulty} · ${b.email_count} emails · ${b.joker_limit} jokers`;
-    card.appendChild(info);
-    const dates = document.createElement("p");
-    dates.textContent = `Du ${new Date(b.starts_at).toLocaleString("fr-FR")} au ${new Date(b.ends_at).toLocaleString("fr-FR")}`;
-    card.appendChild(dates);
-    const tries = document.createElement("p");
-    tries.textContent = `Tentatives : ${b.attempts_used}/${b.max_attempts}${b.roster_team ? " · Équipe de cette battle : " + b.roster_team : ""}`;
-    card.appendChild(tries);
+function renderBattles() {
+  const filter = document.getElementById("battle-status").value;
+  const selected = battleData.filter(
+    (b) => filter === "all" || state(b) === filter,
+  );
+  message.className = "notice";
+  message.textContent = selected.length
+    ? ""
+    : battleData.length
+      ? "Aucune battle dans cette catégorie."
+      : "Aucune battle pour le moment. Les collègues ont obtenu un sursis.";
+  const cards = selected.map((b) => {
+    const card = el("section", "card battle-card"),
+      header = el("header");
+    header.append(
+      el("h2", "", b.name),
+      el("span", "pill battle-status " + state(b), stateNames[state(b)]),
+    );
+    card.append(header);
+    const rules = el("div", "battle-rules");
+    [
+      {
+        individual: "Individuelle",
+        internal: "Dans une équipe",
+        teams: "Entre équipes",
+      }[b.mode],
+      difficultyNames[b.difficulty],
+      b.email_count + " emails",
+      b.joker_limit + " SOS",
+    ].forEach((text) => rules.append(el("span", "pill", text)));
+    card.append(
+      rules,
+      el("p", "meta", "Du " + date(b.starts_at) + " au " + date(b.ends_at)),
+    );
+    card.append(
+      el(
+        "p",
+        "",
+        Math.max(0, b.max_attempts - Number(b.attempts_used)) +
+          " / " +
+          b.max_attempts +
+          " tentatives restantes" +
+          (b.roster_team ? " · Équipe de cette battle : " + b.roster_team : ""),
+      ),
+    );
+    const actions = el("div", "form-actions");
     if (
       b.participating &&
       b.status === "published" &&
-      Date.now() >= Date.parse(b.starts_at) &&
-      Date.now() < Date.parse(b.ends_at) &&
+      state(b) === "active" &&
       (Number(b.attempts_used) < b.max_attempts || b.ongoing)
     ) {
-      const play = document.createElement("a");
-      play.href = `/phishing.html?battle=${b.id}`;
-      play.className = "btn";
-      play.textContent = b.ongoing ? "Reprendre" : "Jouer";
-      card.appendChild(play);
+      const play = el("a", "btn", b.ongoing ? "Reprendre" : "Jouer");
+      play.href = "/phishing.html?battle=" + b.id;
+      actions.append(play);
     }
-    const results = document.createElement("button");
-    results.className = "btn btn-secondary";
-    results.textContent = "Voir les résultats";
+    const results = el("button", "btn btn-secondary", "Voir les résultats");
+    results.type = "button";
     results.addEventListener("click", () => showResults(b.id));
-    card.appendChild(results);
-    container.appendChild(card);
-  }
+    actions.append(results);
+    card.append(actions);
+    return card;
+  });
+  document.getElementById("battle-list").replaceChildren(...cards);
 }
+document
+  .getElementById("battle-status")
+  .addEventListener("change", renderBattles);
 PCB.ready
-  .then((player) => player && loadBattles())
-  .catch((e) => {
+  .then(async (player) => {
+    if (!player) return;
+    battleData = (await PCB.request("/api/battles")).battles;
+    renderBattles();
+  })
+  .catch((error) => {
     message.className = "notice error";
-    message.textContent = e.message;
+    message.textContent = error.message;
   });

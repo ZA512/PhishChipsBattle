@@ -261,29 +261,17 @@
         display: none !important;
       }
     </style>
+    <link rel="stylesheet" href="portal.css" />
+    <script src="appearance.js"></script>
   </head>
   <body class="game-page">
-    <!-- Theme Toggle -->
-    <div id="theme-controls">
-      <button
-        id="dark-toggle"
-        class="theme-toggle-btn"
-        title="Mode sombre/clair"
-      >
-        🌙
-      </button>
-      <select id="theme-select" title="Thème visuel">
-        <option value="classic">🎮 Classique</option>
-        <option value="outlook" selected>📧 Outlook</option>
-      </select>
-    </div>
-
     <div id="game-container">
       <!-- Start Screen -->
       <div id="start-screen" class="screen">
         <div class="start-card">
           <div class="start-header">
-            <h1>🔐 Phish &amp; Chips</h1>
+            <span class="eyebrow">Entraînement · service sécurité</span>
+            <h1>La prod compte sur vous.</h1>
             <p class="start-tagline">
               Le fast-food de la cybersécurité. Classez les emails avant qu'ils
               classent votre carrière.
@@ -320,8 +308,14 @@
           </div>
 
           <div class="start-field">
-            <label for="player-service-select">Équipe</label>
-            <select id="player-service-select">
+            <div class="start-team">
+              <div>
+                <span class="meta">Votre équipe</span
+                ><strong id="current-team-name">Chargement…</strong>
+              </div>
+              <a href="teams.html">Changer d’équipe</a>
+            </div>
+            <select id="player-service-select" hidden>
               <option value="">— Choisissez une équipe —</option>
             </select>
           </div>
@@ -336,21 +330,27 @@
                 value="easy"
                 checked
               />
-              <label for="easy-mode">🔰 Facile</label>
+              <label for="easy-mode"
+                >🔰 Facile<small>30 secondes fixes</small></label
+              >
               <input
                 type="radio"
                 id="normal-mode"
                 name="difficulty"
                 value="normal"
               />
-              <label for="normal-mode">⚠️ Normal</label>
+              <label for="normal-mode"
+                >⚠️ Normal<small>30 → 15 secondes</small></label
+              >
               <input
                 type="radio"
                 id="hardcore-mode"
                 name="difficulty"
                 value="hardcore"
               />
-              <label for="hardcore-mode">💀 Hardcore</label>
+              <label for="hardcore-mode"
+                >💀 Hardcore<small>30 → 5 secondes</small></label
+              >
             </div>
           </div>
 
@@ -373,11 +373,38 @@
 
       <!-- Game UI (Hidden initially) -->
       <div id="game-ui" class="hidden">
+        <div class="mail-window-bar">
+          <span aria-hidden="true">📧</span
+          ><strong id="mail-window-title">Outlook · Boîte de réception</strong>
+          <div class="window-menu">
+            <select id="theme-select" aria-label="Apparence de la messagerie">
+              <option value="outlook">Outlook</option>
+              <option value="classic">Classique</option>
+            </select>
+            <button
+              class="window-button"
+              id="window-expand"
+              type="button"
+              aria-label="Agrandir la fenêtre"
+              aria-pressed="false"
+            >
+              □
+            </button>
+            <button
+              class="window-button close"
+              id="window-close"
+              type="button"
+              aria-label="Quitter la partie"
+            >
+              ×
+            </button>
+          </div>
+        </div>
         <div id="email-viewer">
           <div id="email-header">
             <div id="email-actions" role="group" aria-label="Actions du mail">
               <button id="classify-safe-btn" class="email-btn" disabled>
-                ↩️ Répondre
+                ↩️ Répondre · mail sûr
               </button>
               <button id="classify-phishing-btn" class="email-btn" disabled>
                 ⚠️ Signaler phishing
@@ -443,6 +470,15 @@
         <h2 id="game-over-title">GAME OVER</h2>
         <p id="game-over-message">L'entreprise a été compromise.</p>
         <p><span id="final-score">0</span></p>
+        <p id="game-mode-message"></p>
+
+        <div class="result-actions">
+          <button id="restart-btn" class="btn">Recommencer</button>
+          <a id="recap-link" class="btn btn-secondary" hidden
+            >Débrief des emails</a
+          ><a id="result-profile-link" class="score-link">Mon dossier</a
+          ><a href="scores.html" class="score-link">Classements</a>
+        </div>
 
         <section id="rank-display" aria-label="Votre niveau">
           <div id="rank-cylinder-fixed">
@@ -456,28 +492,29 @@
             </button>
           </div>
         </section>
-
-        <p id="game-mode-message"></p>
-        <div class="result-actions">
-          <button id="restart-btn" class="btn">Recommencer</button>
-          <a href="scores.html" class="score-link">🏆 Voir les classements</a>
-        </div>
       </div>
 
       <!-- Feedback Modal -->
-      <div id="feedback-modal">
-        <div id="secu-guy-container">
-          <img id="secu-guy-img" src="secu.png" alt="Agent de sécurité" />
+      <div
+        id="feedback-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="feedback-title"
+      >
+        <div class="feedback-stage">
+          <div id="secu-guy-container">
+            <img id="secu-guy-img" src="secu.png" alt="Agent de sécurité" />
+          </div>
+          <div id="feedback-content">
+            <h2 id="feedback-title">Résultat</h2>
+            <p id="feedback-explanation"></p>
+            <div id="feedback-clues"></div>
+            <button id="feedback-continue-btn" class="btn">Continuer</button>
+          </div>
         </div>
-        <div id="feedback-content">
-          <h2 id="feedback-title">Résultat</h2>
-          <p id="feedback-explanation"></p>
-          <div id="feedback-clues"></div>
-          <button id="feedback-continue-btn" class="btn">Continuer</button>
-        </div>
-      </div>
 
-      <!-- Tooltip -->
+        <!-- Tooltip -->
+      </div>
       <div id="cursor-tooltip" class="hidden"></div>
     </div>
 

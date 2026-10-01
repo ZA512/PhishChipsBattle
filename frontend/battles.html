@@ -5,15 +5,26 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Battles — Phish & Chips</title>
     <link rel="stylesheet" href="enterprise.css" />
+    <link rel="stylesheet" href="portal.css" />
+    <script src="appearance.js"></script>
   </head>
   <body class="enterprise">
     <main>
-      <h1>Les battles du bureau.</h1>
+      <h1>Règlement de comptes. Avec règlement.</h1>
       <p class="lead">
         Une même série d’emails, un règlement commun et des équipes conservées
         pour toute la compétition.
       </p>
       <p id="message" class="notice" role="status">Chargement…</p>
+      <div class="battle-filter">
+        <label for="battle-status">Afficher</label
+        ><select id="battle-status">
+          <option value="all">Toutes les battles</option>
+          <option value="active">En cours</option>
+          <option value="upcoming">À venir</option>
+          <option value="closed">Terminées</option>
+        </select>
+      </div>
       <div id="battle-list" class="grid"></div>
       <section id="results" class="card hidden">
         <h2 id="results-title"></h2>

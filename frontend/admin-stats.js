@@ -1,72 +1,24 @@
-// ============================================================
-//  admin-stats.js – Dashboard stats PhishChipsBattle
-// ============================================================
-
-let adminSecret = "";
-
-const loginSection = document.getElementById("login-section");
+"use strict";
 const mainSection = document.getElementById("main-section");
-const loginBtn = document.getElementById("login-btn");
-const loginError = document.getElementById("login-error");
-const passwordInput = document.getElementById("admin-password");
-
-loginBtn.addEventListener("click", tryLogin);
-passwordInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") tryLogin();
-});
-PCB.ready.then(async (player) => {
-  loginSection.style.display = "none";
-  if (player?.role !== "admin") {
-    loginError.textContent = "Accès réservé aux administrateurs.";
-    document.body.appendChild(loginError);
-    return;
-  }
-  try {
+const statsMessage = document.getElementById("stats-message");
+PCB.ready
+  .then(async (player) => {
+    if (!player) return;
+    if (player.role !== "admin")
+      throw new Error("Accès réservé aux administrateurs.");
     const data = await PCB.request("/api/admin/stats/overview");
+    statsMessage.hidden = true;
     mainSection.style.display = "block";
     renderOverview(data);
     loadHardest();
     loadActivity("week");
-  } catch (error) {
-    loginError.textContent = error.message;
-    document.body.appendChild(loginError);
-  }
-});
-
-async function tryLogin() {
-  loginError.textContent = "";
-  const pwd = passwordInput.value.trim();
-  if (!pwd) {
-    loginError.textContent = "Mot de passe requis.";
-    return;
-  }
-
-  try {
-    const res = await fetch("/api/admin/stats/overview", {
-      headers: { "X-Admin-Password": pwd },
-    });
-    if (res.status === 401 || res.status === 403) {
-      loginError.textContent = "Mot de passe incorrect.";
-      return;
-    }
-    if (!res.ok) {
-      loginError.textContent = "Erreur serveur.";
-      return;
-    }
-    adminSecret = pwd;
-    loginSection.style.display = "none";
-    mainSection.style.display = "block";
-    const data = await res.json();
-    renderOverview(data);
-    loadHardest();
-    loadActivity("week");
-  } catch {
-    loginError.textContent = "Erreur de connexion.";
-  }
-}
-
+  })
+  .catch((error) => {
+    statsMessage.textContent = error.message;
+    statsMessage.className = "notice error";
+  });
 function adminFetch(url) {
-  return fetch(url, { headers: { "X-Admin-Password": adminSecret } });
+  return fetch(url);
 }
 
 function renderOverview(data) {

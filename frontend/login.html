@@ -5,58 +5,161 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Connexion — Phish & Chips</title>
     <link rel="stylesheet" href="enterprise.css" />
+    <link rel="stylesheet" href="portal.css" />
+    <script src="appearance.js"></script>
   </head>
   <body class="enterprise">
-    <main>
+    <button
+      type="button"
+      class="btn btn-secondary auth-appearance"
+      data-appearance
+    >
+      ☾ Sombre
+    </button>
+    <main class="auth-layout">
+      <div class="auth-intro">
+        <a href="login.html" class="brand"
+          ><span class="brand-mark">P&C</span><strong>Phish & Chips</strong></a
+        >
+        <span class="eyebrow">Le fast-food de la cybersécurité</span>
+        <h1>Un mail.<br />Un clic.<br />Un incident.</h1>
+        <p>
+          Classez les emails avant qu’ils classent votre carrière. Seul ou en
+          battle, la prod compte sur vous. Elle avait peu d’autres options.
+        </p>
+        <span class="auth-stamp">SERVICE SÉCURITÉ · SOUS CAFÉINE</span>
+      </div>
       <section class="card auth-card">
-        <p class="meta">PHISH & CHIPS · ENTREPRISE</p>
-        <h1>À vous de jouer.</h1>
-        <p class="lead">
-          Connectez-vous pour retrouver votre équipe et participer aux battles.
+        <div
+          id="auth-tabs"
+          class="auth-tabs hidden"
+          role="group"
+          aria-label="Choisir un formulaire"
+        >
+          <button
+            type="button"
+            class="btn"
+            data-auth-view="login"
+            aria-pressed="true"
+          >
+            Connexion
+          </button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-auth-view="register"
+            aria-pressed="false"
+          >
+            Créer un compte
+          </button>
+        </div>
+        <h2 id="auth-title">Identifiez-vous.</h2>
+        <p class="meta" id="auth-description">
+          On aimerait savoir à qui envoyer le rapport d’incident.
         </p>
         <p id="message" class="notice" role="status">Chargement…</p>
         <a id="sso" class="btn hidden" href="/api/auth/entra/login"
           >Se connecter avec Microsoft</a
         >
-        <form id="local-form" class="hidden">
+        <form id="login-form" class="hidden" data-auth-form="login">
           <label for="email">Email</label
+          ><input id="email" type="email" required autocomplete="username" />
+          <label for="password">Mot de passe</label
           ><input
-            id="email"
+            id="password"
+            type="password"
+            required
+            maxlength="128"
+            autocomplete="current-password"
+          />
+          <button class="btn" type="submit">Se connecter</button>
+        </form>
+        <form id="register-form" class="hidden" data-auth-form="register">
+          <label for="register-name">Pseudo</label
+          ><input
+            id="register-name"
+            minlength="2"
+            maxlength="40"
+            required
+            autocomplete="nickname"
+          />
+          <label for="register-email">Email</label
+          ><input
+            id="register-email"
             type="email"
             required
             autocomplete="username"
-          /><label for="password">Mot de passe</label
+          />
+          <label for="register-password">Mot de passe</label
           ><input
-            id="password"
+            id="register-password"
             type="password"
             minlength="12"
             maxlength="128"
             required
-            autocomplete="current-password"
-          /><label for="name">Pseudo · pour créer un compte</label
-          ><input id="name" maxlength="40" autocomplete="nickname" /><button
-            class="btn"
-            type="submit"
-          >
-            Connexion</button
-          ><button class="btn btn-secondary" type="button" id="register">
-            Créer mon compte
-          </button>
-          <details>
-            <summary>Créer le premier administrateur local</summary>
-            <label for="bootstrap-secret"
-              >Secret administrateur de l’installation</label
-            ><input
-              id="bootstrap-secret"
-              type="password"
-              autocomplete="off"
-            /><button class="btn btn-secondary" type="button" id="bootstrap">
-              Initialiser l’administrateur
-            </button>
-          </details>
+            autocomplete="new-password"
+            aria-describedby="password-help"
+          />
+          <p class="meta" id="password-help">
+            12 caractères minimum. Le nom du chat ne compte pas comme stratégie.
+          </p>
+          <button class="btn" type="submit">Créer mon compte</button>
         </form>
+        <form id="bootstrap-form" class="hidden" data-auth-form="bootstrap">
+          <label for="bootstrap-name">Pseudo de l’administrateur</label
+          ><input
+            id="bootstrap-name"
+            minlength="2"
+            maxlength="40"
+            required
+            autocomplete="nickname"
+          />
+          <label for="bootstrap-email">Email</label
+          ><input
+            id="bootstrap-email"
+            type="email"
+            required
+            autocomplete="username"
+          />
+          <label for="bootstrap-password"
+            >Mot de passe · 12 caractères minimum</label
+          ><input
+            id="bootstrap-password"
+            type="password"
+            minlength="12"
+            maxlength="128"
+            required
+            autocomplete="new-password"
+          />
+          <label for="bootstrap-secret"
+            >Secret administrateur de l’installation</label
+          ><input
+            id="bootstrap-secret"
+            type="password"
+            required
+            autocomplete="off"
+          />
+          <button class="btn" type="submit">
+            Initialiser l’administrateur
+          </button>
+          <button class="quiet-link" type="button" data-auth-view="login">
+            Retour à la connexion
+          </button>
+        </form>
+        <button
+          id="setup-link"
+          class="quiet-link hidden"
+          type="button"
+          data-auth-view="bootstrap"
+        >
+          Première installation · créer l’administrateur
+        </button>
       </section>
     </main>
+    <footer class="portal-footer">
+      Phish & Chips Battle · GPLv3 · La sécurité n’a pas approuvé votre dernier
+      clic.
+    </footer>
     <script src="login.js"></script>
   </body>
 </html>

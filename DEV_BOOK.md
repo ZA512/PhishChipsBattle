@@ -1,6 +1,6 @@
 # PhishChipsBattle — Dev book
 
-État actualisé le **28 septembre 2026**, après audit du code et vérification sur PostgreSQL. Le précédent dev-book reste disponible dans [l’archive du 29 avril](docs/archives/DEV_BOOK_2026-04-29.md). L’[audit avant corrections](ETAT_PROJET_2026-09-28.md) conserve les constats et preuves initiaux.
+État actualisé le **1er octobre 2026**, après audit du code, vérification sur PostgreSQL et refonte de l’interface. Le précédent dev-book reste disponible dans [l’archive du 29 avril](docs/archives/DEV_BOOK_2026-04-29.md). L’[audit avant corrections](ETAT_PROJET_2026-09-28.md) conserve les constats et preuves initiaux.
 
 ## Direction retenue
 
@@ -61,7 +61,7 @@ L’audit a révélé des défauts absents du précédent document :
 | Battles | Individuel, intra-équipe, inter-équipes ; règles/roster figés, même séquence, reprise, tentatives limitées | Participants déjà inscrits uniquement. Aucun éditeur de draft après publication. |
 | Résultats | Provisoires puis conservés à clôture ; absents à zéro pour la moyenne des équipes | Clôture à la consultation après échéance ou manuelle ; pas de tâche planifiée dédiée. |
 | Modération | Motif obligatoire, acteur/date/avant-après, disqualification et contrôle de version | Les badges déjà obtenus ne sont pas automatiquement révoqués. |
-| Interface | Connexion, équipes, battles, administration, profil, classements, récapitulatif | Design responsive des nouvelles pages ; jeu hérité avec thèmes conservés. |
+| Interface | Identité Phish & Chips commune, clair/sombre partagé, connexion/inscription séparées, administration par rubriques, badges regroupés, messagerie simulée dans sa fenêtre | Voir [la refonte et ses vérifications](docs/UI_REFONTE_2026-10-01.md). SSO réel toujours à valider dans le tenant. |
 | Vérifications | Tests Node + PostgreSQL, migration ancienne base, identités OIDC signées, parcours navigateur et Docker | Le workflow GitHub n’a pas été exécuté à distance tant que les changements ne sont pas publiés. |
 
 ## Règles de résultats
@@ -92,3 +92,16 @@ Priorités avant usage entreprise :
 4. Prévoir le rapprochement contrôlé des anciens comptes si leurs données doivent être réutilisées.
 
 Évolutions suivantes : catalogue d’emails versionné/import administrateur, rafraîchissement planifié de l’annuaire et clôture des battles, révocation/recalcul des badges après modération, pagination et recherche avancée de l’historique administratif. Ces points restent ouverts et ne sont pas présentés comme livrés.
+
+## Refonte de l’interface · octobre 2026
+
+- Portail bleu nuit, papier clair et ambre, navigation commune avec page active ; apparence claire/sombre conservée entre les pages.
+- Connexion et inscription dans des formulaires distincts. Le formulaire du premier administrateur local apparaît seulement si aucun admin n’existe ; le serveur conserve son contrôle transactionnel. Entra n’affiche que la connexion Microsoft.
+- Entraînement : équipe actuelle avec lien pour la changer, difficultés avec leurs règles, fausse fenêtre de messagerie avec agrandissement/restauration et confirmation de sortie.
+- Le mail courant est marqué dans la boîte de réception ; ses actions occupent une ligne séparée des champs De/Sujet. La lecture conserve ses propres couleurs de messagerie.
+- Feedback : explications avant les détails techniques repliables, illustration SOS contenue dans la composition. Actions de fin de partie accessibles avant le cylindre, débrief indépendant des badges.
+- Profil : 85 badges conservés et regroupés en 24 familles, filtres par état et catégorie, paliers consultables sans une longue liste de variantes.
+- Administration : équipes, battles, modération, annuaire et statistiques dans des rubriques distinctes. Participants recherchables avec cases à cocher ; aperçu du roster et de la correction avant/après.
+- Classements d’entraînement : filtres séparés joueurs/équipes, période et difficulté, ligne du joueur repérée, détails d’équipe au clavier. Les résultats des battles restent dans leur propre page.
+
+Les 19 noms, phrases et seuils de rang approuvés sont intégrés ; les appréciations existantes et les règles de score restent conservées.
