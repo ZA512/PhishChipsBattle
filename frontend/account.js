@@ -21,7 +21,7 @@ window.PCB = {
   },
   ready: null,
   confirm(text) {
-    if (document.querySelector(".portal-confirm"))
+    if (document.querySelector("dialog.portal-confirm[open]"))
       return Promise.resolve(false);
     return new Promise((resolve) => {
       const dialog = document.createElement("dialog");
