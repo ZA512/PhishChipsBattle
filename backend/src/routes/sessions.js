@@ -160,7 +160,8 @@ router.post("/", async (req, res) => {
       shuffled(
         (
           await client.query(
-            "SELECT id FROM emails WHERE archived_at IS NULL AND usage IN ('training','both') ORDER BY id",
+            `SELECT e.id FROM emails e WHERE archived_at IS NULL AND usage IN ('training','both')
+            AND EXISTS(SELECT 1 FROM mail_set_emails m JOIN mail_sets s ON s.id=m.set_id WHERE m.email_id=e.id AND s.status='ready') ORDER BY e.id`,
           )
         ).rows.map((e) => e.id),
       ).slice(0, 162);

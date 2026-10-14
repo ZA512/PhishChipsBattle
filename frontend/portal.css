@@ -1546,6 +1546,35 @@ body.game-page #analysis-panel {
 .feedback-technical summary {
   cursor: pointer;
 }
+.mail-battle-editor {
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  min-width: 0;
+}
+.mail-battle-editor legend {
+  font-weight: 700;
+}
+#battle-mail-sets label {
+  display: grid;
+  grid-template-columns: auto 1fr 90px;
+  gap: 10px;
+  align-items: center;
+}
+#battle-mail-sets input[type="number"] {
+  min-width: 0;
+  padding: 8px;
+}
+#battle-mail-sets small {
+  display: block;
+  color: var(--muted);
+  font-weight: normal;
+}
+#set-history-content {
+  max-height: 55vh;
+  overflow: auto;
+}
 .feedback-technical ul {
   margin-top: 10px;
 }

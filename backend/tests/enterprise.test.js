@@ -370,6 +370,359 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
     },
   );
   await t.test(
+    "Sets : imports ciblés, partage, brouillons, composition et historique figés",
+    async () => {
+      const baseline = (
+        await pool.query("SELECT id FROM emails WHERE archived_at IS NULL")
+      ).rows.map((e) => e.id);
+      const make = async (name, status = "draft") =>
+        (
+          await ok(
+            "/api/admin/mail-sets",
+            {
+              user: admin,
+              method: "POST",
+              body: {
+                name,
+                description: "Set synthétique de test",
+                defaultUsage: "battle",
+                status,
+              },
+            },
+            201,
+          )
+        ).set;
+      const imported = async (setId, catalog, options = {}) =>
+        ok("/api/admin/emails/import", {
+          user: admin,
+          method: "POST",
+          body: { setId, catalog, ...options },
+        });
+      const mail = (number, label) => ({
+        ...require("./mail-fixtures")[number],
+        subject: `Set fixture ${label}`,
+        usage: undefined,
+      });
+      const fixtureA = [0, 1, 2, 3].map((i) => mail(i, "A" + i));
+      for (const u of [alice, manager])
+        assert.equal(
+          (await request("/api/admin/mail-sets", { user: u })).status,
+          403,
+        );
+      assert.equal(
+        (await request("/api/battles/mail-sets", { user: alice })).status,
+        403,
+      );
+      const before = (await ok("/api/admin/mail-sets", { user: admin })).sets
+        .length;
+      const planned = await ok("/api/admin/emails/import", {
+        user: admin,
+        method: "POST",
+        body: {
+          newSet: {
+            name: "Prévisualisation sans écriture",
+            defaultUsage: "battle",
+          },
+          catalog: fixtureA,
+          preview: true,
+        },
+      });
+      assert.equal(planned.set.status, "draft");
+      assert.equal(
+        (await ok("/api/admin/mail-sets", { user: admin })).sets.length,
+        before,
+      );
+      const setA = await make("Typosquatting de test");
+      const setB = await make("Bureau farfelu de test", "ready");
+      assert.equal((await imported(setA.id, fixtureA)).added, 4);
+      assert.ok(
+        !(await ok("/api/battles/mail-sets", { user: manager })).sets.some(
+          (s) => s.id === setA.id,
+        ),
+      );
+      const res = await imported(setB.id, [
+        { ...fixtureA[0], usage: "training" },
+        mail(4, "B4"),
+        mail(5, "B5"),
+      ]);
+      assert.equal(res.added, 2);
+      assert.equal(res.reused, 1);
+      assert.equal(res.linked, 3);
+      assert.equal(res.usageConflicts, 1);
+      let members = (
+        await ok(`/api/admin/emails?setId=${setA.id}`, { user: admin })
+      ).emails;
+      assert.equal(members.length, 4);
+      assert.ok(members.every((e) => e.usage === "battle"));
+      const shared = members.find((e) => e.subject === fixtureA[0].subject);
+      assert.equal(
+        (
+          await ok(`/api/admin/emails?setId=${setB.id}`, { user: admin })
+        ).emails.find((e) => e.id === shared.id).sets.length,
+        2,
+      );
+      const invalid = await request("/api/admin/emails/import", {
+        user: admin,
+        method: "POST",
+        body: {
+          setId: setA.id,
+          replace: true,
+          catalog: [mail(6, "Invalid"), { type: "bad" }],
+        },
+      });
+      assert.equal(invalid.status, 400);
+      assert.equal(
+        (await ok(`/api/admin/emails?setId=${setA.id}`, { user: admin }))
+          .matched,
+        4,
+      );
+      await ok(`/api/admin/mail-sets/${setA.id}`, {
+        user: admin,
+        method: "PUT",
+        body: { name: setA.name, status: "ready", defaultUsage: "battle" },
+      });
+      await ok("/api/admin/emails/usage", {
+        user: admin,
+        method: "POST",
+        body: { ids: [shared.id], usage: "both" },
+      });
+      const fields = {
+        sets: [
+          { setId: setA.id, count: 2 },
+          { setId: setB.id, count: 2 },
+        ],
+        emailCount: 4,
+        safeCount: 2,
+      };
+      const preview = await ok("/api/battles/mail-preview", {
+        user: manager,
+        method: "POST",
+        body: fields,
+      });
+      assert.equal(preview.composition.sharedAvailable, 1);
+      assert.equal(preview.composition.total, 4);
+      assert.equal(preview.composition.safe, 2);
+      const exclusive = await ok("/api/battles/mail-preview", {
+        user: manager,
+        method: "POST",
+        body: { ...fields, excludeTraining: true },
+      });
+      assert.equal(exclusive.composition.sharedAvailable, 0);
+      assert.equal(
+        (
+          await request("/api/battles/mail-preview", {
+            user: manager,
+            method: "POST",
+            body: {
+              ...fields,
+              sets: [
+                { setId: setA.id, count: 4 },
+                { setId: setB.id, count: 3 },
+              ],
+              emailCount: 7,
+            },
+          })
+        ).status,
+        400,
+      );
+      assert.equal(
+        (
+          await request("/api/battles/mail-preview", {
+            user: manager,
+            method: "POST",
+            body: {
+              ...fields,
+              sets: [
+                { setId: setA.id, count: 2 },
+                { setId: setA.id, count: 2 },
+              ],
+            },
+          })
+        ).status,
+        400,
+      );
+      assert.equal(
+        (
+          await request("/api/battles/mail-preview", {
+            user: alice,
+            method: "POST",
+            body: fields,
+          })
+        ).status,
+        403,
+      );
+      const battle = await ok(
+        "/api/battles",
+        {
+          user: manager,
+          method: "POST",
+          body: {
+            ...fields,
+            name: "Battle avec sets figés",
+            mode: "individual",
+            playerIds: [alice.id],
+            difficulty: "easy",
+            startsAt: new Date(Date.now() - 1000).toISOString(),
+            endsAt: new Date(Date.now() + 3600000).toISOString(),
+            maxAttempts: 1,
+            jokerLimit: 0,
+          },
+        },
+        201,
+      );
+      const snapshot = (
+        await pool.query(
+          "SELECT email_order,mail_selection FROM battles WHERE id=$1",
+          [battle.id],
+        )
+      ).rows[0];
+      assert.equal(snapshot.email_order.length, 4);
+      assert.equal(new Set(snapshot.email_order).size, 4);
+      assert.equal(
+        (
+          await pool.query(
+            "SELECT COUNT(*)::int AS n FROM emails WHERE id=ANY($1::int[]) AND type='safe'",
+            [snapshot.email_order],
+          )
+        ).rows[0].n,
+        2,
+      );
+      assert.equal(
+        snapshot.mail_selection.sets.reduce((n, s) => n + s.count, 0),
+        4,
+      );
+      assert.equal(
+        (await ok("/api/battles", { user: alice })).battles.find(
+          (b) => b.id === battle.id,
+        ).mail_selection,
+        null,
+      );
+      await ok(`/api/admin/mail-sets/${setA.id}`, {
+        user: admin,
+        method: "PUT",
+        body: {
+          name: "Nom modifié après publication",
+          status: "ready",
+          defaultUsage: "battle",
+        },
+      });
+      const history = await ok(`/api/admin/mail-sets/${setA.id}/history`, {
+        user: admin,
+      });
+      assert.ok(
+        history.events.some(
+          (e) => e.operation === "import" && e.added === 4 && e.actor,
+        ),
+      );
+      assert.equal(
+        history.battles[0].mail_selection.sets.find((s) => s.id === setA.id)
+          .name,
+        setA.name,
+      );
+      const exported = await ok("/api/admin/emails/export", {
+        user: admin,
+        method: "POST",
+        body: { setId: setA.id },
+      });
+      assert.equal(exported.emails.length, 4);
+      assert.equal(exported.set.name, "Nom modifié après publication");
+      const started = await begin(alice, battle.id);
+      const first = await next(alice, started);
+      assert.equal(first.emailId, snapshot.email_order[0]);
+      const changed = await imported(setA.id, [mail(6, "Replacement")], {
+        replace: true,
+      });
+      assert.equal(changed.detached, 4);
+      assert.equal(changed.removed, 3);
+      assert.equal(
+        (await ok(`/api/admin/emails?setId=${setA.id}`, { user: admin }))
+          .matched,
+        1,
+      );
+      assert.equal(
+        (await ok(`/api/admin/emails?setId=${setB.id}`, { user: admin }))
+          .matched,
+        3,
+      );
+      assert.equal((await next(alice, started)).emailId, first.emailId);
+      await answer(alice, started, first.emailId, "safe");
+      await end(alice, started);
+      assert.equal(
+        (await ok(`/api/sessions/${started.sessionId}/recap`, { user: alice }))
+          .answers.length,
+        1,
+      );
+      const replacement = (
+        await ok(`/api/admin/emails?setId=${setA.id}`, { user: admin })
+      ).emails[0];
+      await ok("/api/admin/emails/sets", {
+        user: admin,
+        method: "POST",
+        body: { setId: setB.id, ids: [replacement.id], action: "add" },
+      });
+      assert.equal(
+        (await ok(`/api/admin/emails?setId=${setB.id}`, { user: admin }))
+          .matched,
+        4,
+      );
+      await ok("/api/admin/emails/sets", {
+        user: admin,
+        method: "POST",
+        body: { setId: setB.id, ids: [replacement.id], action: "remove" },
+      });
+      assert.equal(
+        (await ok(`/api/admin/emails?setId=${setA.id}`, { user: admin }))
+          .matched,
+        1,
+      );
+      await ok(`/api/admin/mail-sets/${setB.id}`, {
+        user: admin,
+        method: "PUT",
+        body: { name: setB.name, status: "archived", defaultUsage: "battle" },
+      });
+      assert.equal(
+        (
+          await request("/api/battles/mail-preview", {
+            user: manager,
+            method: "POST",
+            body: fields,
+          })
+        ).status,
+        409,
+      );
+      assert.equal(
+        (
+          await request("/api/admin/emails/import", {
+            user: admin,
+            method: "POST",
+            body: { setId: setB.id, catalog: fixtureA },
+          })
+        ).status,
+        404,
+      );
+      assert.deepEqual(
+        (
+          await pool.query("SELECT email_order FROM battles WHERE id=$1", [
+            battle.id,
+          ])
+        ).rows[0].email_order,
+        snapshot.email_order,
+      );
+      await pool.query(
+        "UPDATE game_sessions SET disqualified=TRUE WHERE id=$1",
+        [started.sessionId],
+      );
+      await pool.query(
+        "UPDATE emails SET archived_at=NOW() WHERE NOT(id=ANY($1::int[]))",
+        [baseline],
+      );
+      await pool.query(
+        "UPDATE mail_sets SET status='archived' WHERE id=ANY($1::int[])",
+        [[setA.id, setB.id]],
+      );
+    },
+  );
+  await t.test(
     "Authentification, identité et origine des mutations",
     async () => {
       assert.equal((await request("/api/scores/players")).status, 401);

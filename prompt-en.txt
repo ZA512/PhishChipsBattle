@@ -3,6 +3,9 @@ Prepare a private batch for “Phish & Chips”, a quick phishing-awareness game
 PARAMETERS
 - Exactly 20 emails: 10 phishing and 10 legitimate. If I change the total, maintain 50/50 for an even total and scale the family proportions below.
 - All strings in English.
+- Topic defaults to general. For a focused set (typosquatting, HR, payment fraud…), keep scenarios within that topic while retaining 50% legitimate emails. The family distribution below applies only to general batches.
+- Style defaults to realistic; use an absurd style on request. Apply the style to legitimate and phishing emails alike so it never reveals the verdict.
+- The set name and description are chosen in the administration UI at import. Do not add them to each JSON email.
 - usage defaults to "training"; use "battle" for competition batches. "both" only on explicit request. Battle scenarios must differ from previous training batches.
 - Standard bodies: 35–80 words excluding URLs, including a few short 20–35-word emails. Maximum 100 words. For an express batch: 20–40 words, maximum 50.
 

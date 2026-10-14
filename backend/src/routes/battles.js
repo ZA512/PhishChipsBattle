@@ -10,6 +10,25 @@ const {
   closeBattle,
 } = require("../services/battles");
 router.use(requireUser);
+router.get("/mail-sets", organizerAuth, async (_req, res) =>
+  res.json({
+    sets: await require("../services/mailSets").listSets(pool, true),
+  }),
+);
+router.post("/mail-preview", organizerAuth, async (req, res) => {
+  if (req.body.sets === undefined)
+    throw new HttpError(400, "Choisissez les sets de la battle");
+  res.json(
+    await transaction(async (c) => ({
+      composition: (
+        await require("../services/battleCatalog").selectBattleEmails(
+          c,
+          req.body,
+        )
+      ).composition,
+    })),
+  );
+});
 router.get("/participants", organizerAuth, async (_req, res) =>
   res.json({
     players: (
@@ -28,6 +47,7 @@ router.get("/", async (req, res) => {
   const { rows } = await pool.query(
     `SELECT b.id,b.name,b.mode,b.difficulty,b.starts_at,b.ends_at,b.max_attempts,b.joker_limit,b.status,
     jsonb_array_length(b.email_order) AS email_count,bp.service_name AS roster_team,
+    CASE WHEN $2::boolean THEN b.mail_selection ELSE NULL END AS mail_selection,
     (SELECT COUNT(*) FROM game_sessions gs WHERE gs.battle_id=b.id AND gs.player_id=$1) AS attempts_used,
     EXISTS(SELECT 1 FROM game_sessions gs WHERE gs.battle_id=b.id AND gs.player_id=$1 AND NOT gs.completed AND gs.rules_version=1) AS ongoing,
     (bp.id IS NOT NULL) AS participating

@@ -102,6 +102,7 @@ try {
     "account.js",
     "mail-catalog.js",
     "feedback.js",
+    "battle-catalog.js",
     "script.js",
     "secu.png",
     "img/PhishChips-mail.png",

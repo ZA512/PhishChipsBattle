@@ -58,6 +58,25 @@ test("Migration de données historiques : doublons, affectation et résultats pr
         "utf8",
       ),
     );
+    await client.query(
+      fs.readFileSync(
+        path.join(__dirname, "../src/db/migrations/005_mail_sets.sql"),
+        "utf8",
+      ),
+    );
+    assert.equal(
+      (
+        await client.query(
+          "SELECT COUNT(*)::int AS n FROM mail_set_emails WHERE email_id=$1",
+          [oldEmail.id],
+        )
+      ).rows[0].n,
+      1,
+    );
+    assert.equal(
+      (await client.query("SELECT status FROM mail_sets")).rows[0].status,
+      "ready",
+    );
     const preserved = (
       await client.query(
         "SELECT subject,usage,archived_at FROM emails WHERE id=$1",

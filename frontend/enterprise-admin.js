@@ -290,6 +290,7 @@ byId("battle-form").addEventListener("submit", (e) => {
       jokerLimit: Number(byId("battle-jokers").value),
       playerIds: selectedIds("players"),
       teamIds: selectedIds("teams"),
+      ...PCB.battleCatalog.fields(),
     };
     if (body.endsAt <= body.startsAt)
       throw new Error("La fin doit suivre le début.");
@@ -306,15 +307,26 @@ byId("battle-form").addEventListener("submit", (e) => {
     notify(`Battle publiée avec ${data.participants} participant(s).`);
     byId("battle-editor").open = false;
     await loadBattles();
+    window.dispatchEvent(new Event("battles-updated"));
   });
 });
 async function loadBattles() {
   const { battles } = await PCB.request("/api/battles");
   byId("battles").replaceChildren(
     dataTable(
-      ["Battle", "Début", "Fin", "État", "Actions"],
+      [
+        "Battle",
+        "Sets figés à la publication",
+        "Début",
+        "Fin",
+        "État",
+        "Actions",
+      ],
       battles.map((b) => [
         b.name,
+        b.mail_selection?.sets
+          .map((s) => `${s.name} (${s.count})`)
+          .join(" · ") || "Catalogue historique",
         formatDate(b.starts_at),
         formatDate(b.ends_at),
         b.status === "closed"

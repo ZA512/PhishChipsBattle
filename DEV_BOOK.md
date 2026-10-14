@@ -94,6 +94,18 @@ Priorités avant usage entreprise :
 
 Évolutions suivantes : validation éditoriale des lots de mails et report des corrections de battle à la clôture, rafraîchissement planifié de l’annuaire et clôture des battles, révocation/recalcul des badges après modération, pagination et recherche avancée de l’historique administratif. Ces points restent ouverts et ne sont pas présentés comme livrés.
 
+## Sets de mails · octobre 2026
+
+- Collections nommées avec description, état Brouillon / Prêt / Archivé et disponibilité par défaut des nouveaux mails. L’administrateur les gère ; l’organisateur consulte uniquement les résumés des sets prêts pour composer ses battles.
+- Imports transactionnels vers un set existant ou nouveau, ajout ou remplacement ciblé, prévisualisation sans écriture, historique par import avec acteur/date/compteurs. Les anciennes intégrations sans destination explicite continuent d’utiliser Catalogue général.
+- Un mail peut appartenir à plusieurs sets. La déduplication porte sur son contenu et sa correction, indépendamment de la disponibilité. Un import réutilise le mail existant sans élargir automatiquement sa disponibilité ; les conflits sont signalés avant import. Ajout/retrait de rattachements et disponibilité sont modifiables sur une sélection.
+- Export d’un set avec métadonnées ; exports globaux/sélections restent des listes à importer dans une destination choisie. Ils ne remplacent pas une sauvegarde PostgreSQL des rattachements et historiques.
+- Composition d’une battle par sets prêts et quotas, nombre de légitimes réglable (moitié par défaut), option d’exclusion des mails d’entraînement et avertissement de réutilisation possible. Allocation sans doublons, y compris entre sets qui se chevauchent ; compositions irréalisables refusées.
+- Série, ordre, noms des sets et composition effective figés à publication. Les modifications ultérieures des collections n’affectent pas les parties déjà créées. La migration 005 regroupe les mails actifs existants dans Catalogue général prêt ; aucune question préchargée sur une installation vide.
+- Validation : 21 tests Node/PostgreSQL couvrant migration, droits, imports ciblés/invalides, déduplication, disponibilités, chevauchements, quotas, archivage et historique ; parcours navigateur de création de set et publication de battle vérifié sur une base jetable.
+
+Les tags et le suivi individuel des questions déjà vues restent des évolutions ultérieures. Les corrections de battle demeurent accessibles après chaque réponse, comme décrit dans le README.
+
 ## Refonte de l’interface · octobre 2026
 
 - Portail bleu nuit, papier clair et ambre, navigation commune avec page active ; apparence claire/sombre conservée entre les pages.

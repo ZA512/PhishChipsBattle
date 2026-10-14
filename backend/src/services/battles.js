@@ -1,7 +1,7 @@
 "use strict";
 const crypto = require("node:crypto");
 const { HttpError, integer, text } = require("../lib/http");
-const { CATALOG_LOCK } = require("./mailCatalog");
+const { selectBattleEmails } = require("./battleCatalog");
 function shuffled(values) {
   const copy = [...values];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -35,18 +35,7 @@ async function createBattle(client, body, actorId) {
     throw new HttpError(400, "Période invalide (90 jours maximum)");
   const maxAttempts = integer(body.maxAttempts ?? 1, "Tentatives", { max: 5 }),
     jokerLimit = integer(body.jokerLimit ?? 3, "Jokers", { min: 0, max: 3 });
-  const count = integer(body.emailCount ?? 20, "Nombre d’emails", { max: 162 });
-  await client.query("SELECT pg_advisory_xact_lock_shared($1)", [CATALOG_LOCK]);
-  const available = (
-    await client.query(
-      "SELECT id FROM emails WHERE archived_at IS NULL AND usage IN ('battle','both') ORDER BY id",
-    )
-  ).rows.map((e) => e.id);
-  if (count > available.length)
-    throw new HttpError(
-      400,
-      "Pas assez de mails disponibles pour les battles. Demandez à l’administrateur d’en importer.",
-    );
+  const selection = await selectBattleEmails(client, body);
   let participants;
   if (mode === "individual") {
     if (!Array.isArray(body.playerIds) || body.playerIds.length > 5000)
@@ -102,8 +91,8 @@ async function createBattle(client, body, actorId) {
     throw new HttpError(400, "Choisissez au moins un participant");
   const battle = (
     await client.query(
-      `INSERT INTO battles(name,mode,difficulty,starts_at,ends_at,max_attempts,joker_limit,email_order,created_by)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+      `INSERT INTO battles(name,mode,difficulty,starts_at,ends_at,max_attempts,joker_limit,email_order,created_by,mail_selection)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
       [
         name,
         mode,
@@ -112,8 +101,9 @@ async function createBattle(client, body, actorId) {
         end,
         maxAttempts,
         jokerLimit,
-        JSON.stringify(shuffled(available).slice(0, count)),
+        JSON.stringify(selection.order),
         actorId,
+        selection.composition ? JSON.stringify(selection.composition) : null,
       ],
     )
   ).rows[0];
@@ -122,7 +112,11 @@ async function createBattle(client, body, actorId) {
       `INSERT INTO battle_participants(battle_id,player_id,employee_id,name,service_id,service_name) VALUES($1,$2,$3,$4,$5,$6)`,
       [battle.id, p.id, p.directory_id, p.name, p.service_id, p.service_name],
     );
-  return { id: battle.id, participants: participants.length };
+  return {
+    id: battle.id,
+    participants: participants.length,
+    composition: selection.composition,
+  };
 }
 async function computeResults(client, battleId) {
   const { rows } = await client.query(
