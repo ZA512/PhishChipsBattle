@@ -675,6 +675,122 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
           .matched,
         1,
       );
+      const inB = (
+        await ok(`/api/admin/emails?setId=${setB.id}`, { user: admin })
+      ).emails[0];
+      // A stale mixed selection must not partially move valid members.
+      assert.equal(
+        (
+          await request("/api/admin/emails/sets", {
+            user: admin,
+            method: "POST",
+            body: {
+              action: "move",
+              sourceSetId: setA.id,
+              setId: setB.id,
+              ids: [replacement.id, inB.id],
+            },
+          })
+        ).status,
+        409,
+      );
+      assert.equal(
+        (await ok(`/api/admin/emails?setId=${setA.id}`, { user: admin }))
+          .matched,
+        1,
+      );
+      assert.equal(
+        (await ok(`/api/admin/emails?setId=${setB.id}`, { user: admin }))
+          .matched,
+        3,
+      );
+      assert.equal(
+        (
+          await request("/api/admin/emails/sets", {
+            user: admin,
+            method: "POST",
+            body: {
+              action: "move",
+              sourceSetId: setA.id,
+              setId: setA.id,
+              ids: [replacement.id],
+            },
+          })
+        ).status,
+        400,
+      );
+      // Moving a question already linked to the destination remains valid.
+      await ok("/api/admin/emails/sets", {
+        user: admin,
+        method: "POST",
+        body: { action: "add", setId: setB.id, ids: [replacement.id] },
+      });
+      assert.equal(
+        (
+          await ok("/api/admin/emails/sets", {
+            user: admin,
+            method: "POST",
+            body: {
+              action: "move",
+              sourceSetId: setA.id,
+              setId: setB.id,
+              ids: [replacement.id],
+            },
+          })
+        ).changed,
+        1,
+      );
+      assert.equal(
+        (await ok(`/api/admin/emails?setId=${setA.id}`, { user: admin }))
+          .matched,
+        0,
+      );
+      const paged = await ok(
+        `/api/admin/emails?setId=${setB.id}&pageSize=2&page=2`,
+        { user: admin },
+      );
+      assert.equal(paged.matched, 4);
+      assert.equal(paged.pages, 2);
+      assert.equal(paged.emails.length, 2);
+      const selection = await ok(
+        `/api/admin/emails/selection?setId=${setB.id}&page=2&pageSize=2`,
+        { user: admin },
+      );
+      assert.equal(
+        selection.ids.length,
+        4,
+        "La sélection complète ignore la pagination",
+      );
+      const legitimate = await ok(
+        `/api/admin/emails?setId=${setB.id}&type=safe`,
+        { user: admin },
+      );
+      assert.deepEqual(
+        (
+          await ok(`/api/admin/emails/selection?setId=${setB.id}&type=safe`, {
+            user: admin,
+          })
+        ).ids,
+        legitimate.emails.map((e) => e.id),
+      );
+      assert.deepEqual(
+        (
+          await ok(`/api/admin/emails/selection?setId=${setA.id}`, {
+            user: admin,
+          })
+        ).ids,
+        [],
+      );
+      assert.equal(
+        (await request("/api/admin/emails/selection", { user: manager }))
+          .status,
+        403,
+      );
+      assert.equal(
+        (await ok(`/api/admin/mail-sets/${setA.id}/history`, { user: admin }))
+          .events[0].details.toSet,
+        setB.id,
+      );
       await ok(`/api/admin/mail-sets/${setB.id}`, {
         user: admin,
         method: "PUT",

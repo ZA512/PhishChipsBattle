@@ -106,6 +106,13 @@ Priorités avant usage entreprise :
 
 Les tags et le suivi individuel des questions déjà vues restent des évolutions ultérieures. Les corrections de battle demeurent accessibles après chaque réponse, comme décrit dans le README.
 
+### Ergonomie du catalogue
+
+- Vue des sets en cartes, édition dans une fenêtre dédiée, import dans une vue séparée et sets archivés masqués par défaut.
+- Vue des mails centrée sur une collection, 15 lignes par page (30/50 au choix), actions visibles après sélection et sélection de tous les résultats filtrés sur toutes les pages. Changer de filtre efface la sélection pour éviter les actions sur des mails masqués.
+- Déplacement transactionnel d’un set à un autre, distinct de l’ajout à plusieurs sets ; validation de tous les rattachements d’origine avant mutation et historique dans les deux sets.
+- Suppressions regroupées dans les actions secondaires, outils globaux repliés. Parcours création, renommage, import et déplacement vérifiés dans le navigateur ; tests PostgreSQL couvrant déplacement périmé, destination identique, rattachement déjà existant et pagination.
+
 ## Refonte de l’interface · octobre 2026
 
 - Portail bleu nuit, papier clair et ambre, navigation commune avec page active ; apparence claire/sombre conservée entre les pages.

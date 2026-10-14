@@ -367,25 +367,336 @@
         data-panel="mails"
         data-admin
       >
-        <span class="eyebrow">Le buffet des pièces jointes douteuses</span>
-        <h2>Le catalogue de mails</h2>
-        <p class="meta">
-          Vos scénarios restent sur votre serveur. Un mail retiré disparaît des
-          nouvelles parties ; les parties et battles déjà créées conservent leur
-          série et leurs corrections.
-        </p>
-        <p id="mail-totals" class="notice" role="status">
+        <div class="catalog-heading">
+          <div>
+            <span class="eyebrow">Le buffet des pièces jointes douteuses</span>
+            <h2>Le catalogue de mails</h2>
+            <p class="meta">
+              Rangez vos scénarios en sets. Les battles déjà publiées gardent
+              leur série.
+            </p>
+          </div>
+          <button id="mail-open-import" class="btn" type="button">
+            Importer des mails
+          </button>
+        </div>
+        <p id="catalog-message" class="notice" role="status"></p>
+        <p id="mail-totals" class="meta" role="status">
           Chargement du catalogue…
         </p>
-        <h3>Vos sets de mails</h3>
-        <p class="meta">
-          Préparez vos collections en brouillon, puis passez-les à « Prêt » pour
-          les rendre disponibles. Archiver un set conserve ses mails et ses
-          anciennes battles.
-        </p>
-        <div id="mail-sets" class="table-scroll"></div>
-        <details class="editor" id="set-editor">
-          <summary class="btn btn-secondary">Créer ou modifier un set</summary>
+        <nav class="section-tabs catalog-tabs" aria-label="Catalogue de mails">
+          <button id="catalog-show-sets" type="button" aria-pressed="true">
+            Vos sets
+          </button>
+          <button id="catalog-show-mails" type="button" aria-pressed="false">
+            Les mails
+          </button>
+        </nav>
+        <div id="catalog-sets-view">
+          <div class="catalog-heading">
+            <div>
+              <h3>Une collection pour chaque battle.</h3>
+              <p class="meta">
+                Ouvrez un set pour consulter ou déplacer ses mails.
+              </p>
+            </div>
+            <button id="set-create" class="btn btn-secondary" type="button">
+              Créer un set
+            </button>
+          </div>
+          <div id="mail-sets" class="catalog-set-grid"></div>
+          <p class="meta catalog-status-help">
+            <strong>Brouillon</strong> : en préparation ·
+            <strong>Prêt</strong> : jouable · <strong>Archivé</strong> :
+            conservé, hors des nouvelles parties.
+          </p>
+          <label class="catalog-archive-toggle"
+            ><input id="mail-show-archived" type="checkbox" /> Afficher les sets
+            archivés</label
+          >
+        </div>
+        <div id="catalog-mails-view" hidden>
+          <div class="catalog-heading">
+            <div>
+              <h3 id="mail-context-title">Tous les mails</h3>
+              <p class="meta" id="mail-context-description">
+                Sélectionnez les mails à ranger dans un set.
+              </p>
+            </div>
+            <button
+              id="mail-export-set"
+              class="btn btn-secondary"
+              type="button"
+              disabled
+            >
+              Exporter ce set
+            </button>
+          </div>
+          <div class="catalog-filters">
+            <div>
+              <label for="mail-filter-set">Collection</label
+              ><select id="mail-filter-set">
+                <option value="">Tous les mails</option>
+                <option value="0">Sans set</option>
+              </select>
+            </div>
+            <div>
+              <label for="mail-search">Rechercher</label
+              ><input
+                id="mail-search"
+                type="search"
+                maxlength="100"
+                placeholder="Sujet ou expéditeur…"
+              />
+            </div>
+            <div>
+              <label for="mail-type">Classification</label
+              ><select id="mail-type">
+                <option value="">Toutes</option>
+                <option value="phishing">Phishing</option>
+                <option value="safe">Légitime</option>
+              </select>
+            </div>
+            <div>
+              <label for="mail-usage">Disponible pour</label
+              ><select id="mail-usage">
+                <option value="">Tous les usages</option>
+                <option value="training">Entraînement</option>
+                <option value="battle">Battle</option>
+                <option value="both">Les deux</option>
+              </select>
+            </div>
+          </div>
+          <div class="catalog-heading">
+            <p id="mail-selection-help" class="meta">
+              Cochez des mails pour les déplacer, les ajouter à un autre set ou
+              les exporter.
+            </p>
+            <button
+              id="mail-select-matched"
+              type="button"
+              class="btn btn-secondary"
+              disabled
+            >
+              Sélectionner tous les résultats
+            </button>
+          </div>
+          <div id="mail-selection-tools" class="catalog-selection" hidden>
+            <div class="catalog-heading">
+              <strong id="mail-selection" role="status"
+                >0 mail sélectionné</strong
+              ><button
+                id="mail-clear-selection"
+                class="btn btn-secondary"
+                type="button"
+              >
+                Désélectionner
+              </button>
+            </div>
+            <div class="catalog-transfer">
+              <div>
+                <label for="mail-assign-set">Vers quel set ?</label
+                ><select id="mail-assign-set"></select>
+              </div>
+              <button id="mail-move-to-set" class="btn" type="button" disabled>
+                Déplacer</button
+              ><button
+                id="mail-add-to-set"
+                class="btn btn-secondary"
+                type="button"
+                disabled
+              >
+                Ajouter aussi à ce set
+              </button>
+            </div>
+            <p class="meta" id="mail-transfer-help">
+              Déplacer retire les mails du set affiché. Ajouter aussi conserve
+              leurs sets actuels.
+            </p>
+            <details class="catalog-extra">
+              <summary>Autres actions sur la sélection</summary>
+              <div class="form-actions">
+                <button
+                  id="mail-export-selected"
+                  class="btn btn-secondary"
+                  type="button"
+                  disabled
+                >
+                  Exporter la sélection</button
+                ><button
+                  id="mail-detach-set"
+                  class="btn btn-secondary"
+                  type="button"
+                  disabled
+                >
+                  Retirer du set affiché
+                </button>
+              </div>
+              <div class="catalog-transfer">
+                <div>
+                  <label for="mail-bulk-usage"
+                    >Disponibilité · dans tous les sets de ces mails</label
+                  ><select id="mail-bulk-usage">
+                    <option value="training">Entraînement</option>
+                    <option value="battle">Battle uniquement</option>
+                    <option value="both">Les deux</option>
+                  </select>
+                </div>
+                <button
+                  id="mail-change-usage"
+                  class="btn btn-secondary"
+                  type="button"
+                  disabled
+                >
+                  Appliquer
+                </button>
+              </div>
+              <button
+                id="mail-delete-selected"
+                class="btn btn-danger"
+                type="button"
+                disabled
+              >
+                Supprimer du catalogue
+              </button>
+              <p class="meta">
+                Cette suppression retire les mails de tous leurs sets. Les
+                anciennes parties sont conservées.
+              </p>
+            </details>
+          </div>
+          <div id="mail-list" class="table-scroll"></div>
+          <div class="catalog-pagination">
+            <div class="form-actions">
+              <button id="mail-prev" class="btn btn-secondary" type="button">
+                Précédente</button
+              ><span id="mail-page" role="status"></span
+              ><button id="mail-next" class="btn btn-secondary" type="button">
+                Suivante
+              </button>
+            </div>
+            <div>
+              <label for="mail-page-size">Mails par page</label
+              ><select id="mail-page-size">
+                <option value="15">15</option>
+                <option value="30">30</option>
+                <option value="50">50</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div id="catalog-import-view" hidden>
+          <div class="catalog-heading">
+            <div>
+              <span class="eyebrow">Un lot, une destination</span>
+              <h3>Importer des mails</h3>
+            </div>
+            <button
+              id="mail-import-back"
+              class="btn btn-secondary"
+              type="button"
+            >
+              Retour aux sets
+            </button>
+          </div>
+          <div id="mail-import-editor">
+            <p class="meta">
+              Tableau JSON ou fichier exporté par ce module. 5 000 mails et 10
+              Mo maximum par import. Choisissez un set existant ou créez-en un
+              avec ce lot. Les identifiants sont attribués par le serveur.
+            </p>
+            <label for="mail-import-set">Destination de l’import</label
+            ><select id="mail-import-set">
+              <option value="new">Créer un nouveau set</option>
+            </select>
+            <div id="mail-new-set">
+              <label for="mail-new-set-name">Nom du nouveau set</label
+              ><input
+                id="mail-new-set-name"
+                maxlength="100"
+                placeholder="Le bureau a perdu la raison"
+              />
+              <label for="mail-new-set-description">Description</label
+              ><input id="mail-new-set-description" maxlength="1000" />
+              <label for="mail-new-set-status">État après import</label
+              ><select id="mail-new-set-status">
+                <option value="draft">Brouillon · à relire</option>
+                <option value="ready">
+                  Prêt · utilisable dans les parties
+                </option>
+              </select>
+            </div>
+            <label for="mail-file">Charger un fichier</label
+            ><input
+              id="mail-file"
+              type="file"
+              accept="application/json,.json"
+            />
+            <label for="mail-json">Ou coller le JSON</label
+            ><textarea
+              id="mail-json"
+              rows="10"
+              spellcheck="false"
+              placeholder='[{"sender":"…","realSender":"…","subject":"…","body":"…","type":"phishing","usage":"battle","clues":["…"]}]'
+            ></textarea>
+            <label for="mail-import-usage"
+              >Utilisation des mails sans champ usage</label
+            >
+            <select id="mail-import-usage">
+              <option value="training">Entraînement</option>
+              <option value="battle">Battle uniquement</option>
+              <option value="both">
+                Entraînement et battle (corrections réutilisables)
+              </option>
+            </select>
+            <label class="mail-replace"
+              ><input id="mail-replace" type="checkbox" /> Remplacer le contenu
+              du set choisi par cet import</label
+            >
+            <p class="meta">
+              Le remplacement concerne uniquement ce set. Un import invalide ne
+              modifie rien. Les autres sets et les séries déjà publiées sont
+              conservés.
+            </p>
+            <div class="form-actions">
+              <button class="btn btn-secondary" id="mail-check" type="button">
+                Vérifier le JSON</button
+              ><button class="btn" id="mail-import" type="button" disabled>
+                Importer
+              </button>
+            </div>
+            <p id="mail-import-summary" class="meta" role="status">
+              La machine vérifie la structure. Les pièges et leurs explications
+              méritent une relecture humaine.
+            </p>
+          </div>
+        </div>
+
+        <details class="catalog-extra catalog-maintenance">
+          <summary>Outils du catalogue complet</summary>
+          <p class="meta">
+            Ces actions concernent tous les mails, quel que soit le set affiché.
+          </p>
+          <div class="form-actions">
+            <button
+              id="mail-export-all"
+              class="btn btn-secondary"
+              type="button"
+            >
+              Exporter tout le catalogue</button
+            ><button id="mail-delete-all" class="btn btn-danger" type="button">
+              Supprimer tout le catalogue
+            </button>
+          </div>
+        </details>
+        <dialog id="set-editor" class="portal-confirm mail-preview">
+          <div class="catalog-heading">
+            <h2 id="set-editor-title">Créer un set</h2>
+            <button id="set-close" class="btn btn-secondary" type="button">
+              Fermer
+            </button>
+          </div>
+          <p id="set-message" class="notice" role="alert"></p>
           <form id="set-form">
             <input id="set-id" type="hidden" />
             <label for="set-name">Nom du set</label
@@ -424,198 +735,11 @@
             <div class="form-actions">
               <button class="btn" type="submit">Enregistrer le set</button
               ><button class="btn btn-secondary" id="set-new" type="button">
-                Nouveau set
+                Annuler
               </button>
             </div>
           </form>
-        </details>
-        <details class="editor" id="mail-import-editor">
-          <summary class="btn">Importer des mails en JSON</summary>
-          <p class="meta">
-            Tableau JSON ou fichier exporté par ce module. 5 000 mails et 10 Mo
-            maximum par import. Choisissez un set existant ou créez-en un avec
-            ce lot. Les identifiants sont attribués par le serveur.
-          </p>
-          <label for="mail-import-set">Destination de l’import</label
-          ><select id="mail-import-set">
-            <option value="new">Créer un nouveau set</option>
-          </select>
-          <div id="mail-new-set">
-            <label for="mail-new-set-name">Nom du nouveau set</label
-            ><input
-              id="mail-new-set-name"
-              maxlength="100"
-              placeholder="Le bureau a perdu la raison"
-            />
-            <label for="mail-new-set-description">Description</label
-            ><input id="mail-new-set-description" maxlength="1000" />
-            <label for="mail-new-set-status">État après import</label
-            ><select id="mail-new-set-status">
-              <option value="draft">Brouillon · à relire</option>
-              <option value="ready">Prêt · utilisable dans les parties</option>
-            </select>
-          </div>
-          <label for="mail-file">Charger un fichier</label
-          ><input id="mail-file" type="file" accept="application/json,.json" />
-          <label for="mail-json">Ou coller le JSON</label
-          ><textarea
-            id="mail-json"
-            rows="10"
-            spellcheck="false"
-            placeholder='[{"sender":"…","realSender":"…","subject":"…","body":"…","type":"phishing","usage":"battle","clues":["…"]}]'
-          ></textarea>
-          <label for="mail-import-usage"
-            >Utilisation des mails sans champ usage</label
-          >
-          <select id="mail-import-usage">
-            <option value="training">Entraînement</option>
-            <option value="battle">Battle uniquement</option>
-            <option value="both">
-              Entraînement et battle (corrections réutilisables)
-            </option>
-          </select>
-          <label class="mail-replace"
-            ><input id="mail-replace" type="checkbox" /> Remplacer le contenu du
-            set choisi par cet import</label
-          >
-          <p class="meta">
-            Le remplacement concerne uniquement ce set. Un import invalide ne
-            modifie rien. Les autres sets et les séries déjà publiées sont
-            conservés.
-          </p>
-          <div class="form-actions">
-            <button class="btn btn-secondary" id="mail-check" type="button">
-              Vérifier le JSON</button
-            ><button class="btn" id="mail-import" type="button" disabled>
-              Importer
-            </button>
-          </div>
-          <p id="mail-import-summary" class="meta" role="status">
-            La machine vérifie la structure. Les pièges et leurs explications
-            méritent une relecture humaine.
-          </p>
-        </details>
-        <div class="grid">
-          <div>
-            <label for="mail-filter-set">Afficher un set</label
-            ><select id="mail-filter-set">
-              <option value="">Tous les sets</option>
-              <option value="0">Mails sans set</option>
-            </select>
-          </div>
-          <div class="form-actions">
-            <button
-              id="mail-export-set"
-              class="btn btn-secondary"
-              type="button"
-              disabled
-            >
-              Exporter ce set
-            </button>
-          </div>
-        </div>
-        <div class="form-actions">
-          <button class="btn btn-secondary" id="mail-export-all" type="button">
-            Exporter tout le catalogue
-          </button>
-          <button
-            class="btn btn-secondary"
-            id="mail-export-selected"
-            type="button"
-            disabled
-          >
-            Exporter la sélection
-          </button>
-          <button
-            class="btn btn-danger"
-            id="mail-delete-selected"
-            type="button"
-            disabled
-          >
-            Supprimer la sélection
-          </button>
-          <button class="btn btn-danger" id="mail-delete-all" type="button">
-            Supprimer tout le catalogue
-          </button>
-        </div>
-        <div class="grid">
-          <div>
-            <label for="mail-search">Rechercher un sujet ou un expéditeur</label
-            ><input
-              id="mail-search"
-              type="search"
-              maxlength="100"
-              placeholder="Facture, RH, colis…"
-            />
-          </div>
-          <div>
-            <label for="mail-type">Classification</label
-            ><select id="mail-type">
-              <option value="">Tous les mails</option>
-              <option value="phishing">Phishing</option>
-              <option value="safe">Légitime</option>
-            </select>
-          </div>
-          <div>
-            <label for="mail-usage">Utilisation</label
-            ><select id="mail-usage">
-              <option value="">Toutes les utilisations</option>
-              <option value="training">Entraînement</option>
-              <option value="battle">Battle</option>
-              <option value="both">Les deux</option>
-            </select>
-          </div>
-        </div>
-        <p class="meta" id="mail-selection" role="status">0 mail sélectionné</p>
-        <details class="editor">
-          <summary class="btn btn-secondary">
-            Organiser les mails sélectionnés
-          </summary>
-          <label for="mail-assign-set">Set de destination</label
-          ><select id="mail-assign-set"></select>
-          <div class="form-actions">
-            <button
-              id="mail-add-to-set"
-              class="btn btn-secondary"
-              type="button"
-              disabled
-            >
-              Ajouter la sélection à ce set</button
-            ><button
-              id="mail-detach-set"
-              class="btn btn-secondary"
-              type="button"
-              disabled
-            >
-              Retirer la sélection du set affiché
-            </button>
-          </div>
-          <label for="mail-bulk-usage"
-            >Disponibilité de la sélection · commune à tous ses sets</label
-          ><select id="mail-bulk-usage">
-            <option value="training">Entraînement</option>
-            <option value="battle">Battle uniquement</option>
-            <option value="both">Les deux</option>
-          </select>
-          <button
-            id="mail-change-usage"
-            class="btn btn-secondary"
-            type="button"
-            disabled
-          >
-            Modifier la disponibilité
-          </button>
-        </details>
-        <div id="mail-list" class="table-scroll"></div>
-        <div class="form-actions">
-          <button id="mail-prev" class="btn btn-secondary" type="button">
-            Précédente</button
-          ><span id="mail-page"></span
-          ><button id="mail-next" class="btn btn-secondary" type="button">
-            Suivante
-          </button>
-        </div>
-
+        </dialog>
         <dialog id="mail-preview" class="portal-confirm mail-preview">
           <h2 id="mail-preview-title">Mail</h2>
           <pre id="mail-preview-content"></pre>

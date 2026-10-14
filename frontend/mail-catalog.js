@@ -15,14 +15,25 @@
     previewKey = null,
     sequence = 0,
     total = 0,
+    matched = 0,
     visibleIds = [];
   function notice(message, error = false) {
-    el("message").textContent = message;
-    el("message").className = error ? "notice error" : "notice success";
+    for (const id of ["catalog-message", "set-message"]) {
+      el(id).textContent = id === "set-message" && !error ? "" : message;
+      el(id).className = error ? "notice error" : "notice success";
+    }
+    if (error && !el("catalog-import-view").hidden)
+      el("mail-import-summary").textContent = message;
   }
   function updateSelection() {
+    el("mail-select-matched").disabled = !matched;
+    el("mail-select-matched").hidden = matched > 0 && selected.size === matched;
+    el("mail-select-matched").textContent =
+      `Sélectionner les ${matched} résultats`;
     el("mail-selection").textContent =
-      `${selected.size} mail(s) sélectionné(s), toutes pages et tous filtres confondus`;
+      `${selected.size} mail${selected.size > 1 ? "s" : ""} sélectionné${selected.size > 1 ? "s" : ""} · toutes pages`;
+    el("mail-selection-tools").hidden = !selected.size;
+    el("mail-selection-help").hidden = !!selected.size;
     for (const id of ["mail-export-selected", "mail-delete-selected"])
       el(id).disabled = selected.size === 0;
     el("mail-add-to-set").disabled =
@@ -33,7 +44,32 @@
     );
     el("mail-detach-set").disabled =
       !selected.size || !currentSet || currentSet.status === "archived";
+    el("mail-move-to-set").disabled =
+      !selected.size ||
+      !currentSet ||
+      currentSet.status === "archived" ||
+      !el("mail-assign-set").value ||
+      currentSet.id === Number(el("mail-assign-set").value);
+    el("mail-transfer-help").textContent = currentSet
+      ? `Déplacer retire les mails de « ${currentSet.name} ». Ajouter aussi conserve leurs sets actuels.`
+      : "Pour déplacer, ouvrez d’abord le set d’origine. Ajouter aussi conserve les sets actuels.";
     el("mail-export-set").disabled = !currentSet || !currentSet.total;
+    el("mail-context-title").textContent =
+      currentSet?.name ||
+      (el("mail-filter-set").value === "0"
+        ? "Mails sans set"
+        : "Tous les mails");
+    el("mail-context-description").textContent = currentSet
+      ? `${states[currentSet.status]} · ${currentSet.total} mails${currentSet.description ? " · " + currentSet.description : ""}`
+      : "Sélectionnez les mails à ranger dans un set. Changer de filtre efface la sélection.";
+    el("mail-list")
+      .querySelectorAll("tbody tr")
+      .forEach((row) =>
+        row.classList.toggle(
+          "is-selected",
+          selected.has(Number(row.dataset.id)),
+        ),
+      );
     const toggle = el("mail-list").querySelector("thead input");
     if (toggle) {
       toggle.checked =
@@ -51,10 +87,12 @@
       type: el("mail-type").value,
       usage: el("mail-usage").value,
       setId: el("mail-filter-set").value,
+      pageSize: el("mail-page-size").value,
     });
     const data = await PCB.request("/api/admin/emails?" + params);
     if (requestId !== sequence) return;
     pages = data.pages;
+    matched = data.matched;
     total = data.totals.total;
     visibleIds = data.emails.map((email) => email.id);
     if (page > pages) {
@@ -75,8 +113,7 @@
     [
       "Sélection",
       "Sujet / expéditeur",
-      "Classification",
-      "Utilisation",
+      "Classification / usage",
       "Sets",
       "Actions",
     ].forEach((name, i) => {
@@ -107,6 +144,7 @@
     for (const email of data.emails) {
       const row = tbody.insertRow(),
         check = document.createElement("input");
+      row.dataset.id = email.id;
       check.type = "checkbox";
       check.checked = selected.has(email.id);
       check.setAttribute("aria-label", "Sélectionner " + email.subject);
@@ -121,9 +159,13 @@
       title.textContent = email.subject;
       sender.textContent = email.sender;
       info.append(title, document.createElement("br"), sender);
-      row.insertCell().textContent =
-        email.type === "safe" ? "Légitime" : "Phishing";
-      row.insertCell().textContent = labels[email.usage];
+      const classification = row.insertCell(),
+        badge = document.createElement("span"),
+        usage = document.createElement("small");
+      badge.className = "catalog-badge " + email.type;
+      badge.textContent = email.type === "safe" ? "Légitime" : "Phishing";
+      usage.textContent = labels[email.usage];
+      classification.append(badge, document.createElement("br"), usage);
       row.insertCell().textContent =
         email.sets
           .map(
@@ -142,10 +184,16 @@
             `De : ${item.sender}\nEnveloppe SMTP (simulée) : ${item.realSender}\nUtilisation : ${labels[item.usage]}\nClassification : ${item.type}\n\n${item.body}\n\nCorrection :\n${item.clues.join("\n\n") || "Aucun indice renseigné."}`;
           el("mail-preview").showModal();
         }),
-        button("Supprimer", () => remove([email.id]), true),
       );
     }
     el("mail-list").replaceChildren(table);
+    if (!data.emails.length) {
+      const empty = document.createElement("p");
+      empty.className = "catalog-empty";
+      empty.textContent =
+        "Aucun mail ici. Ajoutez un lot ou modifiez les filtres : le phishing ne va pas se ranger tout seul.";
+      el("mail-list").append(empty);
+    }
     updateSelection();
   }
   function button(label, work, danger = false) {
@@ -158,6 +206,7 @@
   }
   async function run(button, work) {
     button.disabled = true;
+    el("catalog-message").textContent = el("set-message").textContent = "";
     try {
       await work();
     } catch (error) {
@@ -312,7 +361,7 @@
       previewKey = key;
       el("mail-import").disabled = false;
       el("mail-import-summary").textContent =
-        `Set « ${result.set.name} » (${states[result.set.status]}) : ${result.added} nouveaux mails, ${result.linked} nouveaux rattachements, ${result.duplicates} doublons ignorés, ${result.detached} retirés de ce set. Après import : ${result.setTotal} mails dans le set. Lot : ${result.safe} légitimes / ${result.phishing} phishing. ${result.usageConflicts ? `${result.usageConflicts} mails existent avec une autre disponibilité : leur disponibilité actuelle sera conservée, modifiable avec les actions sur la sélection. ` : ""}Aucune modification effectuée.`;
+        `Après import, « ${result.set.name} » contiendra ${result.setTotal} mails : ${result.linked} ajoutés au set${result.detached ? `, ${result.detached} retirés` : ""}. Le lot contient ${result.safe} légitimes et ${result.phishing} phishing. ${result.duplicates ? `${result.duplicates} doublons ignorés. ` : ""}${result.usageConflicts ? `${result.usageConflicts} mails existent avec une autre disponibilité : celle-ci sera conservée. Vous pourrez la modifier après l’import. ` : ""}Aucune modification effectuée pour le moment.`;
     }),
   );
   el("mail-import").addEventListener("click", (e) =>
@@ -338,10 +387,12 @@
       invalidate();
       await refreshSets(true);
       el("mail-import-set").value = String(r.set.id);
+      el("mail-filter-set").value = String(r.set.id);
       updateImportTarget();
       await load();
+      showView("mails");
       notice(
-        `Set « ${r.set.name} » : ${r.added} nouveaux mails, ${r.linked} rattachements, ${r.duplicates} doublons ignorés, ${r.detached} retirés de ce set. ${states[r.set.status]} : ${r.set.status === "draft" ? "passez le set à Prêt après relecture pour le rendre jouable." : "les nouvelles parties peuvent utiliser ce set."}`,
+        `Import terminé : « ${r.set.name} » contient ${r.setTotal} mails (${r.linked} ajoutés${r.detached ? `, ${r.detached} retirés` : ""}). ${r.set.status === "draft" ? "Il est en brouillon : passez-le à Prêt après relecture pour le rendre jouable." : "Le set est prêt."}`,
       );
     }),
   );
@@ -370,8 +421,14 @@
     ],
   ])
     el(id).addEventListener("click", (e) => run(e.currentTarget, work));
-  for (const id of ["mail-type", "mail-usage", "mail-filter-set"])
+  for (const id of [
+    "mail-type",
+    "mail-usage",
+    "mail-filter-set",
+    "mail-page-size",
+  ])
     el(id).addEventListener("change", () => {
+      if (id !== "mail-page-size") selected.clear();
       page = 1;
       load().catch((e) => notice(e.message, true));
       updateSelection();
@@ -380,6 +437,7 @@
   el("mail-search").addEventListener("input", () => {
     clearTimeout(debounce);
     debounce = setTimeout(() => {
+      selected.clear();
       page = 1;
       load().catch((e) => notice(e.message, true));
     }, 250);
@@ -411,8 +469,94 @@
   function resetSet() {
     el("set-form").reset();
     el("set-id").value = "";
+  }
+  function showView(view) {
+    for (const name of ["sets", "mails", "import"])
+      el(`catalog-${name}-view`).hidden = name !== view;
+    el("catalog-show-sets").setAttribute(
+      "aria-pressed",
+      String(view === "sets"),
+    );
+    el("catalog-show-mails").setAttribute(
+      "aria-pressed",
+      String(view === "mails"),
+    );
+    el("mail-open-import").hidden = view === "import";
+  }
+  function selectionFilters() {
+    return new URLSearchParams({
+      search: el("mail-search").value,
+      type: el("mail-type").value,
+      usage: el("mail-usage").value,
+      setId: el("mail-filter-set").value,
+    }).toString();
+  }
+  el("mail-select-matched").addEventListener("click", (e) =>
+    run(e.currentTarget, async () => {
+      const filters = selectionFilters();
+      const data = await PCB.request("/api/admin/emails/selection?" + filters);
+      if (filters !== selectionFilters()) return;
+      selected.clear();
+      data.ids.forEach((id) => selected.add(id));
+      updateSelection();
+      el("mail-list")
+        .querySelectorAll("tbody tr")
+        .forEach(
+          (row) =>
+            (row.querySelector("input").checked = selected.has(
+              Number(row.dataset.id),
+            )),
+        );
+    }),
+  );
+  async function openSet(id = "") {
+    selected.clear();
+    page = 1;
+    el("mail-search").value = "";
+    el("mail-type").value = el("mail-usage").value = "";
+    el("mail-filter-set").value = String(id);
+    showView("mails");
+    await load();
+  }
+  function editSet(set) {
+    resetSet();
+    el("set-message").textContent = "";
+    el("set-editor-title").textContent = set
+      ? "Modifier le set"
+      : "Créer un set";
+    if (set) {
+      el("set-id").value = set.id;
+      el("set-name").value = set.name;
+      el("set-description").value = set.description;
+      el("set-default-usage").value = set.default_usage;
+      el("set-status").value = set.status;
+    }
+    el("set-editor").showModal();
     el("set-name").focus();
   }
+  function openImport(id = "new") {
+    el("mail-import-set").value = String(id);
+    updateImportTarget();
+    invalidate();
+    showView("import");
+    el("mail-import-set").focus();
+  }
+  el("catalog-show-sets").addEventListener("click", () => showView("sets"));
+  el("catalog-show-mails").addEventListener("click", (e) =>
+    run(e.currentTarget, () => openSet()),
+  );
+  el("mail-open-import").addEventListener("click", () => openImport());
+  el("mail-import-back").addEventListener("click", () => showView("sets"));
+  el("set-create").addEventListener("click", () => editSet());
+  for (const id of ["set-new", "set-close"])
+    el(id).addEventListener("click", () => el("set-editor").close());
+  el("mail-clear-selection").addEventListener("click", () => {
+    selected.clear();
+    updateSelection();
+    el("mail-list")
+      .querySelectorAll("tbody input")
+      .forEach((input) => (input.checked = false));
+  });
   const when = (value) =>
     value ? new Date(value).toLocaleString("fr-FR") : "—";
   async function refreshSets(changed = false) {
@@ -431,54 +575,75 @@
       [0, "Mails sans set"],
       ...sets.map((s) => [s.id, `${s.name} · ${states[s.status]}`]),
     ]);
-    const table = document.createElement("table"),
-      head = table.createTHead().insertRow(),
-      body = table.createTBody();
-    for (const label of [
-      "Set / état",
-      "Mails / disponibilité",
-      "Dates",
-      "Battles",
-      "Actions",
-    ]) {
-      const th = document.createElement("th");
-      th.textContent = label;
-      head.append(th);
-    }
-    for (const set of sets) {
-      const row = body.insertRow();
-      row.insertCell().textContent = `${set.name} · ${states[set.status]}${set.description ? "\n" + set.description : ""}`;
-      row.insertCell().textContent = `${set.total} mails : ${set.safe} légitimes / ${set.phishing} phishing\n${set.training} entraînement · ${set.battle} battle`;
-      row.insertCell().textContent = `Créé : ${when(set.created_at)}\nDernier import : ${when(set.last_imported_at)}`;
-      row.insertCell().textContent = set.battles_used;
-      const actions = row.insertCell();
+    const cards = sets.map((set) => {
+      const card = document.createElement("article");
+      card.className = "catalog-set-card";
+      card.dataset.status = set.status;
+      card.hidden =
+        set.status === "archived" && !el("mail-show-archived").checked;
+      const heading = document.createElement("div"),
+        name = document.createElement("h4"),
+        state = document.createElement("span");
+      heading.className = "catalog-heading";
+      name.textContent = set.name;
+      state.className = "catalog-badge " + set.status;
+      state.textContent = states[set.status];
+      heading.append(name, state);
+      const description = document.createElement("p");
+      description.className = "meta";
+      description.textContent =
+        set.description ||
+        "Une collection de mails, pas encore de casier judiciaire.";
+      const stats = document.createElement("p");
+      stats.className = "catalog-set-count";
+      stats.textContent = set.total + " mails";
+      const breakdown = document.createElement("p");
+      breakdown.className = "meta";
+      breakdown.textContent =
+        set.safe + " légitimes · " + set.phishing + " phishing";
+      const usage = document.createElement("p");
+      usage.className = "meta";
+      usage.textContent =
+        set.training + " entraînement · " + set.battle + " battle";
+      const actions = document.createElement("div");
+      actions.className = "form-actions";
+      const open = button("Ouvrir les mails", () => openSet(set.id));
+      open.className = "btn";
       actions.append(
-        button("Voir les mails", async () => {
-          el("mail-filter-set").value = String(set.id);
-          page = 1;
-          await load();
-        }),
-        button("Modifier le set", async () => {
-          el("set-id").value = set.id;
-          el("set-name").value = set.name;
-          el("set-description").value = set.description;
-          el("set-default-usage").value = set.default_usage;
-          el("set-status").value = set.status;
-          el("set-editor").open = true;
-          el("set-name").focus();
-        }),
-        button("Historique", () => history(set.id)),
+        open,
+        button("Modifier", () => editSet(set)),
       );
       if (set.status !== "archived")
-        actions.append(
-          button("Archiver", async () => {
+        actions.append(button("Importer ici", async () => openImport(set.id)));
+      const extras = document.createElement("details"),
+        summary = document.createElement("summary"),
+        dates = document.createElement("p"),
+        extraActions = document.createElement("div");
+      extras.className = "catalog-extra";
+      summary.textContent = "Historique et archivage";
+      dates.className = "meta";
+      dates.textContent =
+        "Créé le " +
+        when(set.created_at) +
+        " · Dernier import : " +
+        when(set.last_imported_at) +
+        " · " +
+        set.battles_used +
+        " battle(s)";
+      extraActions.className = "form-actions";
+      extraActions.append(button("Historique", () => history(set.id)));
+      if (set.status !== "archived")
+        extraActions.append(
+          button("Archiver le set", async () => {
             if (
               !(await PCB.confirm(
-                `Archiver « ${set.name} » ? Il ne sera plus proposé aux nouvelles parties. Les mails et les battles publiées sont conservés.`,
+                "Archiver « " +
+                  set.name +
+                  " » ? Ses mails et les battles publiées sont conservés. Il sort des nouvelles sélections.",
               ))
             )
               return;
-            await PCB.request(`/api/admin/mail-sets/${set.id}`, {
+            await PCB.request("/api/admin/mail-sets/" + set.id, {
               method: "PUT",
               body: JSON.stringify({
                 name: set.name,
@@ -489,14 +654,41 @@
             });
             await refreshSets(true);
             await load();
-            notice("Set archivé.");
+            notice("Set archivé. Ses mails sont conservés.");
           }),
         );
+      extras.append(summary, dates, extraActions);
+      card.append(
+        heading,
+        description,
+        stats,
+        breakdown,
+        usage,
+        actions,
+        extras,
+      );
+      return card;
+    });
+    el("mail-sets").replaceChildren(...cards);
+    if (!sets.length) {
+      const empty = document.createElement("p");
+      empty.className = "catalog-empty";
+      empty.textContent =
+        "Créez votre premier set ou importez un lot de mails pour remplir le buffet.";
+      el("mail-sets").append(empty);
     }
-    el("mail-sets").replaceChildren(table);
     updateSelection();
     if (changed) window.dispatchEvent(new Event("mailsets-updated"));
   }
+  el("mail-show-archived").addEventListener("change", () => {
+    el("mail-sets")
+      .querySelectorAll(".catalog-set-card")
+      .forEach((card) => {
+        card.hidden =
+          card.dataset.status === "archived" &&
+          !el("mail-show-archived").checked;
+      });
+  });
   async function history(id) {
     const data = await PCB.request(`/api/admin/mail-sets/${id}/history`);
     el("set-history-title").textContent = `Historique · ${data.set.name}`;
@@ -514,7 +706,7 @@
       const p = document.createElement("p");
       p.textContent = `${when(event.created_at)} · ${event.actor || "Compte supprimé"} · ${operations[event.operation] || event.operation}`;
       if (["import", "replace"].includes(event.operation))
-        p.textContent += ` : ${event.added} nouveaux mails, ${event.details.linked || 0} rattachements, ${event.details.detached || 0} retraits du set`;
+        p.textContent += ` : ${event.added} nouveaux mails dans le catalogue, ${event.details.linked || 0} ajouts au set, ${event.details.detached || 0} retraits du set`;
       else if (event.operation === "set")
         p.textContent += ` · ${states[event.details.after.status]}`;
       else p.textContent += ` · ${event.details.count || 0} mails`;
@@ -541,7 +733,6 @@
     }
     el("set-history").showModal();
   }
-  el("set-new").addEventListener("click", resetSet);
   el("set-form").addEventListener("submit", (e) => {
     e.preventDefault();
     run(e.submitter, async () => {
@@ -555,8 +746,8 @@
           status: el("set-status").value,
         }),
       });
+      el("set-editor").close();
       resetSet();
-      el("set-editor").open = false;
       await refreshSets(true);
       await load();
       invalidate();
@@ -566,27 +757,49 @@
   for (const [id, action] of [
     ["mail-add-to-set", "add"],
     ["mail-detach-set", "remove"],
+    ["mail-move-to-set", "move"],
   ])
     el(id).addEventListener("click", (e) =>
       run(e.currentTarget, async () => {
         const setId = Number(
-          el(action === "add" ? "mail-assign-set" : "mail-filter-set").value,
+          el(action !== "remove" ? "mail-assign-set" : "mail-filter-set").value,
         );
+        const sourceSetId = Number(el("mail-filter-set").value);
+        const destination = sets.find((s) => s.id === setId);
+        const source = sets.find((s) => s.id === sourceSetId);
+        if (
+          action === "move" &&
+          (!source || source.status === "archived" || sourceSetId === setId)
+        )
+          throw new Error(
+            "Ouvrez un set d’origine actif et choisissez un autre set de destination.",
+          );
         if (
           !(await PCB.confirm(
-            `${action === "add" ? "Ajouter" : "Retirer"} ${selected.size} mails ${action === "add" ? "dans" : "de"} ce set ? Les autres sets sont conservés.`,
+            action === "move"
+              ? `Déplacer ${selected.size} mails de « ${source.name} » vers « ${destination.name} » ? Leurs autres sets et les anciennes battles sont conservés.`
+              : `${action === "add" ? "Ajouter aussi" : "Retirer"} ${selected.size} mails ${action === "add" ? "dans" : "de"} « ${destination.name} » ? Les autres sets sont conservés.`,
           ))
         )
           return;
         const result = await PCB.request("/api/admin/emails/sets", {
           method: "POST",
-          body: JSON.stringify({ setId, ids: [...selected], action }),
+          body: JSON.stringify({
+            setId,
+            ids: [...selected],
+            action,
+            ...(action === "move" ? { sourceSetId } : {}),
+          }),
         });
         selected.clear();
         await refreshSets(true);
         await load();
         invalidate();
-        notice(`${result.changed} rattachements modifiés.`);
+        notice(
+          action === "move"
+            ? `${result.changed} mails déplacés vers « ${destination.name} ».`
+            : `${result.changed} mails ${action === "add" ? "ajoutés à" : "retirés de"} « ${destination.name} ».`,
+        );
       }),
     );
   el("mail-change-usage").addEventListener("click", (e) =>

@@ -53,15 +53,12 @@ const details = `SELECT e.id,e.sender,e.real_sender AS "realSender",e.subject,e.
   COALESCE((SELECT jsonb_agg(clue_text ORDER BY display_order) FROM email_clues WHERE email_id=e.id),'[]') AS clues
   FROM emails e WHERE e.archived_at IS NULL`;
 
-router.get("/emails", async (req, res) => {
-  const page = integer(req.query.page ?? 1, "Page");
+function catalogFilter(query) {
   const search =
-    typeof req.query.search === "string"
-      ? req.query.search.trim().slice(0, 100)
-      : "";
-  const type = req.query.type ?? "",
-    usage = req.query.usage ?? "";
-  const setId = integer(req.query.setId, "Set", { optional: true, min: 0 });
+    typeof query.search === "string" ? query.search.trim().slice(0, 100) : "";
+  const type = query.type ?? "",
+    usage = query.usage ?? "";
+  const setId = integer(query.setId, "Set", { optional: true, min: 0 });
   if (
     !["", "phishing", "safe"].includes(type) ||
     !["", "training", "battle", "both"].includes(usage)
@@ -69,11 +66,19 @@ router.get("/emails", async (req, res) => {
     throw new HttpError(400, "Filtre invalide");
   const filter = `FROM emails e WHERE archived_at IS NULL AND ($1='' OR subject ILIKE '%'||$1||'%' OR sender ILIKE '%'||$1||'%') AND ($2='' OR type=$2) AND ($3='' OR usage=$3)
     AND ($4::integer IS NULL OR ($4=0 AND NOT EXISTS(SELECT 1 FROM mail_set_emails WHERE email_id=e.id)) OR EXISTS(SELECT 1 FROM mail_set_emails WHERE email_id=e.id AND set_id=$4))`;
+  return { filter, search, type, usage, setId };
+}
+router.get("/emails", async (req, res) => {
+  const page = integer(req.query.page ?? 1, "Page");
+  const pageSize = integer(req.query.pageSize ?? 50, "Mails par page", {
+    max: 50,
+  });
+  const { filter, search, type, usage, setId } = catalogFilter(req.query);
   const [list, count, totals] = await Promise.all([
     pool.query(
       `SELECT id,sender,subject,type,usage,COALESCE((SELECT jsonb_agg(jsonb_build_object('id',s.id,'name',s.name,'status',s.status) ORDER BY s.name)
-        FROM mail_set_emails m JOIN mail_sets s ON s.id=m.set_id WHERE m.email_id=e.id),'[]') AS sets ${filter} ORDER BY id DESC LIMIT 50 OFFSET $5`,
-      [search, type, usage, setId, (page - 1) * 50],
+        FROM mail_set_emails m JOIN mail_sets s ON s.id=m.set_id WHERE m.email_id=e.id),'[]') AS sets ${filter} ORDER BY id DESC LIMIT $6 OFFSET $5`,
+      [search, type, usage, setId, (page - 1) * pageSize, pageSize],
     ),
     pool.query(`SELECT COUNT(*)::int AS n ${filter}`, [
       search,
@@ -90,7 +95,8 @@ router.get("/emails", async (req, res) => {
   res.json({
     emails: list.rows,
     page,
-    pages: Math.max(1, Math.ceil(count.rows[0].n / 50)),
+    pages: Math.max(1, Math.ceil(count.rows[0].n / pageSize)),
+    pageSize,
     matched: count.rows[0].n,
     totals: totals.rows[0],
   });
@@ -125,6 +131,14 @@ router.post("/emails/export", async (req, res) => {
     emails: emails.map(({ id, ...e }) => e),
   });
 });
+router.get("/emails/selection", async (req, res) => {
+  const { filter, search, type, usage, setId } = catalogFilter(req.query);
+  const result = await pool.query(
+    "SELECT e.id " + filter + " ORDER BY e.id DESC",
+    [search, type, usage, setId],
+  );
+  res.json({ ids: result.rows.map((row) => row.id) });
+});
 router.get("/emails/:id", async (req, res) => {
   const email = (
     await pool.query(`${details} AND e.id=$1`, [integer(req.params.id)])
@@ -152,7 +166,7 @@ router.post("/emails/import", async (req, res) => {
 router.post("/emails/sets", async (req, res) => {
   const ids = mailIds(req.body.ids),
     action = req.body.action;
-  if (!["add", "remove"].includes(action))
+  if (!["add", "remove", "move"].includes(action))
     throw new HttpError(400, "Action de set invalide");
   const result = await transaction(async (c) => {
     await c.query("SELECT pg_advisory_xact_lock($1)", [CATALOG_LOCK]);
@@ -168,6 +182,43 @@ router.post("/emails/sets", async (req, res) => {
         409,
         "La sélection contient un mail retiré : actualisez le catalogue",
       );
+    if (action === "move") {
+      const source = await getSet(c, req.body.sourceSetId);
+      if (source.id === set.id)
+        throw new HttpError(400, "Choisissez un autre set de destination");
+      const members = await c.query(
+        "SELECT email_id FROM mail_set_emails WHERE set_id=$1 AND email_id=ANY($2::int[])",
+        [source.id, ids],
+      );
+      if (members.rowCount !== ids.length)
+        throw new HttpError(
+          409,
+          "Certains mails ne sont plus dans le set d’origine : actualisez la sélection",
+        );
+      await c.query(
+        "INSERT INTO mail_set_emails(set_id,email_id) SELECT $1,UNNEST($2::int[]) ON CONFLICT DO NOTHING",
+        [set.id, ids],
+      );
+      await c.query(
+        "DELETE FROM mail_set_emails WHERE set_id=$1 AND email_id=ANY($2::int[])",
+        [source.id, ids],
+      );
+      await c.query(
+        "UPDATE mail_sets SET updated_at=NOW() WHERE id=ANY($1::int[])",
+        [[source.id, set.id]],
+      );
+      await event(c, req.user.id, "detach", source.id, {
+        count: ids.length,
+        toSet: set.id,
+        toName: set.name,
+      });
+      await event(c, req.user.id, "attach", set.id, {
+        count: ids.length,
+        fromSet: source.id,
+        fromName: source.name,
+      });
+      return { changed: ids.length };
+    }
     const r =
       action === "add"
         ? await c.query(

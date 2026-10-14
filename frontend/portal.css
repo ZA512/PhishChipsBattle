@@ -1666,6 +1666,180 @@ body.game-page #analysis-panel {
 .stats-container .activity-bar {
   background: var(--action);
 }
+
+/* Mail collections: one overview, then a focused workspace for their contents. */
+.catalog-heading,
+.catalog-pagination,
+.catalog-transfer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.catalog-heading h2,
+.catalog-heading h3,
+.catalog-heading h4 {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+.catalog-heading .meta {
+  margin: 0;
+}
+.catalog-heading > .btn {
+  flex-shrink: 0;
+}
+.catalog-tabs {
+  margin-top: 24px;
+}
+.catalog-tabs button[aria-pressed="true"] {
+  background: var(--nav);
+  color: #fff;
+  border-color: var(--nav);
+}
+.dark .catalog-tabs button[aria-pressed="true"] {
+  background: var(--amber);
+  color: #142c40;
+  border-color: var(--amber);
+}
+.catalog-set-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+  gap: 18px;
+  margin: 20px 0;
+}
+.catalog-set-card {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.catalog-set-card h4 {
+  font-size: 19px;
+  flex: 1;
+}
+.catalog-set-card .meta {
+  margin: 5px 0;
+}
+.catalog-set-card .catalog-set-count {
+  font-size: 25px;
+  font-weight: 750;
+  margin: 18px 0 0;
+}
+.catalog-badge {
+  display: inline-block;
+  font-size: 12px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: var(--soft);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.catalog-badge.ready,
+.catalog-badge.safe {
+  background: #20674214;
+  color: var(--success);
+}
+.catalog-badge.phishing {
+  background: #a92f3a14;
+  color: var(--danger);
+}
+.catalog-filters {
+  display: grid;
+  grid-template-columns: 1.25fr 1.5fr 1fr 1fr;
+  gap: 12px;
+  margin: 12px 0 18px;
+}
+.catalog-filters select,
+.catalog-filters input,
+.catalog-transfer select {
+  width: 100%;
+}
+.catalog-selection {
+  border: 1px solid var(--action);
+  background: var(--soft);
+  padding: 18px;
+  border-radius: 12px;
+  margin: 20px 0;
+}
+.catalog-transfer {
+  justify-content: flex-start;
+  align-items: flex-end;
+  margin: 12px 0;
+}
+.catalog-transfer > div {
+  flex: 1 1 200px;
+}
+.catalog-extra {
+  margin: 16px 0 0;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.catalog-extra > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 14px;
+}
+.catalog-maintenance {
+  margin-top: 28px;
+}
+.catalog-archive-toggle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: fit-content;
+  color: var(--muted);
+}
+.catalog-archive-toggle input {
+  width: auto;
+}
+.catalog-pagination select {
+  width: auto;
+}
+.catalog-pagination label {
+  display: inline-block;
+  margin-right: 8px;
+}
+.catalog-empty {
+  padding: 30px 16px;
+  color: var(--muted);
+}
+#mail-list table {
+  min-width: 680px;
+}
+#mail-list td {
+  padding: 12px;
+}
+#mail-list td:last-child {
+  white-space: nowrap;
+}
+#mail-list .is-selected {
+  background: var(--soft);
+}
+#mail-list small {
+  display: inline-block;
+  margin-top: 4px;
+}
+#set-editor .meta {
+  margin-top: 14px;
+}
+@media (max-width: 900px) {
+  .catalog-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .catalog-filters {
+    grid-template-columns: 1fr;
+  }
+  .catalog-set-card {
+    padding: 16px;
+  }
+  .catalog-transfer .btn {
+    flex: 1 1 auto;
+  }
+}
 .dark .section-tabs button[aria-selected="true"],
 .dark .filter-bar button.active,
 .dark .diff-btn.active {
