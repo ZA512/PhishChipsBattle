@@ -4,10 +4,11 @@
 
 Phish & Chips Battle est l’évolution entreprise de [PhishChips](https://github.com/ZA512/PhishChips). On inspecte des mails dans une messagerie simulée, on distingue les messages légitimes des pièges, puis on découvre ce qui devait alerter et le bon réflexe. Le service sécurité fournit les explications. Les appréciations, elles, n’ont pas reçu de formation à la bienveillance.
 
-- **Entraînement individuel** : trois difficultés, un chrono, trois erreurs maximum et des SOS Sécu.
+- **Entraînement individuel** : Classique avec trois difficultés et SOS Sécu, ou Découverte sans chrono ni score.
+- **Contre-la-montre** : 5 ou 10 minutes globales, deux difficultés de pénalité, erreurs illimitées, aucun SOS et quatre classements distincts.
 - **Battles** : compétitions individuelles, dans une équipe ou entre équipes, avec la même série de mails et des règles communes.
 - **Équipes choisies** : proposition à partir de l’organigramme, choix libre du collaborateur, sans réaffectation automatique.
-- **Classements et profils** : résultats d’entraînement et de battle séparés, statistiques personnelles, 19 rangs et 85 badges.
+- **Classements et profils** : Classique, Battles et Contre-la-montre séparés ; activité pédagogique de Découverte. Les 19 rangs et 85 badges historiques restent propres au Classique.
 - **Administration** : équipes, catalogue privé de mails avec import/export JSON, battles, annuaire et corrections de score tracées.
 - **Connexion** : comptes locaux pour les essais ou SSO Microsoft Entra ID pour l’entreprise.
 
@@ -219,6 +220,49 @@ La migration `003_enterprise.sql` est automatique et transactionnelle. Elle cons
 Les anciennes parties portent `rules_version=0` : leurs scores restent en base mais sont exclus des nouveaux classements vérifiés. L’ancien logiciel ne mémorisait pas l’équipe au moment d’une partie ; la migration reprend donc l’équipe présente au moment de la migration, sans prétendre reconstruire les changements antérieurs. Un ancien compte créé avec un simple pseudo/email n’est jamais revendiqué automatiquement par un compte Entra ou une inscription locale.
 
 Faire une sauvegarde avant la migration d’une base utilisée. Le rapprochement d’anciens comptes avec des identités vérifiées reste à développer. L’import/remplacement administratif retire les mails du catalogue sans supprimer les références nécessaires aux réponses passées.
+
+## Formats, chronos et scores
+
+### Classique · entraînement et nouvelles battles
+
+| Difficulté | Départ par mail | Après chaque bonne classification humaine | Plancher |
+|---|---:|---|---:|
+| Facile | 60 s | Fixe | 60 s |
+| Normal | 60 s | −2 s | 35 s |
+| Difficile | 45 s | −2 s | 25 s |
+
+Le corps visible du mail ajoute **0 s jusqu’à 50 mots**, **10 s de 51 à 70 mots**, **20 s à partir de 71 mots**. Les attributs techniques des liens ne comptent pas ; leur texte affiché compte. Ce bonus est propre à chaque mail. Une erreur, une expiration ou un SOS n’accélère pas le mail suivant.
+
+Le score reste le nombre de mails trouvés, SOS compris selon la règle historique. Trois erreurs terminent la partie ; les quotas SOS restent inchangés. Les nouvelles tentatives abandonnées sont conservées dans l’activité mais exclues des records ; les règles des anciennes compétitions restent préservées.
+
+### Découverte
+
+Choisir **Découverte** dans l’entraînement : sans chrono, sans score, sans limite d’erreurs. Les réponses et explications restent consultables au récapitulatif. Aucune participation aux classements, aux records ou aux badges historiques ; l’activité pédagogique est présentée séparément dans les profils et statistiques.
+
+### Contre-la-montre
+
+Accès depuis la navigation : **5 ou 10 minutes**, difficulté **Normal ou Difficile**. Le serveur démarre le délai au premier mail. Le temps passe pendant les corrections, les changements de mails, les rechargements et les déconnexions. Il n’existe ni chrono par mail, ni SOS, ni limite de trois erreurs, ni pénalité en secondes.
+
+| Configuration | Calcul du score | Avec 6 bonnes et 2 erreurs |
+|---|---|---:|
+| 5 min · Normal | bonnes − erreurs | +4 |
+| 5 min · Difficile | bonnes − erreurs × (erreurs + 1) / 2 | +3 |
+| 10 min · Normal | bonnes − erreurs | +4 |
+| 10 min · Difficile | bonnes − erreurs × (erreurs + 1) / 2 | +3 |
+
+Le score peut être négatif : 8 bonnes et 8 erreurs donnent **−28** en Difficile. Une bonne réponse ne remet pas à zéro le rang de l’erreur suivante. Le vivier est celui de l’entraînement (mails training/both dans un set prêt), sans répétition d’un mail dans une tentative, sans vider les sets. Le Contre-la-montre peut parcourir tout ce vivier ; le plafond de 162 mails reste propre au Classique.
+
+Fin au délai global (**time_up**), à l’épuisement du vivier (**all_emails**) ou sur abandon confirmé. Un rechargement reprend la tentative et son échéance serveur ; une tentative expirée ouvre son résultat. La clôture automatique est également assurée côté serveur sans action du joueur, y compris après redémarrage du service. Les reprises depuis le même navigateur utilisent un identifiant de session local, vérifié contre le compte authentifié ; les jetons de partie restent éphémères.
+
+Le Hall of Fame distingue strictement les **quatre configurations**, avec périodes globale et mensuelle. Il retient le meilleur score de chaque joueur : score décroissant, bonnes réponses décroissantes, erreurs croissantes, puis date et identifiant. Seules les tentatives terminées normalement, non disqualifiées et ayant traité au moins un mail comptent. Les abandons restent dans l’historique. Réessais illimités ; la mémorisation entre tentatives est assumée.
+
+Le classement d’équipe applique la moyenne des meilleurs scores des dix meilleurs joueurs **dans une seule configuration**, avec l’équipe figée au début de chaque tentative. Les exports CSV et corrections administratives acceptent les scores négatifs du Contre-la-montre ; le Classique reste non négatif et la Découverte reste sans points. Les profils et KPI administratifs séparent formats, durées et difficultés, ainsi que mails consultés, décisions humaines, classifications correctes, erreurs, expirations et SOS. Un SOS ou une expiration n’entre pas dans le taux des classifications humaines.
+
+### Migration et API
+
+La migration **006_game_formats.sql** conserve sessions, réponses, équipes, badges et battles existants. Les battles déjà publiées et sessions en cours gardent la version de chrono **1**, leurs délais déjà commencés et leur éligibilité historique. Les nouvelles règles portent la version **2** ; les classements vérifiés acceptent 1 et 2. La version **0** reste historique et ne devient pas fiable rétroactivement. Les nouveaux formats ne déverrouillent aucun badge ou rang classique.
+
+Le moteur reste unique : POST /api/sessions reçoit format (classic, discovery, time_attack), difficulty et, pour le Contre-la-montre, durationSeconds (300 ou 600). Un battleId impose le Classique. Les routes de mail, de réponse, de fin et de récapitulatif restent communes. GET /api/sessions/:id/state retourne l’état canonique du propriétaire, renouvelle son jeton et constate une éventuelle expiration. Les réponses sont sérialisées et idempotentes par mail. Les classements dédiés sont sous /api/scores/time-attack ; durée et difficulté sont toujours explicites. Le schéma JSON des mails ne change pas.
 
 ## Vérifications
 

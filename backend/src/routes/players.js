@@ -43,15 +43,15 @@ router.get("/:id/profile", async (req, res) => {
   if (!player) throw new HttpError(404, "Joueur introuvable");
   const stats = (
     await pool.query(
-      `SELECT COUNT(*) AS games_played,COALESCE(MAX(score),0) AS best_score,COALESCE(SUM(score),0) AS total_score,
-    COALESCE(SUM(errors),0) AS total_errors FROM game_sessions WHERE player_id=$1 AND completed AND NOT disqualified AND rules_version=1`,
+      `SELECT COUNT(*) AS games_played,COALESCE(MAX(score) FILTER(WHERE rules_version=1 OR finish_reason IS DISTINCT FROM 'abandoned'),0) AS best_score,COALESCE(SUM(score) FILTER(WHERE rules_version=1 OR finish_reason IS DISTINCT FROM 'abandoned'),0) AS total_score,
+    COALESCE(SUM(errors),0) AS total_errors FROM game_sessions WHERE player_id=$1 AND completed AND NOT disqualified AND rules_version IN (1,2) AND game_format='classic' AND battle_id IS NULL`,
       [id],
     )
   ).rows[0];
   const correct = (
     await pool.query(
       `SELECT COUNT(*) AS n FROM email_answers ea JOIN game_sessions gs ON gs.id=ea.session_id
-    WHERE gs.player_id=$1 AND gs.completed AND NOT gs.disqualified AND gs.rules_version=1 AND ea.is_correct AND ea.user_choice<>'joker'`,
+    WHERE gs.player_id=$1 AND gs.completed AND NOT gs.disqualified AND gs.rules_version IN (1,2) AND gs.game_format='classic' AND gs.battle_id IS NULL AND ea.is_correct AND ea.user_choice<>'joker'`,
       [id],
     )
   ).rows[0];
@@ -62,6 +62,24 @@ router.get("/:id/profile", async (req, res) => {
       serviceId: player.service_id,
       createdAt: player.created_at,
     },
+    formats: await require("../services/gameStats").groupedStats(pool, id),
+    battles:
+      id === req.user.id
+        ? (
+            await pool.query(
+              `SELECT b.id,b.name,b.difficulty,b.status,bp.service_name,
+      best.score AS best_score, best.id AS session_id,
+      (SELECT COUNT(*)::int FROM game_sessions gs WHERE gs.battle_id=b.id AND gs.player_id=$1) AS attempts
+      FROM battle_participants bp JOIN battles b ON b.id=bp.battle_id LEFT JOIN LATERAL (
+        SELECT gs.id,gs.score FROM game_sessions gs WHERE gs.battle_id=b.id AND gs.player_id=$1
+        AND gs.completed AND NOT gs.disqualified AND gs.rules_version IN (1,2) AND gs.game_format='classic'
+        AND (gs.rules_version=1 OR gs.finish_reason IS DISTINCT FROM 'abandoned')
+        ORDER BY gs.score DESC,gs.ended_at,gs.id LIMIT 1
+      ) best ON TRUE WHERE bp.player_id=$1 ORDER BY b.created_at DESC,b.id DESC LIMIT 100`,
+              [id],
+            )
+          ).rows
+        : [],
     stats: {
       gamesPlayed: Number(stats.games_played),
       bestScore: Number(stats.best_score),

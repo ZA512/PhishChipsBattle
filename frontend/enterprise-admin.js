@@ -111,7 +111,9 @@ function updateBattlePreview() {
     byId("battle-attempts").value +
     " tentative(s) · " +
     byId("battle-jokers").value +
-    " SOS par tentative. Participants, équipes et règles seront figés à la publication.";
+    " SOS par tentative. " +
+    PCBRules.timing(byId("battle-difficulty").value) +
+    ". Participants, équipes et règles seront figés à la publication.";
 }
 function updateCorrectionPreview() {
   const s = sessions.find((s) => s.id === Number(byId("session-select").value));
@@ -317,6 +319,7 @@ async function loadBattles() {
       [
         "Battle",
         "Sets figés à la publication",
+        "Chrono",
         "Début",
         "Fin",
         "État",
@@ -327,6 +330,7 @@ async function loadBattles() {
         b.mail_selection?.sets
           .map((s) => `${s.name} (${s.count})`)
           .join(" · ") || "Catalogue historique",
+        PCBRules.timing(b.difficulty, b.timer_rules.version),
         formatDate(b.starts_at),
         formatDate(b.ends_at),
         b.status === "closed"
@@ -368,18 +372,26 @@ function selectSession() {
     return;
   }
   byId("corrected-score").value = s.score;
+  byId("corrected-score").min = s.game_format === "time_attack" ? -12502500 : 0;
+  byId("corrected-score").max =
+    s.game_format === "time_attack"
+      ? 5000
+      : s.game_format === "discovery"
+        ? 0
+        : 162;
+  byId("corrected-score").readOnly = s.game_format === "discovery";
   byId("disqualified").checked = s.disqualified;
   updateCorrectionPreview();
 }
 async function loadScores() {
   sessions = (await PCB.request("/api/admin/sessions")).sessions.filter(
-    (s) => s.completed && s.rules_version === 1,
+    (s) => s.completed && [1, 2].includes(s.rules_version),
   );
   byId("session-select").replaceChildren(
     ...sessions.map(
       (s) =>
         new Option(
-          `#${s.id} · ${s.player_name} · ${s.score} points${s.disqualified ? " · disqualifiée" : ""}`,
+          `#${s.id} · ${s.player_name} · ${s.game_format === "discovery" ? "Découverte sans score" : s.game_format === "time_attack" ? "Contre-la-montre " + s.duration_seconds / 60 + " min " + s.difficulty + " · " + s.score + " points" : s.score + " points"}${s.disqualified ? " · disqualifiée" : ""}`,
           s.id,
         ),
     ),

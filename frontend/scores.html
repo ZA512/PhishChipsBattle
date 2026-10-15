@@ -313,6 +313,17 @@
       </p>
 
       <div class="score-filters">
+        <label for="score-format"
+          >Format<select id="score-format">
+            <option value="classic">Classique · entraînement</option>
+            <option value="time_attack">Contre-la-montre</option>
+          </select></label
+        ><label id="score-duration-label" for="score-duration" hidden
+          >Durée<select id="score-duration">
+            <option value="300">5 minutes</option>
+            <option value="600">10 minutes</option>
+          </select></label
+        >
         <label for="score-audience"
           >Comparer<select id="score-audience">
             <option value="players">Joueurs</option>
@@ -337,7 +348,7 @@
             ⚠️ Normal
           </button>
           <button class="diff-btn" aria-pressed="false" data-diff="hardcore">
-            💀 Hardcore
+            💀 Difficile
           </button>
         </div>
       </div>

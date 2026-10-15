@@ -134,7 +134,13 @@ function renderAchievements() {
       " badges correspondant aux filtres"
     : "Aucun badge ici. Le dossier manque encore de pièces à conviction.";
 }
-function renderProfile(player, stats, achievements) {
+function renderProfile(
+  player,
+  stats,
+  achievements,
+  formats = [],
+  competitions = [],
+) {
   profileAchievements = achievements;
   document.getElementById("loading").hidden = true;
   document.getElementById("content").hidden = false;
@@ -147,7 +153,7 @@ function renderProfile(player, stats, achievements) {
     ...[
       [stats.gamesPlayed, "Parties jouées"],
       [stats.bestScore, "Meilleur score"],
-      [stats.totalScore, "Score total"],
+      [stats.totalCorrect, "Bonnes classifications"],
       [stats.totalErrors, "Erreurs totales"],
     ].map(([value, label]) => {
       const card = node("div", "stat-card");
@@ -158,6 +164,124 @@ function renderProfile(player, stats, achievements) {
       return card;
     }),
   );
+  const section = document.getElementById("format-statistics");
+  section.replaceChildren();
+  for (const family of ["battle", "time_attack", "discovery"]) {
+    const heading = node(
+      "h2",
+      "",
+      {
+        battle: "Battles",
+        time_attack: "Contre-la-montre",
+        discovery: "Découverte",
+      }[family],
+    );
+    if (family === "battle" && competitions.length) {
+      const grid = node("div", "format-stats-grid");
+      competitions.forEach((b) => {
+        const card = node("article", "card");
+        card.append(
+          node("h3", "", b.name),
+          node(
+            "p",
+            "meta",
+            b.service_name +
+              " · " +
+              { easy: "Facile", normal: "Normal", hardcore: "Difficile" }[
+                b.difficulty
+              ],
+          ),
+          node(
+            "p",
+            "",
+            "Meilleur résultat valide : " + (b.best_score ?? "Non joué"),
+          ),
+          node("p", "meta", b.attempts + " tentative(s)"),
+        );
+        const link = node("a", "btn btn-secondary", "Voir la compétition");
+        link.href = "/battles.html";
+        card.append(link);
+        grid.append(card);
+      });
+      section.append(heading, grid);
+      continue;
+    }
+    const rows =
+      family === "time_attack"
+        ? [300, 600].flatMap((duration) =>
+            ["normal", "hardcore"].map(
+              (difficulty) =>
+                formats.find(
+                  (r) =>
+                    r.family === family &&
+                    r.duration === duration &&
+                    r.difficulty === difficulty,
+                ) || {
+                  family,
+                  duration,
+                  difficulty,
+                  completed: 0,
+                  abandoned: 0,
+                  best_score: null,
+                  treated: 0,
+                  viewed: 0,
+                  correct: 0,
+                  errors: 0,
+                  success_rate: 0,
+                },
+            ),
+          )
+        : formats.filter((r) => r.family === family);
+    const grid = node("div", "format-stats-grid");
+    if (!rows.length)
+      grid.append(node("p", "meta", "Aucune activité dans ce format."));
+    rows.forEach((r) => {
+      const card = node("article", "card");
+      card.append(
+        node(
+          "h3",
+          "",
+          family === "time_attack"
+            ? r.duration / 60 +
+                " min · " +
+                (r.difficulty === "hardcore" ? "Difficile" : "Normal")
+            : family === "discovery"
+              ? "Apprentissage sans score"
+              : { easy: "Facile", normal: "Normal", hardcore: "Difficile" }[
+                  r.difficulty
+                ],
+        ),
+      );
+      if (family !== "discovery")
+        card.append(
+          node(
+            "p",
+            "",
+            r.completed + " parties terminées · " + r.abandoned + " abandons",
+          ),
+          node("p", "", "Meilleur score : " + (r.best_score ?? "—")),
+        );
+      card.append(
+        node(
+          "p",
+          "meta",
+          r.viewed + " mails consultés · " + r.treated + " traités",
+        ),
+        node(
+          "p",
+          "meta",
+          r.correct +
+            " bonnes classifications · " +
+            r.errors +
+            " erreurs · " +
+            r.success_rate +
+            " % de réussite",
+        ),
+      );
+      grid.append(card);
+    });
+    section.append(heading, grid);
+  }
   const unlocked = achievements.filter((a) => a.unlocked);
   document.getElementById("unlocked-count").textContent = unlocked.length;
   document.getElementById("total-count").textContent = achievements.length;
@@ -224,6 +348,12 @@ PCB.ready
       PCB.request("/api/players/" + id + "/profile"),
       PCB.request("/api/players/" + id + "/achievements"),
     ]);
-    renderProfile(profile.player, profile.stats, badges.achievements);
+    renderProfile(
+      profile.player,
+      profile.stats,
+      badges.achievements,
+      profile.formats,
+      profile.battles,
+    );
   })
   .catch((error) => showError(error.message));

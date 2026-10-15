@@ -91,6 +91,7 @@ PCB.ready = (async () => {
     for (const [label, href] of [
       ["Entraînement", "/phishing.html"],
       ["Battles", "/battles.html"],
+      ["Contre-la-montre", "/time-attack.html"],
       ["Mon équipe", "/teams.html"],
       ["Classements", "/scores.html"],
       ["Mon dossier", `/profile.html?id=${player.id}`],
@@ -98,7 +99,15 @@ PCB.ready = (async () => {
       const link = document.createElement("a");
       link.textContent = label;
       link.href = href;
-      if (new URL(link.href).pathname === location.pathname)
+      const timeAttack =
+        location.pathname === "/time-attack.html" ||
+        (location.pathname === "/phishing.html" &&
+          new URLSearchParams(location.search).get("format") === "time_attack");
+      if (
+        timeAttack
+          ? href === "/time-attack.html"
+          : new URL(link.href).pathname === location.pathname
+      )
         link.setAttribute("aria-current", "page");
       links.appendChild(link);
     }

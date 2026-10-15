@@ -45,11 +45,11 @@ router.get("/participants", organizerAuth, async (_req, res) =>
 );
 router.get("/", async (req, res) => {
   const { rows } = await pool.query(
-    `SELECT b.id,b.name,b.mode,b.difficulty,b.starts_at,b.ends_at,b.max_attempts,b.joker_limit,b.status,
+    `SELECT b.id,b.name,b.mode,b.difficulty,b.timer_rules,b.starts_at,b.ends_at,b.max_attempts,b.joker_limit,b.status,
     jsonb_array_length(b.email_order) AS email_count,bp.service_name AS roster_team,
     CASE WHEN $2::boolean THEN b.mail_selection ELSE NULL END AS mail_selection,
     (SELECT COUNT(*) FROM game_sessions gs WHERE gs.battle_id=b.id AND gs.player_id=$1) AS attempts_used,
-    EXISTS(SELECT 1 FROM game_sessions gs WHERE gs.battle_id=b.id AND gs.player_id=$1 AND NOT gs.completed AND gs.rules_version=1) AS ongoing,
+    EXISTS(SELECT 1 FROM game_sessions gs WHERE gs.battle_id=b.id AND gs.player_id=$1 AND NOT gs.completed AND gs.rules_version IN (1,2)) AS ongoing,
     (bp.id IS NOT NULL) AS participating
     FROM battles b LEFT JOIN battle_participants bp ON bp.battle_id=b.id AND bp.player_id=$1
     WHERE bp.id IS NOT NULL OR $2::boolean ORDER BY b.starts_at DESC LIMIT 100`,

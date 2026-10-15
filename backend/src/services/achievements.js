@@ -19,7 +19,8 @@ async function evaluateAchievements(playerId, sessionId) {
     if (
       !session.completed ||
       session.disqualified ||
-      session.rules_version !== 1
+      ![1, 2].includes(session.rules_version) ||
+      session.game_format !== "classic"
     )
       return [];
 
@@ -54,7 +55,7 @@ async function evaluateAchievements(playerId, sessionId) {
               COUNT(DISTINCT gs.service_id) AS service_count
        FROM game_sessions gs
        JOIN players p ON p.id = gs.player_id
-       WHERE gs.player_id = $1 AND gs.completed = TRUE AND NOT gs.disqualified AND gs.rules_version=1`,
+       WHERE gs.player_id = $1 AND gs.completed = TRUE AND NOT gs.disqualified AND gs.rules_version IN (1,2) AND gs.game_format='classic'`,
       [playerId],
     );
     const stats = statsRes.rows[0];
@@ -64,7 +65,7 @@ async function evaluateAchievements(playerId, sessionId) {
       `SELECT COUNT(DISTINCT gs.service_id) AS svc_count
        FROM game_sessions gs
        JOIN players p ON p.id = gs.player_id
-       WHERE gs.player_id = $1 AND gs.completed = TRUE AND NOT gs.disqualified AND gs.rules_version=1 AND gs.service_id IS NOT NULL`,
+       WHERE gs.player_id = $1 AND gs.completed = TRUE AND NOT gs.disqualified AND gs.rules_version IN (1,2) AND gs.game_format='classic' AND gs.service_id IS NOT NULL`,
       [playerId],
     );
     const svcCount = parseInt(svcRes.rows[0].svc_count) || 0;
@@ -72,7 +73,7 @@ async function evaluateAchievements(playerId, sessionId) {
     // Count games today
     const todayRes = await client.query(
       `SELECT COUNT(*) AS cnt FROM game_sessions
-       WHERE player_id = $1 AND completed = TRUE AND NOT disqualified AND rules_version=1 AND DATE(started_at) = CURRENT_DATE`,
+       WHERE player_id = $1 AND completed = TRUE AND NOT disqualified AND rules_version IN (1,2) AND game_format='classic' AND DATE(started_at) = CURRENT_DATE`,
       [playerId],
     );
     const gamesToday = parseInt(todayRes.rows[0].cnt) || 0;
@@ -175,7 +176,7 @@ async function evaluateAchievements(playerId, sessionId) {
             `
       SELECT rank FROM (
         SELECT player_id,ROW_NUMBER() OVER(ORDER BY MAX(score) DESC,COUNT(*) ASC,player_id ASC) AS rank
-        FROM game_sessions WHERE completed AND NOT disqualified AND rules_version=1 AND battle_id IS NULL
+        FROM game_sessions WHERE completed AND NOT disqualified AND rules_version IN (1,2) AND game_format='classic' AND battle_id IS NULL
           AND difficulty=$1 AND DATE_TRUNC('month',ended_at)=DATE_TRUNC('month',$2::timestamptz)
         GROUP BY player_id
       ) ranked WHERE player_id=$3`,

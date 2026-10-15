@@ -39,7 +39,7 @@ router.get("/sessions", async (req, res) => {
   res.json({
     sessions: (
       await pool.query(
-        `SELECT gs.id,gs.player_id,COALESCE(d.display_name,p.name) AS player_name,gs.difficulty,gs.score,gs.errors,gs.completed,gs.service_name,gs.battle_id,gs.disqualified,gs.score_revision,gs.ended_at,gs.rules_version
+        `SELECT gs.id,gs.player_id,COALESCE(d.display_name,p.name) AS player_name,gs.difficulty,gs.score,gs.errors,gs.completed,gs.service_name,gs.battle_id,gs.disqualified,gs.score_revision,gs.ended_at,gs.rules_version,gs.game_format,gs.duration_seconds
     FROM game_sessions gs JOIN players p ON p.id=gs.player_id LEFT JOIN directory_employees d ON d.id=p.directory_id
     WHERE ($1::integer IS NULL OR gs.player_id=$1) ORDER BY gs.id DESC LIMIT 100`,
         [playerId],
@@ -58,7 +58,7 @@ router.get("/score-adjustments", async (_req, res) =>
 );
 router.post("/sessions/:id/correction", async (req, res) => {
   const id = integer(req.params.id),
-    score = integer(req.body.score, "Score", { min: 0, max: 162 }),
+    score = integer(req.body.score, "Score", { min: -12502500, max: 5000 }),
     revision = integer(req.body.revision, "Version", { min: 0 }),
     reason = text(req.body.reason, "Motif", 1000);
   if (typeof req.body.disqualified !== "boolean")
@@ -87,6 +87,19 @@ router.post("/sessions/:id/correction", async (req, res) => {
       throw new HttpError(
         400,
         "Le score ne peut pas dépasser le nombre d’emails joués",
+      );
+    const lower =
+      session.game_format === "time_attack"
+        ? -(session.difficulty === "hardcore"
+            ? (session.current_email_index *
+                (session.current_email_index + 1)) /
+              2
+            : session.current_email_index)
+        : 0;
+    if (score < lower || (session.game_format === "discovery" && score !== 0))
+      throw new HttpError(
+        400,
+        "Ce score n’est pas valide pour le format de cette partie",
       );
     await client.query(
       "INSERT INTO score_adjustments(session_id,actor_id,reason,old_score,new_score,old_disqualified,new_disqualified) VALUES($1,$2,$3,$4,$5,$6,$7)",

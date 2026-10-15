@@ -178,7 +178,34 @@
         <span class="eyebrow">Administration · statistiques</span>
         <h1>Les chiffres ne négocient pas.</h1>
 
-        <!-- Overview cards -->
+        <div class="score-filters">
+          <label
+            >Format<select id="stats-family">
+              <option value="">Tous, présentés séparément</option>
+              <option value="classic_training">Classique · entraînement</option>
+              <option value="battle">Battles</option>
+              <option value="time_attack">Contre-la-montre</option>
+              <option value="discovery">Découverte</option>
+            </select></label
+          ><label
+            >Durée<select id="stats-duration">
+              <option value="">Toutes</option>
+              <option value="300">5 min</option>
+              <option value="600">10 min</option>
+            </select></label
+          ><label
+            >Difficulté<select id="stats-difficulty">
+              <option value="">Toutes</option>
+              <option value="easy">Facile</option>
+              <option value="normal">Normal</option>
+              <option value="hardcore">Difficile</option>
+            </select></label
+          >
+        </div>
+        <p id="stats-counts" class="meta"></p>
+        <button id="stats-export" class="btn btn-secondary" type="button">
+          Exporter les statistiques</button
+        ><!-- Overview cards -->
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-value" id="stat-players">-</div>
@@ -195,17 +222,23 @@
         </div>
 
         <!-- By difficulty -->
-        <h3 class="section-title">📈 Par difficulté</h3>
-        <table class="diff-table">
-          <thead>
-            <tr>
-              <th>Difficulté</th>
-              <th>Parties</th>
-              <th>Score moyen</th>
-            </tr>
-          </thead>
-          <tbody id="diff-tbody"></tbody>
-        </table>
+        <h3 class="section-title">📈 Par format et configuration</h3>
+        <div class="table-scroll">
+          <table class="diff-table">
+            <thead>
+              <tr>
+                <th>Format / configuration</th>
+                <th>Terminées / abandons</th>
+                <th>Consultés</th>
+                <th>Décisions</th>
+                <th>Correctes / erreurs</th>
+                <th>SOS / expirations</th>
+                <th>Score moyen</th>
+              </tr>
+            </thead>
+            <tbody id="diff-tbody"></tbody>
+          </table>
+        </div>
 
         <!-- Hardest emails -->
         <h3 class="section-title">💀 Emails les plus difficiles</h3>

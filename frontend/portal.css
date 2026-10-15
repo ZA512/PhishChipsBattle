@@ -1794,6 +1794,86 @@ body.game-page #analysis-panel {
 .catalog-archive-toggle input {
   width: auto;
 }
+.game-preparation {
+  max-width: 760px;
+}
+.game-preparation fieldset {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+  margin: 20px 0;
+  min-width: 0;
+}
+.game-preparation legend {
+  font-weight: 700;
+}
+.format-choices,
+.format-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
+  gap: 14px;
+}
+.format-choices label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  margin: 0;
+  cursor: pointer;
+}
+.format-choices label:has(input:checked) {
+  border-color: var(--action);
+  background: var(--soft);
+}
+.format-choices input {
+  width: auto;
+}
+.format-stats-grid h3 {
+  font-size: 18px;
+  margin-top: 0;
+}
+#training-format {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  margin-bottom: 14px;
+}
+#training-format-choice label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+#format-description {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.game-page #game-format-label {
+  text-align: center;
+  margin: 16px 0;
+  line-height: 1.6;
+  font-size: 11px;
+}
+@media (min-width: 980px) and (max-width: 1400px) {
+  .account-nav {
+    gap: 12px;
+  }
+  .account-nav .brand {
+    margin-right: 0;
+  }
+  .account-nav .nav-links a {
+    font-size: 13px;
+    padding: 8px 6px;
+  }
+  .nav-account .account-name {
+    max-width: 100px;
+  }
+}
 .catalog-pagination select {
   width: auto;
 }

@@ -91,8 +91,8 @@ async function createBattle(client, body, actorId) {
     throw new HttpError(400, "Choisissez au moins un participant");
   const battle = (
     await client.query(
-      `INSERT INTO battles(name,mode,difficulty,starts_at,ends_at,max_attempts,joker_limit,email_order,created_by,mail_selection)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+      `INSERT INTO battles(name,mode,difficulty,starts_at,ends_at,max_attempts,joker_limit,email_order,created_by,mail_selection,timer_rules)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
       [
         name,
         mode,
@@ -104,6 +104,7 @@ async function createBattle(client, body, actorId) {
         JSON.stringify(selection.order),
         actorId,
         selection.composition ? JSON.stringify(selection.composition) : null,
+        JSON.stringify(require("./gameRules").NEW_RULES),
       ],
     )
   ).rows[0];
@@ -126,7 +127,7 @@ async function computeResults(client, battleId) {
     FROM battle_participants bp LEFT JOIN LATERAL (
       SELECT gs.id,gs.score,gs.ended_at,COALESCE((SELECT SUM(ea.decision_time) FROM email_answers ea WHERE ea.session_id=gs.id),0) AS decision_seconds
       FROM game_sessions gs WHERE gs.battle_id=bp.battle_id AND gs.player_id=bp.player_id
-      AND gs.completed AND NOT gs.disqualified AND gs.rules_version=1
+      AND gs.completed AND NOT gs.disqualified AND gs.rules_version IN (1,2) AND gs.game_format='classic' AND (gs.rules_version=1 OR gs.finish_reason IS DISTINCT FROM 'abandoned')
       ORDER BY gs.score DESC,decision_seconds ASC,gs.ended_at ASC,gs.id ASC LIMIT 1
     ) best ON TRUE WHERE bp.battle_id=$1
     ORDER BY score DESC,played DESC,decision_seconds ASC,bp.id ASC`,

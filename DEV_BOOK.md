@@ -94,6 +94,21 @@ Priorités avant usage entreprise :
 
 Évolutions suivantes : validation éditoriale des lots de mails et report des corrections de battle à la clôture, rafraîchissement planifié de l’annuaire et clôture des battles, révocation/recalcul des badges après modération, pagination et recherche avancée de l’historique administratif. Ces points restent ouverts et ne sont pas présentés comme livrés.
 
+## Formats et chronos · octobre 2026
+
+Livraison du PRD « Modes, chronos et Contre-la-montre » dans le moteur de session existant :
+
+- Classique v2 : 60 s fixes en Facile ; 60 → 35 s en Normal ; 45 → 25 s en Difficile, baisse de 2 s par classification humaine correcte. Bonus propre au corps visible : 0 / 10 / 20 s aux seuils 50 et 70 mots. Les erreurs et SOS n’accélèrent pas le prochain mail ; score et quota SOS classiques préservés, arrêt à trois erreurs.
+- Migration 006 non destructive : formats, règles de chrono versionnées, échéance globale, compteurs humains/consultations. Les anciennes sessions et battles gardent v1 et leur deadline ; les nouvelles sont en v2. Les classements vérifiés acceptent v1/v2, jamais v0. Les règles d’éligibilité historiques v1 ne sont pas réécrites ; les nouveaux abandons sont exclus des records.
+- Découverte : aucune deadline, score API null / stockage neutre à zéro, aucune limite d’erreurs, aucun classement ni badge historique ; réponses et activité pédagogique conservées séparément.
+- Contre-la-montre solo : quatre configurations 300/600 s × Normal/Difficile ; +1 par bonne réponse, −1 par erreur en Normal, −k pour la k-ième erreur cumulée en Difficile. Les scores négatifs traversent stockage, API, UI, CSV et modération. Aucun SOS accepté par le backend. Ni plafond de trois erreurs ni pénalité en secondes.
+- Horloge globale persistée au premier mail, jamais suspendue pour une correction. Réponses transactionnelles et idempotentes ; reprise à partir de l’état du propriétaire authentifié, jeton renouvelé, équipes figées. Expiration par contrôle sur accès et worker serveur de clôture indépendant des requêtes du joueur. Une panne/redémarrage ne recrée pas de délai.
+- Hall of Fame séparé par durée/difficulté, période globale/mensuelle, meilleur résultat valide par joueur, départage bonnes réponses / erreurs / date / identifiant. Équipes : moyenne du top 10 dans la même configuration. Pas d’entrée sans mail traité ; abandons et disqualifications exclus.
+- Profils et administration segmentés par famille/configuration : consultations, décisions humaines, bonnes classifications, erreurs, SOS et expirations. Aucun mélange des moyennes/records de score entre formats. Badges/rangs classiques inaccessibles depuis les nouveaux formats.
+- Écrans de préparation, jeu et résultat réutilisant la fausse messagerie ; navigation dédiée, correction consultable immédiatement, chrono global visible pendant la correction, reprise après rechargement, Hall of Fame et aide utilisateur adaptés.
+
+La création de battles reste classique ; les tags, nouveaux badges dédiés, battles événementielles Contre-la-montre et report obligatoire des corrections restent hors périmètre. Le JSON des mails et les sets ne changent pas.
+
 ## Sets de mails · octobre 2026
 
 - Collections nommées avec description, état Brouillon / Prêt / Archivé et disponibilité par défaut des nouveaux mails. L’administrateur les gère ; l’organisateur consulte uniquement les résumés des sets prêts pour composer ses battles.

@@ -69,11 +69,19 @@ let autoAnalyzesLeft = 3;
 let currentEmailData = null; // { emailId, sender, realSender, subject, body }
 let playerName = "";
 let gameDifficulty = "easy";
+const gameParams = new URLSearchParams(location.search);
+let gameFormat =
+  gameParams.get("format") === "time_attack" ? "time_attack" : "classic";
+let gameDuration = Number(gameParams.get("duration") || 300);
+let canonicalState = null;
+let rulesVersion = 2;
+let checkingExpiry = false;
+let lastClockSync = 0;
+let clockRetryAt = 0;
+let recoveryKey = null;
 
 // Timer durations
-const initialTimerDuration = 30;
-const normalModeMinTime = 15;
-const hardcoreModeMinTime = 5;
+const initialTimerDuration = 60;
 let currentTimerDuration = initialTimerDuration;
 
 // Stats
@@ -214,11 +222,38 @@ async function loadServices() {
       });
       document.getElementById("rule-jokers").textContent =
         `🔍 ${battle.joker_limit} SOS Sécu`;
-      document.getElementById("rule-timer").textContent = {
-        easy: "⏱ 30s fixes",
-        normal: "⏱ 30s → 15s",
-        hardcore: "⏱ 30s → 5s",
-      }[battle.difficulty];
+      rulesVersion = battle.timer_rules.version;
+      document.getElementById("training-format-choice").hidden = true;
+      document
+        .querySelectorAll(".difficulty-toggle small")
+        .forEach(
+          (label, i) =>
+            (label.textContent = PCBRules.timing(
+              ["easy", "normal", "hardcore"][i],
+              rulesVersion,
+            )),
+        );
+      document.getElementById("rule-timer").textContent = PCBRules.timing(
+        battle.difficulty,
+        rulesVersion,
+      );
+    }
+    if (gameFormat === "time_attack") {
+      document.getElementById("training-format-choice").hidden = true;
+      document.getElementById("classic-difficulty-choice").hidden = true;
+      document.querySelector("#start-screen h1").textContent =
+        "Le chrono a pris la main.";
+      document.getElementById("format-description").textContent =
+        PCBRules.configuration(gameDuration, gameParams.get("difficulty")) +
+        " · +1 par bonne réponse · " +
+        (gameParams.get("difficulty") === "hardcore"
+          ? "erreurs : −1, −2, −3…"
+          : "−1 par erreur");
+      document.getElementById("rule-timer").textContent =
+        gameDuration / 60 + " minutes globales";
+      document.getElementById("rule-errors").textContent = "Erreurs illimitées";
+      document.getElementById("rule-jokers").hidden = true;
+      if (gameParams.get("autostart") === "1") await startGame();
     }
   } catch (e) {
     startError.textContent = e.message;
@@ -246,14 +281,45 @@ async function startGame() {
     gameDifficulty =
       document.querySelector('input[name="difficulty"]:checked')?.value ||
       "easy";
+    if (gameFormat === "time_attack")
+      gameDifficulty = gameParams.get("difficulty") || "normal";
+    else
+      gameFormat = gameParams.has("battle")
+        ? "classic"
+        : document.getElementById("training-format").value;
+    if (gameFormat === "discovery") gameDifficulty = "easy";
     const battle = new URLSearchParams(location.search).get("battle");
-    const data = await PCB.request("/api/sessions", {
-      method: "POST",
-      body: JSON.stringify({
-        difficulty: gameDifficulty,
-        ...(battle ? { battleId: battle } : {}),
-      }),
-    });
+    recoveryKey = `pcb-game-${player.id}-${gameFormat}-${gameDifficulty}-${gameFormat === "time_attack" ? gameDuration : ""}-${battle || ""}`;
+    const saved = localStorage.getItem(recoveryKey);
+    let data;
+    if (saved) {
+      try {
+        data = await PCB.request(
+          `/api/sessions/${encodeURIComponent(saved)}/state`,
+        );
+      } catch (e) {
+        if (![404, 410].includes(e.status)) throw e;
+        localStorage.removeItem(recoveryKey);
+      }
+    }
+    if (!data)
+      data = await PCB.request("/api/sessions", {
+        method: "POST",
+        body: JSON.stringify({
+          difficulty: gameDifficulty,
+          format: gameFormat,
+          ...(gameFormat === "time_attack"
+            ? { durationSeconds: gameDuration }
+            : {}),
+          ...(battle ? { battleId: battle } : {}),
+        }),
+      });
+    localStorage.setItem(recoveryKey, String(data.sessionId));
+    if (gameFormat === "time_attack")
+      localStorage.setItem(
+        "pcb-time-attack-last-" + player.id,
+        JSON.stringify({ duration: gameDuration, difficulty: gameDifficulty }),
+      );
     sessionId = data.sessionId;
     sessionToken = data.sessionToken;
     totalEmails = data.totalEmails;
@@ -261,8 +327,7 @@ async function startGame() {
     gameDifficulty = data.difficulty;
     playerId = player.id;
     playerName = player.display_name || player.name;
-    score = 0;
-    errors = 0;
+    applyCanonical(data);
     autoAnalyzesLeft = jokerLimit;
     safeEmailsFound = data.stats.safe_found;
     phishingEmailsFound = data.stats.phishing_found;
@@ -282,6 +347,10 @@ async function startGame() {
     updateExtendedStatsDisplay();
     classifySafeBtn.disabled = true;
     classifyPhishingBtn.disabled = true;
+    if (data.completed) {
+      await endGame(false, false, data);
+      return;
+    }
     await loadNextEmail();
   } catch (e) {
     startError.textContent = e.message || "Erreur de connexion.";
@@ -298,7 +367,7 @@ async function loadNextEmail() {
     classifyPhishingBtn.disabled =
     autoAnalyzeBtn.disabled =
       true;
-  clearInterval(timerInterval);
+  if (gameFormat !== "time_attack") clearInterval(timerInterval);
 
   try {
     const res = await fetch(`/api/sessions/${sessionId}/next-email`, {
@@ -316,12 +385,12 @@ async function loadNextEmail() {
     }
 
     const data = await res.json();
+    if (data.completed) {
+      await endGame(false, false, data);
+      return;
+    }
     currentEmailData = data;
-    score = data.score;
-    errors = data.errors;
-    jokerLimit = data.jokerLimit;
-    autoAnalyzesLeft = Math.max(0, jokerLimit - data.jokersUsed);
-    emailDeadline = performance.now() + data.remainingMs;
+    applyCanonical(data);
     currentTimerDuration = Math.ceil(data.remainingMs / 1000);
     updateScoreDisplay();
     updateSecurityBar();
@@ -394,6 +463,50 @@ function appendTextWithBreaks(container, text) {
 function stripTags(text) {
   return String(text || "").replace(/<[^>]*>/g, "");
 }
+function applyCanonical(data) {
+  canonicalState = data;
+  gameFormat = data.format || gameFormat;
+  gameDuration = data.durationSeconds || gameDuration;
+  rulesVersion = data.rulesVersion || rulesVersion;
+  document.getElementById("game-format-label").textContent =
+    gameFormat === "discovery"
+      ? "Découverte · sans chrono, sans score"
+      : gameFormat === "time_attack"
+        ? "Contre-la-montre · " +
+          PCBRules.configuration(data.durationSeconds, data.difficulty)
+        : gameParams.has("battle")
+          ? "Classique · battle"
+          : "Classique · entraînement";
+  abandonBtn.textContent =
+    gameFormat === "discovery" ? "Terminer la découverte" : "🏳️ Abandonner";
+  score = data.score ?? 0;
+  errors = data.errors;
+  jokerLimit = data.jokerLimit;
+  autoAnalyzesLeft = Math.max(0, jokerLimit - data.jokersUsed);
+  if (data.remainingMs !== null && data.remainingMs !== undefined)
+    emailDeadline = performance.now() + data.remainingMs;
+  if (data.stats) {
+    safeEmailsFound = data.stats.safe_found;
+    phishingEmailsFound = data.stats.phishing_found;
+    humanAnswers = data.stats.human_answers;
+    emailsSuccessfullyClassified = data.stats.answers;
+    totalDecisionTime = data.stats.decision_seconds;
+  }
+  autoAnalyzeBtn.hidden = gameFormat !== "classic";
+  timerEl.closest(".panel-section").hidden = gameFormat === "discovery";
+  securityBarEl.closest(".panel-section").hidden = gameFormat !== "classic";
+  scoreEl.closest(".panel-section").hidden = gameFormat === "discovery";
+  document.getElementById("timer-heading").textContent =
+    gameFormat === "time_attack" ? "Temps global restant" : "Temps du mail";
+  document.getElementById("game-progress").textContent =
+    `${data.viewedEmails || 0} mails consultés · ${data.stats?.answers || 0} traités`;
+  document.getElementById("game-accuracy").textContent =
+    `${data.stats?.human_correct || 0} bonnes classifications · ${data.errors} erreurs`;
+  updateScoreDisplay();
+  updateSecurityBar();
+  updateAutoAnalyzeDisplay();
+  updateExtendedStatsDisplay();
+}
 
 function renderEmailBody(body) {
   emailBodyEl.replaceChildren();
@@ -404,7 +517,10 @@ function renderEmailBody(body) {
 
   for (const match of source.matchAll(linkRegex)) {
     const start = match.index ?? 0;
-    appendTextWithBreaks(emailBodyEl, source.slice(lastIndex, start));
+    appendTextWithBreaks(
+      emailBodyEl,
+      stripTags(source.slice(lastIndex, start)),
+    );
 
     const attrs = match[1] || "";
     const hrefMatch = /href=(['"])(.*?)\1/i.exec(attrs);
@@ -418,7 +534,7 @@ function renderEmailBody(body) {
     lastIndex = start + match[0].length;
   }
 
-  appendTextWithBreaks(emailBodyEl, source.slice(lastIndex));
+  appendTextWithBreaks(emailBodyEl, stripTags(source.slice(lastIndex)));
 }
 
 // --- Classify ---
@@ -434,7 +550,7 @@ async function classifyEmail(userChoice) {
   abandonBtn.disabled = true;
   classifySafeBtn.disabled = true;
   classifyPhishingBtn.disabled = true;
-  clearInterval(timerInterval);
+  if (gameFormat !== "time_attack") clearInterval(timerInterval);
 
   let decisionTime = currentTimerDuration - timeLeft;
   autoAnalyzeBtn.disabled = true;
@@ -454,6 +570,7 @@ async function classifyEmail(userChoice) {
       }),
     });
     const data = await res.json();
+    if (finishing || (!gameActive && canonicalState?.completed)) return;
     if (!res.ok) {
       throw new Error(data.error || "Impossible d’enregistrer cette réponse");
     }
@@ -464,37 +581,11 @@ async function classifyEmail(userChoice) {
     errors = toSafeInteger(data.errors);
     autoAnalyzesLeft = Math.max(0, jokerLimit - toSafeInteger(data.jokersUsed));
 
-    // Stats
-    emailsSuccessfullyClassified++;
-    if (userChoice !== "joker" || data.isTimeout) {
-      totalDecisionTime += decisionTime;
-      humanAnswers++;
+    applyCanonical(data);
+    if (data.timeUp) {
+      await endGame(false, false, data);
+      return;
     }
-    if (userChoice !== "joker" && data.correctType === "safe" && data.isCorrect)
-      safeEmailsFound++;
-    if (
-      userChoice !== "joker" &&
-      data.correctType === "phishing" &&
-      data.isCorrect
-    )
-      phishingEmailsFound++;
-
-    // Adjust timer duration (client-side UI only, server doesn't care)
-    if (data.isCorrect) {
-      if (gameDifficulty === "easy")
-        currentTimerDuration = initialTimerDuration;
-      else if (gameDifficulty === "normal")
-        currentTimerDuration = Math.max(
-          normalModeMinTime,
-          currentTimerDuration - 1,
-        );
-      else if (gameDifficulty === "hardcore")
-        currentTimerDuration = Math.max(
-          hardcoreModeMinTime,
-          currentTimerDuration - 1,
-        );
-    }
-
     playSound(data.isCorrect ? "correct" : "error");
     updateScoreDisplay();
     updateSecurityBar();
@@ -558,40 +649,89 @@ function useAutoAnalyze() {
   }
 }
 
-// --- Timer ---
+// --- Timer: projection of the server deadline, never a scoring clock. ---
+function displayTimer() {
+  if (gameFormat === "discovery") return;
+  timeLeft = Math.max(0, Math.ceil((emailDeadline - performance.now()) / 1000));
+  const text =
+    gameFormat === "time_attack"
+      ? Math.floor(timeLeft / 60) + ":" + String(timeLeft % 60).padStart(2, "0")
+      : String(timeLeft);
+  timerEl.textContent = text;
+  timerEl.className = timeLeft <= 2 ? "danger" : timeLeft <= 5 ? "warning" : "";
+  document.getElementById("feedback-clock").textContent =
+    gameFormat === "time_attack"
+      ? "Le chrono continue : " + text + " restant."
+      : "";
+}
 function resetTimer() {
   clearInterval(timerInterval);
-  timeLeft = Math.max(0, Math.ceil((emailDeadline - performance.now()) / 1000));
-  timerEl.textContent = timeLeft;
-  timerEl.className = "";
+  displayTimer();
+}
+async function finishFromClock() {
+  if (checkingExpiry || !gameActive || performance.now() < clockRetryAt) return;
+  checkingExpiry = true;
+  lastClockSync = performance.now();
+  try {
+    const data = await PCB.request("/api/sessions/" + sessionId + "/state");
+    if (!gameActive) return;
+    document.getElementById("clock-sync-error")?.remove();
+    applyCanonical(data);
+    if (data.completed) await endGame(false, false, data);
+  } catch (error) {
+    timerEl.textContent = "Synchronisation…";
+    clockRetryAt = performance.now() + 3000;
+    if (!document.getElementById("clock-sync-error")) {
+      const message = document.createElement("p");
+      message.id = "clock-sync-error";
+      message.className = "notice error";
+      message.setAttribute("role", "alert");
+      message.textContent =
+        error.status === 401
+          ? "Connexion expirée. Reconnectez-vous pour retrouver le résultat enregistré."
+          : "Synchronisation du résultat impossible. Une nouvelle tentative de connexion est en cours.";
+      if (error.status === 401) {
+        const link = document.createElement("a");
+        link.href = "/login.html";
+        link.textContent = " Se reconnecter";
+        message.append(link);
+        gameActive = false;
+        clearInterval(timerInterval);
+      }
+      gameUi.append(message);
+    }
+  } finally {
+    checkingExpiry = false;
+  }
 }
 function startTimer() {
-  if (!gameActive) return;
+  clearInterval(timerInterval);
+  if (!gameActive || gameFormat === "discovery") return;
+  displayTimer();
   timerInterval = setInterval(() => {
     if (!gameActive) {
       clearInterval(timerInterval);
       return;
     }
-    timeLeft = Math.max(
-      0,
-      Math.ceil((emailDeadline - performance.now()) / 1000),
-    );
-    timerEl.textContent = timeLeft;
-    if (timeLeft <= 5 && timeLeft > 2) {
-      timerEl.className = "warning";
-    } else if (timeLeft <= 2 && timeLeft > 0) {
-      timerEl.className = "danger";
-      playSound("tick");
-    } else if (timeLeft <= 0) {
-      timerEl.className = "danger";
-      clearInterval(timerInterval);
-      // Timeout always counts as error (server handles it)
-      classifyEmail("timeout");
-    } else {
-      timerEl.className = "";
+    displayTimer();
+    if (
+      gameFormat === "time_attack" &&
+      performance.now() - lastClockSync > 15000
+    )
+      finishFromClock();
+    if (timeLeft <= 0) {
+      if (gameFormat === "time_attack") finishFromClock();
+      else {
+        clearInterval(timerInterval);
+        classifyEmail("timeout");
+      }
     }
-  }, 1000);
+  }, 250);
 }
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && gameFormat === "time_attack" && gameActive)
+    finishFromClock();
+});
 
 // --- Feedback Popup ---
 function showFeedbackPopup(
@@ -684,7 +824,8 @@ document.getElementById("window-expand").addEventListener("click", (e) => {
 
 // --- Display helpers ---
 function updateScoreDisplay() {
-  scoreEl.textContent = score;
+  scoreEl.textContent =
+    gameFormat === "time_attack" ? PCBRules.signed(score) : score;
 }
 function updateExtendedStatsDisplay() {
   if (safeMailsFoundEl) safeMailsFoundEl.textContent = safeEmailsFound;
@@ -1065,80 +1206,141 @@ function renderRankReel(index) {
   };
 }
 
-// --- End Game ---
-async function endGame(won, abandoned = false) {
+// --- Results use the persisted state, including expiry during a correction. ---
+let finishing = false;
+async function endGame(won, abandoned = false, ending = null) {
+  if (finishing) return;
+  finishing = true;
   gameActive = false;
   clearInterval(timerInterval);
-  feedbackModalEl.classList.remove("visible");
-  hideTooltip();
-  gameUi.classList.add("hidden");
-  document.body.classList.remove("playing");
-  document.getElementById("game-container").classList.remove("window-expanded");
-  document
-    .getElementById("window-expand")
-    .setAttribute("aria-pressed", "false");
-  gameOverScreen.classList.remove("hidden");
-  gameOverScreen.scrollTop = 0;
-
-  const { index: curIdx, rank: curRank } = getRankDetails(score);
-  const emailsPlayed = emailsSuccessfullyClassified;
-  finalScoreEl.innerHTML = `<span class="score-diploma">Vous avez atteint le score <strong>${curRank.appreciation}</strong> de ${score} (${emailsPlayed} emails traités)</span>`;
-
-  renderRankReel(curIdx);
-
-  if (abandoned) {
-    gameOverTitleEl.textContent = "ABANDON";
-    gameOverTitleEl.style.color = "var(--warning-color)";
-    gameOverMessageEl.textContent = `${playerName}, vous avez quitté la mission. Score conservé !`;
-  } else if (won) {
-    gameOverTitleEl.textContent = "TILT ! TOUS LES MAILS TRAITÉS";
-    gameOverTitleEl.style.color = "var(--safe-color)";
-    gameOverMessageEl.textContent = `Incroyable ${playerName} ! Vous avez traité tous les emails disponibles !`;
-  } else {
-    gameOverTitleEl.textContent = "MISSION ÉCHOUÉE";
-    gameOverTitleEl.style.color = "var(--phishing-color)";
-    gameOverMessageEl.textContent = `Dommage ${playerName}. L'entreprise a été compromise.`;
-  }
-
-  const modes = {
-    easy: ["🔰", "FACILE", "30 secondes fixes"],
-    normal: ["⚠️", "NORMAL", "temps réduit jusqu'à 15s"],
-    hardcore: ["💀", "HARDCORE", "temps réduit jusqu'à 5s"],
-  };
-  const [em, nm, desc] = modes[gameDifficulty] || modes.easy;
-  document.getElementById("game-mode-message").innerHTML =
-    `<div class="game-mode-info"><strong>${em} Mode ${nm}</strong><br>${desc}</div>`;
-
-  restartBtn.disabled = true;
-  // Await the persisted end so abandonment badges and recap are available immediately.
-  if (sessionId) {
-    try {
-      const result = await PCB.request(`/api/sessions/${sessionId}/end`, {
-        method: "POST",
-        headers: { "X-Session-Token": sessionToken },
-      });
-      window._pendingAchievements = [
-        ...(window._pendingAchievements || []),
-        ...(result.newAchievements || []),
-      ];
-    } catch (error) {
-      gameOverMessageEl.textContent += ` ${error.message} Réessayez la clôture avant de consulter le récapitulatif.`;
-      const retry = document.createElement("button");
-      retry.className = "btn";
-      retry.textContent = "Enregistrer la fin de partie";
-      retry.addEventListener("click", () => {
-        retry.remove();
-        endGame(won, abandoned);
-      });
-      gameOverScreen.appendChild(retry);
+  try {
+    const result = ending?.completed
+      ? ending
+      : await PCB.request(
+          "/api/sessions/" + sessionId + (abandoned ? "/end" : "/state"),
+          abandoned
+            ? { method: "POST", headers: { "X-Session-Token": sessionToken } }
+            : {},
+        );
+    if (!result.completed) {
+      gameActive = true;
+      applyCanonical(result);
+      startTimer();
+      return;
     }
+    applyCanonical(result);
+    feedbackModalEl.classList.remove("visible");
+    gameUi.inert = false;
+    document.querySelector(".account-nav").inert = false;
+    hideTooltip();
+    gameUi.classList.add("hidden");
+    document.body.classList.remove("playing");
+    document
+      .getElementById("game-container")
+      .classList.remove("window-expanded");
+    document
+      .getElementById("window-expand")
+      .setAttribute("aria-pressed", "false");
+    gameOverScreen.classList.remove("hidden");
+    gameOverScreen.scrollTop = 0;
+    rankReelController?.destroy();
+    document.getElementById("rank-display").hidden = gameFormat !== "classic";
+    const reason =
+      {
+        abandoned: "PARTIE ABANDONNÉE",
+        time_up: "TEMPS ÉCOULÉ",
+        all_emails: "TOUS LES MAILS TRAITÉS",
+        errors: "MISSION ÉCHOUÉE",
+        battle_closed: "BATTLE CLÔTURÉE",
+      }[result.finishReason] || "PARTIE TERMINÉE";
+    gameOverTitleEl.textContent =
+      gameFormat === "discovery" ? "DÉCOUVERTE TERMINÉE" : reason;
+    gameOverTitleEl.style.color =
+      result.finishReason === "errors"
+        ? "var(--phishing-color)"
+        : "var(--accent-color)";
+    gameOverMessageEl.textContent =
+      gameFormat === "discovery"
+        ? "Vous avez pris le temps de lire. La prochaine pièce jointe n’en sera pas moins sournoise."
+        : result.finishReason === "time_up"
+          ? "Le chrono est terminé. Il n’accepte pas les demandes de prolongation."
+          : result.finishReason === "abandoned"
+            ? "Tentative conservée dans votre historique, exclue des nouveaux classements."
+            : "Le rapport est enregistré. Les excuses peuvent attendre.";
+    if (gameFormat === "classic") {
+      const { index, rank } = getRankDetails(score);
+      finalScoreEl.innerHTML =
+        '<span class="score-diploma">Vous avez atteint le score <strong>' +
+        rank.appreciation +
+        "</strong> de " +
+        score +
+        " (" +
+        result.stats.answers +
+        " emails traités)</span>";
+      renderRankReel(index);
+    } else {
+      finalScoreEl.replaceChildren();
+      const summary = document.createElement("strong");
+      summary.textContent =
+        gameFormat === "time_attack"
+          ? "Score : " + PCBRules.signed(result.score)
+          : result.viewedEmails + " mails consultés";
+      const details = document.createElement("p");
+      details.textContent =
+        result.stats.human_correct +
+        " bonnes classifications · " +
+        result.errors +
+        " erreurs · " +
+        result.stats.answers +
+        " mails traités";
+      finalScoreEl.append(summary, details);
+    }
+    document.getElementById("game-mode-message").textContent =
+      gameFormat === "time_attack"
+        ? PCBRules.configuration(result.durationSeconds, result.difficulty)
+        : gameFormat === "discovery"
+          ? "Sans chrono, sans score, sans classement"
+          : PCBRules.timing(result.difficulty, result.timerRules.version);
+    const ranking = document.getElementById("result-scores-link");
+    ranking.hidden = gameFormat === "discovery";
+    ranking.href =
+      gameFormat === "time_attack"
+        ? "/scores.html?" +
+          new URLSearchParams({
+            format: "time_attack",
+            duration: result.durationSeconds,
+            difficulty: result.difficulty,
+          })
+        : "/scores.html";
+    renderNewBadges(
+      gameFormat === "classic"
+        ? [
+            ...(window._pendingAchievements || []),
+            ...(result.newAchievements || []),
+          ]
+        : [],
+    );
+    window._pendingAchievements = [];
+    restartBtn.disabled = false;
+  } catch (error) {
+    gameActive = true;
+    const box = document.createElement("p");
+    box.className = "notice error";
+    box.textContent =
+      error.message + " Réessayez pour récupérer le résultat serveur.";
+    const retry = document.createElement("button");
+    retry.className = "btn";
+    retry.textContent = "Récupérer le résultat";
+    retry.onclick = () => {
+      box.remove();
+      retry.remove();
+      endGame(won, abandoned);
+    };
+    gameUi.append(box, retry);
+    if (gameFormat === "time_attack") startTimer();
+  } finally {
+    finishing = false;
   }
-
-  // Show newly unlocked achievements
-  const badges = window._pendingAchievements || [];
-  window._pendingAchievements = [];
-  renderNewBadges(badges);
-  restartBtn.disabled = false;
 }
 
 function renderNewBadges(badges) {
@@ -1181,6 +1383,12 @@ startBtn.addEventListener("click", startGame);
 restartBtn.addEventListener("click", () => {
   rankReelController?.destroy();
   rankReelController = null;
+  if (recoveryKey) localStorage.removeItem(recoveryKey);
+  canonicalState = null;
+  if (gameFormat === "time_attack") {
+    location.assign("/time-attack.html");
+    return;
+  }
   if (new URLSearchParams(location.search).has("battle")) {
     location.assign("/battles.html");
     return;
@@ -1200,7 +1408,13 @@ classifyPhishingBtn.addEventListener("click", () => classifyEmail("phishing"));
 autoAnalyzeBtn.addEventListener("click", useAutoAnalyze);
 abandonBtn.addEventListener("click", async () => {
   if (!gameActive) return;
-  if (await PCB.confirm("Abandonner la partie ? Votre score sera conservé.")) {
+  if (
+    await PCB.confirm(
+      gameFormat === "discovery"
+        ? "Quitter la découverte ? Vos réponses restent dans le récapitulatif."
+        : "Abandonner la partie ? La tentative sera conservée, mais exclue des nouveaux classements.",
+    )
+  ) {
     endGame(false, true);
   }
 });
@@ -1223,27 +1437,32 @@ document.addEventListener("DOMContentLoaded", () => {
   localStorage.removeItem("pcb-email");
   localStorage.removeItem("pcb-service");
 
-  // Dynamic rules mini-footer
-  const ruleTimer = document.getElementById("rule-timer");
-  const timerLabels = {
-    easy: "⏱ 30s fixes",
-    normal: "⏱ 30s → 15s",
-    hardcore: "⏱ 30s → 5s",
-  };
-  // Read value from label's 'for' attr — avoids race with :checked state
-  document.querySelectorAll(".difficulty-toggle label").forEach((lbl) => {
-    lbl.addEventListener("click", () => {
-      const input = document.getElementById(lbl.getAttribute("for"));
-      if (ruleTimer && input)
-        ruleTimer.textContent = timerLabels[input.value] || timerLabels.easy;
-    });
-  });
-  // Init with the default checked value
-  const checkedInit = document.querySelector(
-    'input[name="difficulty"]:checked',
-  );
-  if (ruleTimer && checkedInit)
-    ruleTimer.textContent = timerLabels[checkedInit.value] || timerLabels.easy;
+  function updatePreparation() {
+    if (gameParams.has("battle") || gameParams.get("format") === "time_attack")
+      return;
+    const discovery =
+      document.getElementById("training-format").value === "discovery";
+    document.getElementById("classic-difficulty-choice").hidden = discovery;
+    document.getElementById("rule-timer").textContent = discovery
+      ? "Sans chrono"
+      : PCBRules.timing(
+          document.querySelector('input[name="difficulty"]:checked').value,
+        );
+    document.getElementById("rule-errors").textContent = discovery
+      ? "Erreurs illimitées"
+      : "3 erreurs maximum";
+    document.getElementById("rule-jokers").hidden = discovery;
+    document.getElementById("format-description").textContent = discovery
+      ? "Lire, inspecter, répondre. Aucun point, aucun classement."
+      : "Une bonne classification humaine réduit le temps de 2 s en Normal et Difficile. Les mails longs ajoutent 10 ou 20 s.";
+  }
+  document
+    .getElementById("training-format")
+    .addEventListener("change", updatePreparation);
+  document
+    .querySelectorAll('input[name="difficulty"]')
+    .forEach((input) => input.addEventListener("change", updatePreparation));
+  updatePreparation();
 });
 
 // --- Theme Management ---

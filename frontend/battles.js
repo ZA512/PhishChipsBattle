@@ -33,7 +33,7 @@ const stateNames = {
 const difficultyNames = {
   easy: "Facile",
   normal: "Normal",
-  hardcore: "Hardcore",
+  hardcore: "Difficile",
 };
 function date(value) {
   return new Date(value).toLocaleString("fr-FR", {
@@ -80,14 +80,12 @@ async function showResults(id) {
           rows,
         ),
       );
-    document
-      .getElementById("results")
-      .scrollIntoView({
-        behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "instant"
-          : "smooth",
-        block: "start",
-      });
+    document.getElementById("results").scrollIntoView({
+      behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "instant"
+        : "smooth",
+      block: "start",
+    });
   } catch (error) {
     message.className = "notice error";
     message.textContent = error.message;
@@ -120,6 +118,7 @@ function renderBattles() {
         teams: "Entre équipes",
       }[b.mode],
       difficultyNames[b.difficulty],
+      PCBRules.timing(b.difficulty, b.timer_rules.version),
       b.email_count + " emails",
       b.joker_limit + " SOS",
     ].forEach((text) => rules.append(el("span", "pill", text)));

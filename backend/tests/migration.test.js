@@ -77,6 +77,48 @@ test("Migration de données historiques : doublons, affectation et résultats pr
       (await client.query("SELECT status FROM mail_sets")).rows[0].status,
       "ready",
     );
+    const oldBattle = (
+      await client.query(`INSERT INTO battles(name,mode,difficulty,starts_at,ends_at,email_order)
+      VALUES('Battle avant refonte','individual','normal',NOW()-INTERVAL '1 hour',NOW()+INTERVAL '1 hour','[]') RETURNING id`)
+    ).rows[0];
+    const active = (
+      await client.query(
+        `INSERT INTO game_sessions(player_id,difficulty,score,jokers_used,email_order,total_emails,rules_version,battle_id,email_started_at,email_deadline_at)
+      VALUES($1,'normal',1,1,$2,1,1,$3,NOW(),NOW()+INTERVAL '30 seconds') RETURNING id,email_deadline_at`,
+        [players[0].id, JSON.stringify([oldEmail.id]), oldBattle.id],
+      )
+    ).rows[0];
+    await client.query(
+      fs.readFileSync(
+        path.join(__dirname, "../src/db/migrations/006_game_formats.sql"),
+        "utf8",
+      ),
+    );
+    const preservedActive = (
+      await client.query("SELECT * FROM game_sessions WHERE id=$1", [active.id])
+    ).rows[0];
+    assert.equal(preservedActive.game_format, "classic");
+    assert.equal(preservedActive.rules_version, 1);
+    assert.equal(preservedActive.timer_rules.version, 1);
+    assert.equal(preservedActive.score, 1);
+    assert.equal(preservedActive.jokers_used, 1);
+    assert.equal(
+      preservedActive.email_deadline_at.getTime(),
+      active.email_deadline_at.getTime(),
+    );
+    assert.equal(
+      (
+        await client.query("SELECT timer_rules FROM battles WHERE id=$1", [
+          oldBattle.id,
+        ])
+      ).rows[0].timer_rules.version,
+      1,
+    );
+    const newBattle = (
+      await client.query(`INSERT INTO battles(name,mode,difficulty,starts_at,ends_at,email_order)
+      VALUES('Nouvelle battle','individual','easy',NOW(),NOW()+INTERVAL '1 hour','[]') RETURNING timer_rules`)
+    ).rows[0];
+    assert.equal(newBattle.timer_rules.version, 2);
     const preserved = (
       await client.query(
         "SELECT subject,usage,archived_at FROM emails WHERE id=$1",

@@ -15,7 +15,7 @@ function integer(
     return null;
   if (
     !["string", "number"].includes(typeof value) ||
-    !/^\d+$/.test(String(value))
+    !(min < 0 ? /^-?\d+$/ : /^\d+$/).test(String(value))
   ) {
     throw new HttpError(400, `${label} invalide`);
   }

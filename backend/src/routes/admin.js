@@ -154,53 +154,35 @@ router.delete("/services/:id", async (req, res) => {
  * GET /api/admin/stats/overview
  * Global stats: success rate, player count, game count, avg score by difficulty.
  */
-router.get("/stats/overview", async (_req, res) => {
-  const [totals, byDiff, players] = await Promise.all([
-    pool.query(`
-      SELECT
-        COUNT(*) AS total_answers,
-        COUNT(*) FILTER (WHERE ea.user_choice<>'joker' AND ea.is_correct) AS correct_answers,
-        COUNT(*) FILTER (WHERE ea.user_choice<>'joker') AS evaluated_answers,
-        COUNT(*) FILTER (WHERE ea.user_choice='joker') AS assisted_answers
-      FROM email_answers ea JOIN game_sessions gs ON gs.id=ea.session_id
-      WHERE gs.rules_version=1 AND NOT gs.disqualified
-    `),
-    pool.query(`
-      SELECT
-        gs.difficulty,
-        COUNT(DISTINCT gs.id) AS games,
-        ROUND(AVG(gs.score), 1) AS avg_score,
-        (SELECT ROUND(AVG(ea.decision_time),1) FROM email_answers ea JOIN game_sessions st ON st.id=ea.session_id
-          WHERE st.difficulty=gs.difficulty AND st.rules_version=1 AND NOT st.disqualified AND ea.user_choice<>'joker') AS avg_decision_time
-      FROM game_sessions gs
-      WHERE gs.completed = TRUE AND gs.rules_version=1 AND NOT gs.disqualified
-      GROUP BY gs.difficulty
-      ORDER BY gs.difficulty
-    `),
-    pool.query("SELECT COUNT(*) AS count FROM players"),
-  ]);
-
-  const t = totals.rows[0];
-  const successRate =
-    t.evaluated_answers > 0
-      ? (
-          (parseInt(t.correct_answers) / parseInt(t.evaluated_answers)) *
-          100
-        ).toFixed(1)
-      : 0;
-
-  return res.json({
-    totalPlayers: parseInt(players.rows[0].count),
-    totalAnswers: parseInt(t.total_answers),
-    evaluatedAnswers: Number(t.evaluated_answers),
-    assistedAnswers: Number(t.assisted_answers),
-    successRate: parseFloat(successRate),
-    byDifficulty: byDiff.rows.map((r) => ({
-      difficulty: r.difficulty,
-      games: parseInt(r.games),
-      avgScore: parseFloat(r.avg_score),
-      avgDecisionTime: Number(r.avg_decision_time) || 0,
+router.get("/stats/overview", async (req, res) => {
+  const filter = require("../services/gameStats").statisticsFilter(req.query);
+  const rows = await require("../services/gameStats").groupedStats(
+    pool,
+    null,
+    filter,
+  );
+  const sum = (key) => rows.reduce((n, r) => n + r[key], 0);
+  const decisions = sum("decisions"),
+    correct = sum("correct");
+  res.json({
+    totalPlayers: Number(
+      (await pool.query("SELECT COUNT(*) AS n FROM players")).rows[0].n,
+    ),
+    totalAnswers: sum("treated"),
+    viewedEmails: sum("viewed"),
+    evaluatedAnswers: decisions,
+    correctAnswers: correct,
+    wrongAnswers: sum("errors"),
+    assistedAnswers: sum("assisted"),
+    timeouts: sum("timeouts"),
+    successRate: decisions ? Math.round((correct / decisions) * 1000) / 10 : 0,
+    byDifficulty: rows.map((r) => ({
+      ...r,
+      games: r.completed,
+      avgScore: r.avg_score,
+      avgDecisionTime: r.avg_decision_time,
     })),
+    formats: rows,
   });
 });
 
@@ -208,8 +190,11 @@ router.get("/stats/overview", async (_req, res) => {
  * GET /api/admin/stats/hardest-emails
  * Top 10 emails with highest error rate (min 5 attempts).
  */
-router.get("/stats/hardest-emails", async (_req, res) => {
-  const { rows } = await pool.query(`
+router.get("/stats/hardest-emails", async (req, res) => {
+  const { family, duration, difficulty } =
+    require("../services/gameStats").statisticsFilter(req.query);
+  const { rows } = await pool.query(
+    `
     SELECT
       e.id,
       e.subject,
@@ -220,12 +205,16 @@ router.get("/stats/hardest-emails", async (_req, res) => {
     FROM email_answers ea
     JOIN emails e ON e.id = ea.email_id
     JOIN game_sessions gs ON gs.id=ea.session_id
-    WHERE gs.rules_version=1 AND NOT gs.disqualified AND ea.user_choice IN ('phishing', 'safe', 'timeout')
+    WHERE gs.rules_version IN (1,2) AND NOT gs.disqualified AND ea.user_choice IN ('phishing', 'safe')
+ AND ($1::text IS NULL OR CASE WHEN gs.game_format='classic' THEN CASE WHEN gs.battle_id IS NULL THEN 'classic_training' ELSE 'battle' END ELSE gs.game_format END=$1)
+ AND ($2::int IS NULL OR gs.duration_seconds=$2) AND ($3::text IS NULL OR gs.difficulty=$3)
     GROUP BY e.id, e.subject, e.type
     HAVING COUNT(*) >= 5
     ORDER BY error_rate DESC
     LIMIT 10
-  `);
+  `,
+    [family, duration, difficulty],
+  );
 
   return res.json({
     emails: rows.map((r) => ({
@@ -245,6 +234,8 @@ router.get("/stats/hardest-emails", async (_req, res) => {
  */
 router.get("/stats/activity", async (req, res) => {
   const period = req.query.period === "month" ? 30 : 7;
+  const { family, duration, difficulty } =
+    require("../services/gameStats").statisticsFilter(req.query);
 
   const { rows } = await pool.query(
     `
@@ -253,11 +244,13 @@ router.get("/stats/activity", async (req, res) => {
       COUNT(*) AS games,
       COUNT(DISTINCT player_id) AS players
     FROM game_sessions
-    WHERE rules_version=1 AND NOT disqualified AND started_at >= NOW() - ($1 || ' days')::interval
+    WHERE rules_version IN (1,2) AND NOT disqualified AND started_at >= NOW() - ($1 || ' days')::interval
+ AND ($2::text IS NULL OR CASE WHEN game_format='classic' THEN CASE WHEN battle_id IS NULL THEN 'classic_training' ELSE 'battle' END ELSE game_format END=$2)
+ AND ($3::int IS NULL OR duration_seconds=$3) AND ($4::text IS NULL OR difficulty=$4)
     GROUP BY DATE(started_at)
     ORDER BY day
   `,
-    [period],
+    [period, family, duration, difficulty],
   );
 
   return res.json({

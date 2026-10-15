@@ -3,6 +3,7 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db/pool");
+require("../services/timeAttackRankings").install(router, pool);
 const { HttpError, integer } = require("../lib/http");
 
 /** Nombre de meilleurs joueurs pris en compte dans le score d'un service */
@@ -69,7 +70,7 @@ async function computePlayerStreaks(currentIds, refMonth, difficulty) {
           ORDER BY MAX(gs.score) DESC, COUNT(gs.id) ASC, p.id ASC
         ) AS rnk
       FROM players p
-      JOIN game_sessions gs ON gs.player_id = p.id AND gs.completed = TRUE AND gs.rules_version = 1 AND gs.disqualified = FALSE AND gs.battle_id IS NULL ${diffClause}
+      JOIN game_sessions gs ON gs.player_id = p.id AND gs.completed = TRUE AND gs.rules_version IN (1,2) AND gs.game_format='classic' AND (gs.rules_version=1 OR gs.finish_reason IS DISTINCT FROM 'abandoned') AND gs.disqualified = FALSE AND gs.battle_id IS NULL ${diffClause}
       WHERE DATE_TRUNC('month', gs.ended_at) <= DATE_TRUNC('month', $${mIdx}::date)
         AND DATE_TRUNC('month', gs.ended_at) >= DATE_TRUNC('month', $${mIdx}::date) - INTERVAL '23 months'
       GROUP BY p.id, DATE_TRUNC('month', gs.ended_at)
@@ -138,7 +139,7 @@ async function computeServiceStreaks(currentIds, refMonth, difficulty) {
               ORDER BY MAX(gs.score) DESC, COUNT(gs.id) ASC, p.id ASC
             ) AS svc_rnk
           FROM players p
-          JOIN game_sessions gs ON gs.player_id = p.id AND gs.completed = TRUE AND gs.rules_version = 1 AND gs.disqualified = FALSE AND gs.battle_id IS NULL ${diffClause}
+          JOIN game_sessions gs ON gs.player_id = p.id AND gs.completed = TRUE AND gs.rules_version IN (1,2) AND gs.game_format='classic' AND (gs.rules_version=1 OR gs.finish_reason IS DISTINCT FROM 'abandoned') AND gs.disqualified = FALSE AND gs.battle_id IS NULL ${diffClause}
           WHERE gs.service_id IS NOT NULL
             AND DATE_TRUNC('month', gs.ended_at) <= DATE_TRUNC('month', $${mIdx}::date)
             AND DATE_TRUNC('month', gs.ended_at) >= DATE_TRUNC('month', $${mIdx}::date) - INTERVAL '23 months'
@@ -194,7 +195,7 @@ router.get("/players", async (req, res) => {
         MAX(gs.score) AS best_score,
         COUNT(gs.id) AS games_played
       FROM players p
-      JOIN game_sessions gs ON gs.player_id = p.id AND gs.completed = TRUE AND gs.rules_version = 1 AND gs.disqualified = FALSE AND gs.battle_id IS NULL ${clauses}
+      JOIN game_sessions gs ON gs.player_id = p.id AND gs.completed = TRUE AND gs.rules_version IN (1,2) AND gs.game_format='classic' AND (gs.rules_version=1 OR gs.finish_reason IS DISTINCT FROM 'abandoned') AND gs.disqualified = FALSE AND gs.battle_id IS NULL ${clauses}
       LEFT JOIN services s ON s.id = p.service_id
       LEFT JOIN directory_employees d ON d.id=p.directory_id
       GROUP BY p.id, p.name, d.display_name, s.name
@@ -257,7 +258,7 @@ router.get("/services", async (req, res) => {
             MAX(gs.score) AS top_score,
             ROW_NUMBER() OVER (PARTITION BY gs.service_id ORDER BY MAX(gs.score) DESC, COUNT(gs.id) ASC, p.id ASC) AS rnk
           FROM players p
-          JOIN game_sessions gs ON gs.player_id = p.id AND gs.completed = TRUE AND gs.rules_version = 1 AND gs.disqualified = FALSE AND gs.battle_id IS NULL ${clauses}
+          JOIN game_sessions gs ON gs.player_id = p.id AND gs.completed = TRUE AND gs.rules_version IN (1,2) AND gs.game_format='classic' AND (gs.rules_version=1 OR gs.finish_reason IS DISTINCT FROM 'abandoned') AND gs.disqualified = FALSE AND gs.battle_id IS NULL ${clauses}
           WHERE gs.service_id IS NOT NULL
           GROUP BY p.id, gs.service_id
         ) ranked
@@ -321,7 +322,7 @@ router.get("/services/:id", async (req, res) => {
         MAX(gs.score) AS best_score,
         COUNT(gs.id) AS games_played
       FROM players p
-      JOIN game_sessions gs ON gs.player_id = p.id AND gs.completed = TRUE AND gs.rules_version = 1 AND gs.disqualified = FALSE AND gs.battle_id IS NULL ${clauses}
+      JOIN game_sessions gs ON gs.player_id = p.id AND gs.completed = TRUE AND gs.rules_version IN (1,2) AND gs.game_format='classic' AND (gs.rules_version=1 OR gs.finish_reason IS DISTINCT FROM 'abandoned') AND gs.disqualified = FALSE AND gs.battle_id IS NULL ${clauses}
       LEFT JOIN directory_employees d ON d.id=p.directory_id
       WHERE gs.service_id = $${nextParam}
       GROUP BY p.id, p.name, d.display_name

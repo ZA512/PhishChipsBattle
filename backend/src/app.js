@@ -94,6 +94,7 @@ function createApp() {
 async function start() {
   validateConfig();
   await migrate();
+  const stopExpiryWorker = require("./services/gameRules").startExpiryWorker();
   const server = createApp().listen(process.env.PORT || 3000, () =>
     console.log(
       JSON.stringify({
@@ -103,8 +104,10 @@ async function start() {
       }),
     ),
   );
-  const shutdown = () =>
+  const shutdown = () => {
+    stopExpiryWorker();
     server.close(() => pool.end().then(() => process.exit(0)));
+  };
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
   return server;

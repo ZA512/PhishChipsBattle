@@ -7,7 +7,20 @@ PCB.ready
       `/api/sessions/${encodeURIComponent(id || "")}/recap`,
     );
     document.getElementById("message").textContent =
-      `Score : ${data.session.score} · Erreurs : ${data.session.errors} · Équipe de la partie : ${data.session.service_name || "—"}`;
+      (data.session.game_format === "discovery"
+        ? "Découverte · sans score"
+        : data.session.game_format === "time_attack"
+          ? "Contre-la-montre · " +
+            data.session.duration_seconds / 60 +
+            " min · " +
+            (data.session.difficulty === "hardcore" ? "Difficile" : "Normal") +
+            " · Score : " +
+            data.session.score
+          : "Classique · Score : " + data.session.score) +
+      " · Erreurs : " +
+      data.session.errors +
+      " · Équipe : " +
+      (data.session.service_name || "—");
     const container = document.getElementById("answers");
     if (!data.answers.length) {
       const empty = document.createElement("p");

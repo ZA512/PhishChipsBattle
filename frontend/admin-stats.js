@@ -6,7 +6,7 @@ PCB.ready
     if (!player) return;
     if (player.role !== "admin")
       throw new Error("Accès réservé aux administrateurs.");
-    const data = await PCB.request("/api/admin/stats/overview");
+    const data = await PCB.request("/api/admin/stats/overview" + statsQuery());
     statsMessage.hidden = true;
     mainSection.style.display = "block";
     renderOverview(data);
@@ -17,11 +17,101 @@ PCB.ready
     statsMessage.textContent = error.message;
     statsMessage.className = "notice error";
   });
-function adminFetch(url) {
-  return fetch(url);
+function statsQuery() {
+  return (
+    "?" +
+    new URLSearchParams({
+      family: document.getElementById("stats-family").value,
+      duration: document.getElementById("stats-duration").value,
+      difficulty: document.getElementById("stats-difficulty").value,
+    })
+  );
 }
+function adminFetch(url) {
+  return fetch(url + (url.includes("?") ? "&" : "?") + statsQuery().slice(1));
+}
+let latestStats = [];
+async function refreshStats() {
+  try {
+    const data = await PCB.request("/api/admin/stats/overview" + statsQuery());
+    renderOverview(data);
+    loadHardest();
+    loadActivity(document.querySelector(".period-btn.active").dataset.period);
+  } catch (error) {
+    statsMessage.hidden = false;
+    statsMessage.textContent = error.message;
+  }
+}
+for (const id of ["stats-family", "stats-duration", "stats-difficulty"])
+  document.getElementById(id).addEventListener("change", () => {
+    const timeAttack =
+      document.getElementById("stats-family").value === "time_attack";
+    document.getElementById("stats-duration").disabled = !timeAttack;
+    if (!timeAttack) document.getElementById("stats-duration").value = "";
+    refreshStats();
+  });
+document.getElementById("stats-duration").disabled = true;
+document.getElementById("stats-export").addEventListener("click", () => {
+  const headers = [
+    "Format",
+    "Durée",
+    "Difficulté",
+    "Terminées",
+    "Abandons",
+    "Consultés",
+    "Décisions",
+    "Correctes",
+    "Erreurs",
+    "SOS",
+    "Expirations",
+    "Score moyen",
+  ];
+  const rows = latestStats.map((r) => [
+    r.family,
+    r.duration ?? "",
+    r.difficulty,
+    r.completed,
+    r.abandoned,
+    r.viewed,
+    r.decisions,
+    r.correct,
+    r.errors,
+    r.assisted,
+    r.timeouts,
+    r.avg_score ?? "",
+  ]);
+  const csv =
+    "\uFEFF" +
+    [headers, ...rows]
+      .map((row) =>
+        row.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(";"),
+      )
+      .join("\r\n");
+  const url = URL.createObjectURL(
+      new Blob([csv], { type: "text/csv;charset=utf-8" }),
+    ),
+    a = document.createElement("a");
+  a.href = url;
+  a.download = "statistiques-par-format.csv";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
 
 function renderOverview(data) {
+  latestStats = data.formats;
+  document.getElementById("stats-counts").textContent =
+    data.viewedEmails +
+    " mails consultés · " +
+    data.evaluatedAnswers +
+    " décisions humaines · " +
+    data.correctAnswers +
+    " correctes · " +
+    data.wrongAnswers +
+    " erreurs · " +
+    data.assistedAnswers +
+    " SOS · " +
+    data.timeouts +
+    " expirations";
   document.getElementById("stat-players").textContent = data.totalPlayers;
   document.getElementById("stat-success").textContent = data.successRate + "%";
   document.getElementById("stat-answers").textContent =
@@ -31,15 +121,15 @@ function renderOverview(data) {
   const diffLabels = {
     easy: "🔰 Facile",
     normal: "⚠️ Normal",
-    hardcore: "💀 Hardcore",
+    hardcore: "💀 Difficile",
   };
   tbody.innerHTML = data.byDifficulty
     .map(
       (d) => `
         <tr>
-            <td>${diffLabels[d.difficulty] || d.difficulty}</td>
-            <td>${d.games}</td>
-            <td>${d.avgScore}</td>
+            <td>${{ classic_training: "Classique · entraînement", battle: "Battle", time_attack: "Contre-la-montre", discovery: "Découverte" }[d.family]}${d.duration ? " · " + d.duration / 60 + " min" : ""} · ${diffLabels[d.difficulty] || d.difficulty}</td>
+            <td>${d.games} / ${d.abandoned}</td><td>${d.viewed}</td><td>${d.decisions}</td><td>${d.correct} / ${d.errors}</td><td>${d.assisted} / ${d.timeouts}</td>
+            <td>${d.avgScore ?? "—"}</td>
         </tr>
     `,
     )

@@ -1390,7 +1390,8 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
       );
       const overview = await ok("/api/admin/stats/overview", { user: admin });
       assert.equal(overview.assistedAnswers, 3);
-      assert.equal(overview.evaluatedAnswers, 1);
+      assert.equal(overview.evaluatedAnswers, 0);
+      assert.equal(overview.timeouts, 1);
       assert.equal(overview.successRate, 0);
       assert.equal(
         (await request("/api/admin/stats/hardest-emails", { user: admin }))
@@ -1405,14 +1406,612 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
         user: alice,
       });
       assert.equal(profile.stats.totalCorrect, 0);
-      assert.equal(
-        (
+      assert.ok(
+        !(
           await ok("/api/scores/players?difficulty=easy", { user: alice })
-        ).scores.find((p) => p.id === alice.id).name,
-        "Collaborateur 1",
+        ).scores.some((p) => p.id === alice.id),
+        "Une nouvelle partie abandonnée ne crée pas de record",
       );
     },
   );
+  await t.test(
+    "Formats de jeu : règles, reprise, scores et statistiques cloisonnés",
+    async (t) => {
+      const team = (
+        await ok(
+          "/api/admin/services",
+          {
+            user: admin,
+            method: "POST",
+            body: { name: "Modes de jeu", code: "FORMATS_" + run },
+          },
+          201,
+        )
+      ).service;
+      const actor = await user("chronos"),
+        learner = await user("decouverte");
+      await choose(actor, team.id);
+      await choose(learner, team.id);
+      const imported = await ok("/api/admin/emails/import", {
+        user: admin,
+        method: "POST",
+        body: {
+          newSet: {
+            name: "Chronos " + run,
+            status: "ready",
+            defaultUsage: "both",
+          },
+          catalog: Array.from({ length: 32 }, (_, i) => ({
+            sender: "Horloges <chrono@example.test>",
+            realSender: "chrono@example.test",
+            subject: "Chrono " + run + " " + i,
+            body: "mot ".repeat(i === 1 ? 60 : i === 2 ? 80 : 40),
+            type: i % 2 ? "phishing" : "safe",
+            usage: "both",
+            clues: ["Indice de vérification pédagogique."],
+          })),
+        },
+      });
+      const fixture = (
+        await ok("/api/admin/emails?setId=" + imported.set.id, { user: admin })
+      ).emails.map((e) => e.id);
+      const start = async (
+        u,
+        format,
+        difficulty = "normal",
+        duration = 300,
+        count = 8,
+      ) => {
+        const s = await ok(
+          "/api/sessions",
+          {
+            user: u,
+            method: "POST",
+            body: {
+              format,
+              difficulty,
+              ...(format === "time_attack"
+                ? { durationSeconds: duration }
+                : {}),
+            },
+          },
+          201,
+        );
+        await pool.query(
+          "UPDATE game_sessions SET email_order=$1,total_emails=$2 WHERE id=$3",
+          [JSON.stringify(fixture.slice(0, count)), count, s.sessionId],
+        );
+        return s;
+      };
+      const classify = async (u, s, good = true) => {
+        const email = await next(u, s),
+          type = (
+            await pool.query("SELECT type FROM emails WHERE id=$1", [
+              email.emailId,
+            ])
+          ).rows[0].type;
+        return answer(
+          u,
+          s,
+          email.emailId,
+          good ? type : type === "safe" ? "phishing" : "safe",
+        );
+      };
+      const finish = async (u, s, choices) => {
+        let response;
+        for (const good of choices) response = await classify(u, s, good);
+        return response;
+      };
+      await t.test(
+        "Classique : bons classements humains, SOS, longueurs et trois erreurs",
+        async () => {
+          const s = await start(actor, "classic", "normal", 300, 8);
+          assert.equal(s.rulesVersion, 2);
+          // Select short, long, short then short messages explicitly for the clock checks.
+          const ordered = (
+            await pool.query(
+              "SELECT id,body FROM emails WHERE id=ANY($1::int[]) ORDER BY LENGTH(body),id",
+              [fixture],
+            )
+          ).rows;
+          const short = ordered.filter(
+              (e) => e.body.trim().split(/\s+/).length === 40,
+            ),
+            long = ordered.find(
+              (e) => e.body.trim().split(/\s+/).length === 60,
+            );
+          const order = [
+            short[0].id,
+            long.id,
+            ...short.slice(1, 7).map((e) => e.id),
+          ];
+          await pool.query(
+            "UPDATE game_sessions SET email_order=$1 WHERE id=$2",
+            [JSON.stringify(order), s.sessionId],
+          );
+          const first = await next(actor, s);
+          assert.ok(first.remainingMs > 59000 && first.remainingMs <= 60000);
+          await classify(actor, s, false);
+          const second = await next(actor, s);
+          assert.ok(second.remainingMs > 69000 && second.remainingMs <= 70000);
+          await answer(actor, s, second.emailId, "joker");
+          const third = await next(actor, s);
+          assert.ok(third.remainingMs > 59000 && third.remainingMs <= 60000);
+          await classify(actor, s, true);
+          const fourth = await next(actor, s);
+          assert.ok(fourth.remainingMs > 57000 && fourth.remainingMs <= 58000);
+          await pool.query(
+            "UPDATE game_sessions SET email_deadline_at=clock_timestamp()-INTERVAL '1 second' WHERE id=$1",
+            [s.sessionId],
+          );
+          const timeout = await answer(actor, s, fourth.emailId, "safe");
+          assert.equal(timeout.isTimeout, true);
+          assert.equal(timeout.errors, 2);
+          const fifth = await next(actor, s);
+          assert.ok(fifth.remainingMs > 57000 && fifth.remainingMs <= 58000);
+          const ended = await classify(actor, s, false);
+          assert.equal(ended.completed, true);
+          assert.equal(ended.finishReason, "errors");
+          assert.equal(ended.score, 2);
+          const battle = await ok(
+            "/api/battles",
+            {
+              user: admin,
+              method: "POST",
+              body: {
+                name: "Battle historique de chrono " + run,
+                mode: "individual",
+                difficulty: "normal",
+                startsAt: new Date(Date.now() - 60000).toISOString(),
+                endsAt: new Date(Date.now() + 3600000).toISOString(),
+                emailCount: 4,
+                maxAttempts: 1,
+                jokerLimit: 3,
+                playerIds: [actor.id],
+              },
+            },
+            201,
+          );
+          await pool.query(
+            "UPDATE battles SET timer_rules='{\"version\":1}',email_order=$1 WHERE id=$2",
+            [JSON.stringify(order.slice(0, 4)), battle.id],
+          );
+          const legacy = await begin(actor, battle.id);
+          assert.equal(legacy.rulesVersion, 1);
+          const old = await next(actor, legacy);
+          assert.ok(old.remainingMs > 29000 && old.remainingMs <= 30000);
+          const resume = await begin(actor, battle.id);
+          assert.equal(resume.sessionId, legacy.sessionId);
+          assert.deepEqual(
+            (await next(actor, legacy)).deadlineAt,
+            old.deadlineAt,
+          );
+          await answer(actor, legacy, old.emailId, "joker");
+          const olderLong = await next(actor, legacy);
+          assert.ok(
+            olderLong.remainingMs > 28000 && olderLong.remainingMs <= 29000,
+          );
+          await end(actor, legacy);
+        },
+      );
+      await t.test(
+        "Découverte : aucun score, aucun chrono, erreurs illimitées et aucun badge",
+        async () => {
+          const s = await start(learner, "discovery", "easy", 300, 8),
+            first = await next(learner, s);
+          assert.equal(first.remainingMs, null);
+          assert.equal(first.deadlineAt, null);
+          assert.equal(first.score, null);
+          assert.equal(first.jokerLimit, 0);
+          const last = await finish(learner, s, Array(8).fill(false));
+          assert.equal(last.errors, 8);
+          assert.equal(last.score, null);
+          assert.equal(last.completed, true);
+          assert.deepEqual(last.newAchievements, []);
+          assert.deepEqual(
+            await evaluateAchievements(learner.id, s.sessionId),
+            [],
+          );
+          assert.equal(
+            (
+              await ok("/api/players/" + learner.id + "/profile", {
+                user: learner,
+              })
+            ).stats.gamesPlayed,
+            0,
+          );
+          assert.ok(
+            !(await ok("/api/scores/players", { user: learner })).scores.some(
+              (r) => r.id === learner.id,
+            ),
+          );
+          assert.equal(
+            (
+              await ok("/api/sessions/" + s.sessionId + "/recap", {
+                user: learner,
+              })
+            ).session.score,
+            null,
+          );
+        },
+      );
+      let normal, hard, negativeNormal, negativeHard;
+      await t.test(
+        "Contre-la-montre : quatre configurations, malus cumulés, négatifs et SOS rejetés",
+        async () => {
+          normal = await start(actor, "time_attack", "normal", 300, 8);
+          const first = await next(actor, normal);
+          assert.ok(first.remainingMs > 299000 && first.remainingMs <= 300000);
+          assert.equal(
+            (
+              await request("/api/sessions/" + normal.sessionId + "/answer", {
+                user: actor,
+                method: "POST",
+                token: normal.sessionToken,
+                body: { emailId: first.emailId, choice: "joker" },
+              })
+            ).status,
+            400,
+          );
+          const n = await finish(actor, normal, [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            false,
+            false,
+          ]);
+          assert.equal(n.score, 4);
+          assert.equal(n.finishReason, "all_emails");
+          hard = await start(actor, "time_attack", "hardcore", 300, 8);
+          const h = await finish(actor, hard, [
+            false,
+            true,
+            true,
+            false,
+            true,
+            true,
+            true,
+            true,
+          ]);
+          assert.equal(h.score, 3);
+          const down = await start(actor, "time_attack", "hardcore", 300, 16);
+          const d = await finish(
+            actor,
+            down,
+            Array.from({ length: 16 }, (_, i) => i % 2 === 0),
+          );
+          assert.equal(d.score, -28);
+          assert.equal(d.errors, 8);
+          assert.equal(d.gameOver, false);
+          negativeNormal = await start(actor, "time_attack", "normal", 600, 1);
+          assert.equal(
+            (await finish(actor, negativeNormal, [false])).score,
+            -1,
+          );
+          negativeHard = await start(actor, "time_attack", "hardcore", 600, 2);
+          assert.equal(
+            (await finish(actor, negativeHard, [false, false])).score,
+            -3,
+          );
+          assert.deepEqual(
+            await evaluateAchievements(actor.id, negativeHard.sessionId),
+            [],
+          );
+          for (const body of [
+            { format: "time_attack", difficulty: "easy", durationSeconds: 300 },
+            {
+              format: "time_attack",
+              difficulty: "normal",
+              durationSeconds: 400,
+            },
+            { format: "discovery", difficulty: "easy", battleId: 1 },
+          ])
+            assert.equal(
+              (
+                await request("/api/sessions", {
+                  user: actor,
+                  method: "POST",
+                  body,
+                })
+              ).status,
+              400,
+            );
+        },
+      );
+      await t.test(
+        "Chrono global : correction, reprise, concurrence et expiration sans interaction",
+        async () => {
+          const s = await start(actor, "time_attack", "normal", 300, 8),
+            first = await next(actor, s);
+          const type = (
+            await pool.query("SELECT type FROM emails WHERE id=$1", [
+              first.emailId,
+            ])
+          ).rows[0].type;
+          const opts = {
+            user: actor,
+            token: s.sessionToken,
+            method: "POST",
+            body: { emailId: first.emailId, choice: type },
+          };
+          const responses = await Promise.all([
+            request("/api/sessions/" + s.sessionId + "/answer", opts),
+            request("/api/sessions/" + s.sessionId + "/answer", opts),
+          ]);
+          responses.forEach((r) => {
+            assert.equal(r.status, 200);
+            assert.equal(r.data.score, 1);
+          });
+          const state = await ok("/api/sessions/" + s.sessionId + "/state", {
+            user: actor,
+          });
+          assert.equal(state.stats.answers, 1);
+          assert.equal(state.deadlineAt, first.deadlineAt);
+          const resumed = await ok(
+            "/api/sessions",
+            {
+              user: actor,
+              method: "POST",
+              body: {
+                format: "time_attack",
+                difficulty: "normal",
+                durationSeconds: 300,
+              },
+            },
+            201,
+          );
+          assert.equal(resumed.sessionId, s.sessionId);
+          assert.equal(resumed.deadlineAt, first.deadlineAt);
+          const second = await next(actor, s);
+          assert.equal(second.deadlineAt, first.deadlineAt);
+          assert.ok(second.remainingMs < first.remainingMs);
+          await end(actor, s);
+          const zero = await start(actor, "time_attack", "normal", 300, 8),
+            shown = await next(actor, zero);
+          await pool.query(
+            "UPDATE game_sessions SET global_deadline_at=clock_timestamp()-INTERVAL '1 second' WHERE id=$1",
+            [zero.sessionId],
+          );
+          const stop = require("../src/services/gameRules").startExpiryWorker();
+          try {
+            await new Promise((r) => setTimeout(r, 1150));
+          } finally {
+            stop();
+          }
+          assert.equal(
+            (
+              await pool.query(
+                "SELECT completed FROM game_sessions WHERE id=$1",
+                [zero.sessionId],
+              )
+            ).rows[0].completed,
+            true,
+            "La clôture a lieu sans requête du joueur",
+          );
+          const late = await answer(actor, zero, shown.emailId, "safe");
+          assert.equal(late.timeUp, true);
+          assert.equal(late.score, 0);
+          assert.equal(late.stats.answers, 0);
+          assert.equal(late.finishReason, "time_up");
+          const resumedResult = await ok(
+            "/api/sessions/" + zero.sessionId + "/state",
+            { user: actor },
+          );
+          assert.equal(resumedResult.completed, true);
+          assert.equal(
+            (
+              await request("/api/sessions/" + zero.sessionId + "/state", {
+                user: learner,
+              })
+            ).status,
+            404,
+          );
+        },
+      );
+      await t.test(
+        "Hall of Fame et profils : combinaisons séparées, moyenne top 10, modération signée",
+        async () => {
+          for (const [duration, difficulty, value] of [
+            [300, "normal", 4],
+            [300, "hardcore", 3],
+            [600, "normal", -1],
+            [600, "hardcore", -3],
+          ]) {
+            const scores = await ok(
+              "/api/scores/time-attack/players?duration=" +
+                duration +
+                "&difficulty=" +
+                difficulty,
+              { user: actor },
+            );
+            assert.equal(
+              scores.scores.find((r) => r.id === actor.id).best_score,
+              value,
+            );
+            const teams = await ok(
+              "/api/scores/time-attack/services?duration=" +
+                duration +
+                "&difficulty=" +
+                difficulty,
+              { user: actor },
+            );
+            assert.equal(
+              teams.scores.find((r) => r.id === team.id).avg_best_score,
+              value,
+            );
+            const detail = await ok(
+              "/api/scores/time-attack/services/" +
+                team.id +
+                "/detail?duration=" +
+                duration +
+                "&difficulty=" +
+                difficulty,
+              { user: actor },
+            );
+            assert.equal(detail.avgBestScore, value);
+          }
+          const before = await ok("/api/players/" + actor.id + "/profile", {
+            user: actor,
+          });
+          assert.ok(
+            before.battles.some((b) =>
+              b.name.startsWith("Battle historique de chrono"),
+            ),
+          );
+          assert.deepEqual(
+            (await ok(`/api/players/${actor.id}/profile`, { user: learner }))
+              .battles,
+            [],
+            "Les compétitions privées ne sont pas exposées sur le profil d’autrui",
+          );
+          assert.equal(before.stats.bestScore, 2);
+          assert.equal(
+            before.formats.filter((r) => r.family === "time_attack").length,
+            4,
+          );
+          assert.ok(
+            !(await ok("/api/scores/players", { user: actor })).scores.some(
+              (r) => r.id === actor.id && r.best_score === 4,
+            ),
+          );
+          await ok(
+            "/api/admin/sessions/" + negativeHard.sessionId + "/correction",
+            {
+              user: admin,
+              method: "POST",
+              body: {
+                score: -2,
+                revision: 0,
+                disqualified: false,
+                reason: "Correction signée de vérification",
+              },
+            },
+          );
+          assert.equal(
+            (
+              await ok(
+                "/api/scores/time-attack/players?duration=600&difficulty=hardcore",
+                { user: actor },
+              )
+            ).scores.find((r) => r.id === actor.id).best_score,
+            -2,
+          );
+          assert.equal(
+            (
+              await request(
+                "/api/admin/sessions/" + normal.sessionId + "/correction",
+                {
+                  user: admin,
+                  method: "POST",
+                  body: {
+                    score: -100,
+                    revision: 0,
+                    disqualified: false,
+                    reason: "Hors borne",
+                  },
+                },
+              )
+            ).status,
+            400,
+          );
+          const stats = await ok(
+            "/api/admin/stats/overview?family=time_attack&duration=600&difficulty=hardcore",
+            { user: admin },
+          );
+          assert.equal(stats.formats.length, 1);
+          assert.equal(stats.formats[0].best_score, -2);
+          assert.equal(stats.assistedAnswers, 0);
+          assert.equal(
+            (
+              await request(
+                "/api/admin/stats/hardest-emails?family=discovery",
+                { user: admin },
+              )
+            ).status,
+            200,
+          );
+          assert.equal(
+            (
+              await request(
+                "/api/admin/stats/activity?family=time_attack&duration=600",
+                { user: admin },
+              )
+            ).status,
+            200,
+          );
+        },
+      );
+      await t.test(
+        "Contre-la-montre : top 10 négatif et départage par bonnes réponses",
+        async () => {
+          const team = (
+            await ok(
+              "/api/admin/services",
+              {
+                user: admin,
+                method: "POST",
+                body: { name: "Classement négatif", code: "NEG_" + run },
+              },
+              201,
+            )
+          ).service;
+          const players = [];
+          for (let i = 1; i <= 12; i++) {
+            const player = (
+              await pool.query(
+                "INSERT INTO players(name,email,service_id) VALUES($1,$2,$3) RETURNING id",
+                [
+                  "NEG" + i + "_" + run,
+                  "neg" + i + "_" + run + "@example.test",
+                  team.id,
+                ],
+              )
+            ).rows[0];
+            players.push(player.id);
+            await pool.query(
+              `INSERT INTO game_sessions(player_id,difficulty,email_order,total_emails,score,current_email_index,completed,ended_at,service_id,service_name,rules_version,game_format,duration_seconds,human_correct,errors,finish_reason)
+            VALUES($1,'normal','[]',32,$2,$3,TRUE,clock_timestamp(),$4,'Classement négatif',2,'time_attack',600,0,$3,'all_emails')`,
+              [player.id, -i, i, team.id],
+            );
+          }
+          await pool.query(
+            `INSERT INTO game_sessions(player_id,difficulty,email_order,total_emails,score,current_email_index,completed,ended_at,service_id,service_name,rules_version,game_format,duration_seconds,human_correct,errors,finish_reason)
+          VALUES($1,'normal','[]',32,-1,5,TRUE,clock_timestamp(),$2,'Classement négatif',2,'time_attack',600,2,3,'all_emails')`,
+            [players[0], team.id],
+          );
+          const ranking = await ok(
+            "/api/scores/time-attack/players?duration=600&difficulty=normal",
+            { user: actor },
+          );
+          assert.equal(
+            ranking.scores.find((r) => r.id === players[0]).good_answers,
+            2,
+          );
+          const detail = await ok(
+            "/api/scores/time-attack/services/" +
+              team.id +
+              "/detail?duration=600&difficulty=normal",
+            { user: actor },
+          );
+          assert.equal(detail.top10.length, 10);
+          assert.equal(detail.others.length, 2);
+          assert.equal(detail.avgBestScore, -5.5);
+          const services = await ok(
+            "/api/scores/time-attack/services?duration=600&difficulty=normal",
+            { user: actor },
+          );
+          assert.equal(
+            services.scores.find((r) => r.id === team.id).avg_best_score,
+            -5.5,
+          );
+        },
+      );
+    },
+  );
+
   await t.test(
     "Limite de réponses par compte et déconnexion effective",
     async () => {
