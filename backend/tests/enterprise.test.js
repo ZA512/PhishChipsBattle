@@ -1539,7 +1539,7 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
           assert.ok(third.remainingMs > 59000 && third.remainingMs <= 60000);
           await classify(actor, s, true);
           const fourth = await next(actor, s);
-          assert.ok(fourth.remainingMs > 57000 && fourth.remainingMs <= 58000);
+          assert.ok(fourth.remainingMs > 58000 && fourth.remainingMs <= 59000);
           await pool.query(
             "UPDATE game_sessions SET email_deadline_at=clock_timestamp()-INTERVAL '1 second' WHERE id=$1",
             [s.sessionId],
@@ -1548,7 +1548,7 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
           assert.equal(timeout.isTimeout, true);
           assert.equal(timeout.errors, 2);
           const fifth = await next(actor, s);
-          assert.ok(fifth.remainingMs > 57000 && fifth.remainingMs <= 58000);
+          assert.ok(fifth.remainingMs > 58000 && fifth.remainingMs <= 59000);
           const ended = await classify(actor, s, false);
           assert.equal(ended.completed, true);
           assert.equal(ended.finishReason, "errors");

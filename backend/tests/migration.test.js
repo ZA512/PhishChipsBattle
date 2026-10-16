@@ -138,9 +138,54 @@ test("Migration de données historiques : doublons, affectation et résultats pr
     );
     const newBattle = (
       await client.query(`INSERT INTO battles(name,mode,difficulty,starts_at,ends_at,email_order)
-      VALUES('Nouvelle battle','individual','easy',NOW(),NOW()+INTERVAL '1 hour','[]') RETURNING timer_rules`)
+      VALUES('Nouvelle battle','individual','easy',NOW(),NOW()+INTERVAL '1 hour','[]') RETURNING id,timer_rules`)
     ).rows[0];
     assert.equal(newBattle.timer_rules.version, 2);
+    await client.query(
+      fs.readFileSync(
+        path.join(
+          __dirname,
+          "../src/db/migrations/009_gentler_progression.sql",
+        ),
+        "utf8",
+      ),
+    );
+    assert.deepEqual(
+      (
+        await client.query("SELECT timer_rules FROM battles WHERE id=$1", [
+          newBattle.id,
+        ])
+      ).rows[0].timer_rules,
+      { version: 2 },
+    );
+    assert.deepEqual(
+      (
+        await client.query(
+          "SELECT timer_rules FROM game_sessions WHERE id=$1",
+          [active.id],
+        )
+      ).rows[0].timer_rules,
+      { version: 1 },
+    );
+    const futureBattle = (
+      await client.query(`INSERT INTO battles(name,mode,difficulty,starts_at,ends_at,email_order)
+      VALUES('Battle avec baisse de 1 seconde','individual','normal',NOW(),NULL,'[]') RETURNING timer_rules`)
+    ).rows[0];
+    assert.deepEqual(futureBattle.timer_rules, {
+      version: 2,
+      decrementSeconds: 1,
+    });
+    const futureSession = (
+      await client.query(
+        `INSERT INTO game_sessions(player_id,difficulty,email_order,total_emails)
+      VALUES($1,'normal','[]',0) RETURNING timer_rules`,
+        [players[0].id],
+      )
+    ).rows[0];
+    assert.deepEqual(futureSession.timer_rules, {
+      version: 2,
+      decrementSeconds: 1,
+    });
     const preserved = (
       await client.query(
         "SELECT subject,usage,archived_at FROM emails WHERE id=$1",

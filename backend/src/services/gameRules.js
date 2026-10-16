@@ -1,6 +1,6 @@
 "use strict";
 const pool = require("../db/pool");
-const NEW_RULES = Object.freeze({ version: 2 });
+const NEW_RULES = Object.freeze({ version: 2, decrementSeconds: 1 });
 function visibleWords(body) {
   // Link attributes contain inspection URLs; only their visible labels count.
   return (
@@ -20,7 +20,11 @@ function classicSeconds(s, body) {
       s.difficulty === "hardcore" ? 25 : s.difficulty === "normal" ? 35 : 60;
   const base = Math.max(
     floor,
-    start - (s.difficulty === "easy" ? 0 : 2 * s.human_correct),
+    // Older v2 snapshots omitted the decrement and retain their original pace.
+    start -
+      (s.difficulty === "easy"
+        ? 0
+        : (s.timer_rules.decrementSeconds ?? 2) * s.human_correct),
   );
   const words = visibleWords(body);
   return base + (words > 70 ? 20 : words > 50 ? 10 : 0);

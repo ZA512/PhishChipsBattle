@@ -229,15 +229,19 @@ Faire une sauvegarde avant la migration d’une base utilisée. Le rapprochement
 
 ### Classique · entraînement et nouvelles battles
 
+L’entraînement propose directement quatre boutons : **Découverte, Facile, Normal et Difficile**. Les règles restent rattachées au choix actif, au-dessus du démarrage. La transition animée respecte la préférence système de réduction des mouvements.
+
 | Difficulté | Départ par mail | Après chaque bonne classification humaine | Plancher |
 |---|---:|---|---:|
 | Facile | 60 s | Fixe | 60 s |
-| Normal | 60 s | −2 s | 35 s |
-| Difficile | 45 s | −2 s | 25 s |
+| Normal | 60 s | −1 s | 35 s |
+| Difficile | 45 s | −1 s | 25 s |
 
 Le corps visible du mail ajoute **0 s jusqu’à 50 mots**, **10 s de 51 à 70 mots**, **20 s à partir de 71 mots**. Les attributs techniques des liens ne comptent pas ; leur texte affiché compte. Ce bonus est propre à chaque mail. Une erreur, une expiration ou un SOS n’accélère pas le mail suivant.
 
 Le score reste le nombre de mails trouvés, SOS compris selon la règle historique. Trois erreurs terminent la partie ; les quotas SOS restent inchangés. Les nouvelles tentatives abandonnées sont conservées dans l’activité mais exclues des records ; les règles des anciennes compétitions restent préservées.
+
+La baisse de 1 seconde concerne les nouvelles parties et compétitions. Les sessions en cours et battles déjà publiées conservent leur rythme d’origine, y compris les anciens chronos à −2 secondes.
 
 ### Découverte
 

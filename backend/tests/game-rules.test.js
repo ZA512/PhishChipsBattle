@@ -5,6 +5,7 @@ const {
   visibleWords,
   classicSeconds,
   timeAttackScore,
+  NEW_RULES,
 } = require("../src/services/gameRules");
 const body = (n) => "mot ".repeat(n);
 const seconds = (difficulty, count, words = 40) =>
@@ -78,6 +79,38 @@ test("Chronos historiques : mêmes règles, aucun bonus rétroactif", () => {
     ),
     5,
   );
+});
+test("Nouveaux chronos : une seconde par bonne réponse, sans toucher aux anciens snapshots", () => {
+  const current = (
+    difficulty,
+    human_correct,
+    words = 40,
+    score = human_correct,
+  ) =>
+    classicSeconds(
+      { difficulty, human_correct, score, timer_rules: NEW_RULES },
+      body(words),
+    );
+  assert.deepEqual(
+    [0, 1, 5, 25, 100].map((n) => current("normal", n)),
+    [60, 59, 55, 35, 35],
+  );
+  assert.deepEqual(
+    [0, 1, 10, 20, 100].map((n) => current("hardcore", n)),
+    [45, 44, 35, 25, 25],
+  );
+  assert.deepEqual(
+    [50, 51, 70, 71].map((n) => current("normal", 5, n)),
+    [55, 65, 65, 75],
+  );
+  assert.equal(current("normal", 25, 80), 55, "Le bonus s’ajoute au plancher");
+  assert.equal(
+    current("normal", 0, 40, 3),
+    60,
+    "Les SOS ne réduisent pas le temps",
+  );
+  assert.equal(current("easy", 100), 60);
+  assert.equal(seconds("normal", 1), 58, "Un ancien snapshot v2 conserve −2 s");
 });
 test("Contre-la-montre : formules signées, erreurs cumulées", () => {
   for (const [good, bad, normal, hard] of [

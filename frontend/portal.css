@@ -832,6 +832,122 @@ body.game-page #start-screen {
   outline: 3px solid var(--amber);
   outline-offset: 3px;
 }
+.game-page .difficulty-heading {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.game-page #start-screen .difficulty-hint {
+  margin: 0;
+  font-size: 12px;
+}
+.game-page .difficulty-picker {
+  position: relative;
+  isolation: isolate;
+}
+.game-page .difficulty-liquid {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: var(--nav);
+  pointer-events: none;
+  z-index: -1;
+  display: none;
+}
+.game-page .has-liquid .difficulty-liquid {
+  display: block;
+}
+.game-page .difficulty-picker .difficulty-toggle {
+  gap: 6px;
+  align-items: stretch;
+}
+.game-page #start-screen .difficulty-picker label {
+  min-width: 0;
+  justify-content: center;
+  padding: 12px 4px;
+  font-size: 13px;
+  transition:
+    color 160ms,
+    border-color 160ms,
+    box-shadow 160ms;
+}
+.game-page
+  #start-screen
+  .difficulty-picker.has-liquid:not(.is-flowing)
+  input:checked
+  + label {
+  background: transparent;
+  border-color: transparent;
+}
+.game-page .difficulty-picker input:disabled + label {
+  cursor: default;
+}
+.game-page .difficulty-picker label:hover {
+  box-shadow: inset 0 0 0 1px var(--amber);
+}
+.game-page #start-screen .difficulty-rules {
+  margin-top: 12px;
+  padding: 18px 20px;
+  border-radius: 14px;
+  background: var(--nav);
+  color: #fff;
+}
+.game-page #start-screen .has-liquid .difficulty-rules {
+  background: transparent;
+}
+.game-page #start-screen .difficulty-rules p {
+  margin: 0;
+  color: inherit;
+}
+.game-page #start-screen #rule-timer {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.game-page #start-screen #format-description {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #e0e9ee;
+}
+.game-page #start-screen .difficulty-rules .start-rules-mini {
+  justify-content: flex-start;
+  gap: 6px 20px;
+  margin-top: 14px;
+  color: #fff;
+  font-size: 12px;
+}
+@media (max-width: 480px) {
+  body.game-page #start-screen {
+    padding: 12px 8px;
+  }
+  .game-page #start-screen .start-card {
+    padding: 24px 14px;
+  }
+  .game-page #start-screen .difficulty-picker label {
+    font-size: 11px;
+    padding: 12px 2px;
+  }
+  .game-page .difficulty-picker label small {
+    font-size: 9px;
+  }
+  .game-page #start-screen .difficulty-rules {
+    padding: 16px;
+  }
+}
+@media (max-width: 360px) {
+  .game-page #start-screen .difficulty-picker label {
+    font-size: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-page #start-screen .difficulty-picker label {
+    transition: none;
+  }
+}
 .game-page #start-btn,
 .game-page #restart-btn {
   background: var(--amber);
@@ -1872,21 +1988,6 @@ body.game-page #analysis-panel {
 .format-stats-grid h3 {
   font-size: 18px;
   margin-top: 0;
-}
-#training-format {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--ink);
-  margin-bottom: 14px;
-}
-#training-format-choice label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 13px;
-  font-weight: 700;
 }
 #format-description {
   font-size: 13px;

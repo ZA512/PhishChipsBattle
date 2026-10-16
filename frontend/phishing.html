@@ -320,28 +320,40 @@
             </select>
           </div>
 
-          <div id="training-format-choice">
-            <label for="training-format">Format d’entraînement</label
-            ><select id="training-format">
-              <option value="classic">
-                Classique · chrono, score et 3 erreurs maximum
-              </option>
-              <option value="discovery">
-                Découverte · sans chrono, sans score
-              </option>
-            </select>
-          </div>
-          <p id="format-description" class="meta">
-            Le chrono gagne jusqu’à 20 secondes pour les mails longs.
-          </p>
           <div class="difficulty-toggle-group" id="classic-difficulty-choice">
-            <label>Niveau de difficulté</label>
-            <div class="difficulty-toggle">
+            <span id="difficulty-heading" class="difficulty-heading"
+              >Niveau de difficulté</span
+            >
+            <p id="difficulty-hint" class="meta difficulty-hint">
+              Le temps accordé dépend du nombre de mots dans le mail.
+            </p>
+          </div>
+          <div class="difficulty-picker" id="difficulty-picker">
+            <svg class="difficulty-liquid" aria-hidden="true" focusable="false">
+              <path />
+            </svg>
+            <div
+              class="difficulty-toggle"
+              role="radiogroup"
+              aria-labelledby="difficulty-heading"
+              aria-describedby="difficulty-hint"
+            >
+              <input
+                type="radio"
+                id="discovery-mode"
+                name="difficulty"
+                value="discovery"
+                aria-describedby="difficulty-rules"
+              />
+              <label for="discovery-mode"
+                >☕ Découverte<small>Sans chrono</small></label
+              >
               <input
                 type="radio"
                 id="easy-mode"
                 name="difficulty"
                 value="easy"
+                aria-describedby="difficulty-rules"
                 checked
               />
               <label for="easy-mode"
@@ -352,6 +364,7 @@
                 id="normal-mode"
                 name="difficulty"
                 value="normal"
+                aria-describedby="difficulty-rules"
               />
               <label for="normal-mode"
                 >⚠️ Normal<small>60 → 35 secondes</small></label
@@ -361,10 +374,27 @@
                 id="hardcore-mode"
                 name="difficulty"
                 value="hardcore"
+                aria-describedby="difficulty-rules"
               />
               <label for="hardcore-mode"
                 >💀 Difficile<small>45 → 25 secondes</small></label
               >
+            </div>
+            <div
+              id="difficulty-rules"
+              class="difficulty-rules"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              <p id="rule-timer">60 s fixes · +10/20 s pour les mails longs</p>
+              <p id="format-description">
+                Le chrono reste fixe. Pour une fois, la pression vient
+                d’ailleurs.
+              </p>
+              <div class="start-rules-mini">
+                <span id="rule-errors">3 erreurs maximum</span>
+                <span id="rule-jokers">🔍 3 SOS Sécu</span>
+              </div>
             </div>
           </div>
 
@@ -372,12 +402,6 @@
           <button id="start-btn" class="btn start-btn-full">
             ⚡ Démarrer l'Analyse
           </button>
-
-          <div class="start-rules-mini">
-            <span id="rule-timer">⏱ 60s fixes</span>
-            <span id="rule-errors">💥 3 erreurs max</span>
-            <span id="rule-jokers">🔍 3 SOS Sécu</span>
-          </div>
 
           <a href="scores.html" class="score-link" style="text-align: center"
             >🏆 Voir les classements</a
@@ -542,6 +566,7 @@
     <script src="account.js"></script>
     <script src="feedback.js"></script>
     <script src="game-rules.js"></script>
+    <script src="difficulty-picker.js"></script>
     <script src="script.js"></script>
 
     <footer class="game-footer">

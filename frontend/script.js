@@ -231,30 +231,37 @@ async function loadServices() {
       document.getElementById("rule-jokers").textContent =
         `🔍 ${battle.joker_limit} SOS Sécu`;
       rulesVersion = battle.timer_rules.version;
-      document.getElementById("training-format-choice").hidden = true;
+      document.getElementById("discovery-mode").hidden = true;
+      document.querySelector('label[for="discovery-mode"]').hidden = true;
       document
-        .querySelectorAll(".difficulty-toggle small")
+        .querySelectorAll('.difficulty-toggle input:not([value="discovery"])')
         .forEach(
-          (label, i) =>
-            (label.textContent = PCBRules.timing(
-              ["easy", "normal", "hardcore"][i],
-              rulesVersion,
-            )),
+          (input) =>
+            (input.nextElementSibling.querySelector("small").textContent =
+              PCBRules.timing(input.value, rulesVersion).split(" · ")[0]),
         );
       document.getElementById("rule-timer").textContent = PCBRules.timing(
         battle.difficulty,
         rulesVersion,
       );
+      document.getElementById("format-description").textContent =
+        PCBRules.progression(battle.difficulty, battle.timer_rules);
+      PCBDifficultyPicker.update();
     }
     if (gameFormat === "time_attack") {
-      document.getElementById("training-format-choice").hidden = true;
       document.getElementById("classic-difficulty-choice").hidden = true;
+      document.querySelector(".difficulty-toggle").hidden = true;
+      PCBDifficultyPicker.update();
       document.querySelector("#start-screen h1").textContent =
         "Le chrono a pris la main.";
       document.getElementById("format-description").textContent =
-        PCBRules.configuration(gameDuration, gameParams.get("difficulty")) +
+        PCBRules.configuration(
+          gameDuration,
+          competition?.difficulty || gameParams.get("difficulty"),
+        ) +
         " · +1 par bonne réponse · " +
-        (gameParams.get("difficulty") === "hardcore"
+        ((competition?.difficulty || gameParams.get("difficulty")) ===
+        "hardcore"
           ? "erreurs : −1, −2, −3…"
           : "−1 par erreur");
       document.getElementById("rule-timer").textContent =
@@ -295,7 +302,9 @@ async function startGame() {
     else
       gameFormat = gameParams.has("battle")
         ? "classic"
-        : document.getElementById("training-format").value;
+        : gameDifficulty === "discovery"
+          ? "discovery"
+          : "classic";
     if (gameFormat === "discovery") gameDifficulty = "easy";
     const battle = new URLSearchParams(location.search).get("battle");
     recoveryKey = `pcb-game-${player.id}-${gameFormat}-${gameDifficulty}-${gameFormat === "time_attack" ? gameDuration : ""}-${gameSetId ? "set-" + gameSetId : battle || ""}`;
@@ -1465,28 +1474,25 @@ document.addEventListener("DOMContentLoaded", () => {
   localStorage.removeItem("pcb-email");
   localStorage.removeItem("pcb-service");
 
-  function updatePreparation() {
+  function updatePreparation(event) {
     if (gameParams.has("battle") || gameParams.get("format") === "time_attack")
       return;
-    const discovery =
-      document.getElementById("training-format").value === "discovery";
-    document.getElementById("classic-difficulty-choice").hidden = discovery;
+    const selected = document.querySelector(
+      'input[name="difficulty"]:checked',
+    ).value;
+    const discovery = selected === "discovery";
     document.getElementById("rule-timer").textContent = discovery
-      ? "Sans chrono"
-      : PCBRules.timing(
-          document.querySelector('input[name="difficulty"]:checked').value,
-        );
+      ? "Sans chrono · sans score · sans classement"
+      : PCBRules.timing(selected);
     document.getElementById("rule-errors").textContent = discovery
       ? "Erreurs illimitées"
       : "3 erreurs maximum";
     document.getElementById("rule-jokers").hidden = discovery;
     document.getElementById("format-description").textContent = discovery
-      ? "Lire, inspecter, répondre. Aucun point, aucun classement."
-      : "Une bonne classification humaine réduit le temps de 2 s en Normal et Difficile. Les mails longs ajoutent 10 ou 20 s.";
+      ? "Un dimanche à la cool. Pas de chrono, pas de stress. La prod peut bien attendre."
+      : PCBRules.progression(selected);
+    PCBDifficultyPicker.update(Boolean(event));
   }
-  document
-    .getElementById("training-format")
-    .addEventListener("change", updatePreparation);
   document
     .querySelectorAll('input[name="difficulty"]')
     .forEach((input) => input.addEventListener("change", updatePreparation));

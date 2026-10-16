@@ -2,7 +2,7 @@
 
 ## Comportement livré
 
-- Classique : Facile 60 s fixes ; Normal 60 → 35 s ; Difficile 45 → 25 s. La baisse de 2 s dépend uniquement des bonnes classifications humaines. Bonus de lecture 0/10/20 s selon 0–50 / 51–70 / 71+ mots du corps visible. Score, quota SOS et limite de trois erreurs préservés.
+- Classique : Facile 60 s fixes ; Normal 60 → 35 s ; Difficile 45 → 25 s. La baisse de 1 s dépend uniquement des bonnes classifications humaines. Bonus de lecture 0/10/20 s selon 0–50 / 51–70 / 71+ mots du corps visible. Score, quota SOS et limite de trois erreurs préservés.
 - Découverte : aucune échéance, aucun score ou classement, erreurs illimitées, réponses et statistiques pédagogiques distinctes.
 - Contre-la-montre : 300/600 secondes globales, deux pénalités, erreurs illimitées, aucun SOS, scores négatifs. Le temps continue pendant les corrections, les transitions et la fermeture du navigateur. Reprise sans délai supplémentaire ; clôture automatique côté serveur.
 - Hall of Fame, périodes, exports et profils distincts par format et combinaison. Moyenne d’équipe limitée aux dix meilleurs joueurs de la même configuration. Meilleurs scores négatifs conservés. Les noms des compétitions du dossier personnel sont visibles uniquement par le propriétaire du profil.
@@ -13,6 +13,8 @@
 Le moteur reste unique dans les routes de sessions existantes. La migration 006 ajoute les champs de format, les règles de chrono versionnées, les échéances globales et les compteurs humains, sans supprimer les données.
 
 Une session ou battle existante garde la version 1 et son délai commencé. Les nouvelles utilisent la version 2. Les historiques vérifiés v1 restent éligibles selon leurs règles d’origine, y compris leurs règles historiques d’abandon ; les nouveaux abandons n’entrent pas dans les records. La version 0 ne devient pas fiable rétroactivement.
+
+Depuis la migration 009, les nouvelles règles v2 figent aussi `decrementSeconds: 1`. Les snapshots v2 antérieurs, sans cette propriété, conservent leur baisse de 2 s. Aucune session ou battle publiée n’est réécrite. L’entraînement propose directement Découverte, Facile, Normal et Difficile ; les règles sont reliées au choix actif par une silhouette animée. L’animation se désactive avec la préférence système de réduction des mouvements.
 
 Les réponses sont protégées par authentification, jeton de partie, verrou de session et cache idempotent. Le score et le délai proviennent du serveur. Les sessions Contre-la-montre sont clôturées par un worker et lors de leur consultation, même sans action du joueur à l’instant zéro. Un redémarrage n’accorde pas de temps supplémentaire.
 

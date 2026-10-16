@@ -1,5 +1,12 @@
 "use strict";
 window.PCBRules = {
+  progression(difficulty, rules = { version: 2, decrementSeconds: 1 }) {
+    if (difficulty === "easy")
+      return "Le chrono reste fixe. Pour une fois, la pression vient d’ailleurs.";
+    if (rules.version === 1)
+      return "−1 s par point, jusqu’au minimum. Règles historiques.";
+    return `−${rules.decrementSeconds ?? 2} s par bonne réponse, jusqu’à ${difficulty === "hardcore" ? 25 : 35} s minimum. Les SOS Sécu n’accélèrent pas le chrono.`;
+  },
   timing(difficulty, version = 2) {
     return (
       (version === 1
