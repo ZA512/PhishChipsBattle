@@ -2203,12 +2203,26 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
         reserved = await make("Battle réservée ", "ready", "battle");
       const training = await make("Training uniquement ", "ready", "training"),
         shared = await make("Both uniquement ", "ready", "both"),
-        misplaced = await make("Express dans set classique ", "ready", "both");
+        mixed = await make("Express dans set classique ", "ready", "both"),
+        defaultOnly = await make(
+          "Défaut express sans mail express ",
+          "ready",
+          "both",
+        );
+      await ok("/api/admin/mail-sets/" + defaultOnly.id, {
+        user: admin,
+        method: "PUT",
+        body: {
+          name: defaultOnly.name,
+          status: "ready",
+          defaultUsage: "express",
+        },
+      });
       await ok("/api/admin/emails/import", {
         user: admin,
         method: "POST",
         body: {
-          setId: misplaced.id,
+          setId: mixed.id,
           catalog: [
             {
               sender: "Test <test@example.test>",
@@ -2243,6 +2257,11 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
       assert.equal((await request("/api/sessions/mail-sets")).status, 401);
       const sources = await ok("/api/sessions/mail-sets", { user: actor });
       assert.equal(sources.sets.find((s) => s.id === setA.id).total, 2);
+      assert.equal(
+        sources.sets.find((s) => s.id === mixed.id).total,
+        1,
+        "Un import de mails express reste visible même si le défaut du set vaut both",
+      );
       assert.ok(
         !sources.sets.some((s) =>
           [
@@ -2250,7 +2269,7 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
             reserved.id,
             training.id,
             shared.id,
-            misplaced.id,
+            defaultOnly.id,
           ].includes(s.id),
         ),
       );
@@ -2282,7 +2301,13 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
         );
       const sa = await launch(setA.id),
         sb = await launch(setB.id),
-        general = await launch();
+        general = await launch(),
+        mixedSession = await launch(mixed.id);
+      const mixedMail = (
+        await ok("/api/admin/emails?setId=" + mixed.id + "&usage=express", {
+          user: admin,
+        })
+      ).emails[0];
       assert.notEqual(sa.sessionId, sb.sessionId);
       assert.equal(sa.setName, setA.name);
       const order = async (s) =>
@@ -2293,14 +2318,20 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
           )
         ).rows[0].email_order;
       assert.deepEqual(
+        await order(mixedSession),
+        [mixedMail.id],
+        "Un set mixte fournit uniquement ses mails express",
+      );
+      assert.deepEqual(
         (await order(sa)).sort((a, b) => a - b),
         emailsA.map((e) => e.id).sort((a, b) => a - b),
       );
       assert.ok((await order(general)).includes(emailsA[0].id));
       const eligible = (
         await pool.query(`SELECT DISTINCT e.id FROM emails e JOIN mail_set_emails m ON m.email_id=e.id
-        JOIN mail_sets s ON s.id=m.set_id WHERE e.archived_at IS NULL AND e.usage='express' AND s.status='ready' AND s.default_usage='express'`)
+        JOIN mail_sets s ON s.id=m.set_id WHERE e.archived_at IS NULL AND e.usage='express' AND s.status='ready'`)
       ).rows.map((e) => e.id);
+      assert.equal(sources.total, eligible.length);
       assert.deepEqual(
         [...(await order(general))].sort((a, b) => a - b),
         eligible.sort((a, b) => a - b),
@@ -2337,7 +2368,7 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
         [reserved.id, 409],
         [training.id, 409],
         [shared.id, 409],
-        [misplaced.id, 409],
+        [defaultOnly.id, 409],
         [2147483647, 404],
       ])
         assert.equal(
