@@ -12,76 +12,139 @@
     <main class="enterprise-container">
       <span class="eyebrow">La boîte mail n’attendra pas votre ticket</span>
       <h1>Contre-la-montre.</h1>
-      <p class="lead">
-        5 ou 10 minutes. Le temps passe, même pendant les corrections. Les
-        mauvaises réponses se paient en points.
+      <p class="lead chrono-intro">
+        Des mails courts. Un chrono qui, lui, n’a aucune patience.
       </p>
-      <p class="meta">
+      <p class="meta chrono-intro">
         Ici, le mode libre. Pour participer à une compétition avec inscriptions
         et sets imposés, ouvrez <a href="battles.html">Battles</a>.
       </p>
-      <section class="card game-preparation">
-        <h2>Réglez votre prochaine urgence.</h2>
+      <section
+        class="card game-preparation chrono-wizard"
+        aria-label="Préparer un contre-la-montre"
+      >
+        <ol class="chrono-progress" aria-label="Étapes de préparation">
+          <li aria-current="step"><span>1</span> Les mails</li>
+          <li><span>2</span> Le temps</li>
+          <li><span>3</span> La pression</li>
+        </ol>
+        <p
+          id="chrono-selection"
+          class="meta chrono-selection"
+          aria-live="polite"
+        ></p>
         <form id="time-attack-form">
-          <label for="time-attack-set">Quels mails mettre au chrono ?</label>
-          <select id="time-attack-set" name="setId" disabled>
-            <option value="">Catalogue général · chargement…</option>
-          </select>
-          <p id="time-attack-source" class="meta" aria-live="polite">
-            Tous les mails disponibles, ou un set précis préparé par votre
-            administrateur. Les mails réservés aux battles restent exclus.
-          </p>
-          <fieldset>
-            <legend>Durée globale</legend>
-            <div class="format-choices">
-              <label
-                ><input type="radio" name="duration" value="300" checked /> 5
-                minutes</label
-              ><label
-                ><input type="radio" name="duration" value="600" /> 10
-                minutes</label
-              >
-            </div>
-          </fieldset>
-          <fieldset>
-            <legend>Pénalité des erreurs</legend>
-            <div class="format-choices">
-              <label
-                ><input type="radio" name="penalty" value="normal" checked />
-                Normal · −1 par erreur</label
-              ><label
-                ><input type="radio" name="penalty" value="hardcore" />
-                Difficile · −1, puis −2, puis −3…</label
-              >
-            </div>
-          </fieldset>
-          <p class="notice" id="time-attack-rule">
-            Une bonne réponse : +1 point. Une erreur : −1 point. Avec 6 bonnes
-            et 2 erreurs : +4 points.
-          </p>
-          <p class="meta">
-            Erreurs illimitées, aucun SOS. Le score peut être négatif. Chaque
-            combinaison de source, durée et difficulté possède son classement ;
-            vous pouvez rejouer autant que vous le souhaitez.
-          </p>
-          <p id="time-attack-resume" class="notice" hidden></p>
-          <button class="btn" id="time-attack-start" disabled type="submit">
-            Démarrer le chrono
-          </button>
-          <button
-            id="time-attack-last-result"
-            type="button"
-            class="btn btn-secondary"
+          <section
+            class="chrono-step"
+            data-step="0"
+            aria-labelledby="chrono-source-title"
+          >
+            <h2 id="chrono-source-title" tabindex="-1">
+              Quels mails sur le grill ?
+            </h2>
+            <p>Choisissez un set express préparé par l’administrateur.</p>
+            <label for="time-attack-set">Quels mails mettre au chrono ?</label>
+            <select id="time-attack-set" name="setId" disabled>
+              <option value="">Tous les sets express · chargement…</option>
+            </select>
+            <p id="time-attack-source" class="meta" aria-live="polite">
+              Chargement des sets express…
+            </p>
+          </section>
+          <section
+            class="chrono-step"
+            data-step="1"
+            aria-labelledby="chrono-duration-title"
             hidden
           >
-            Voir le dernier résultat
-          </button>
-          <a
-            id="time-attack-hof"
-            class="btn btn-secondary"
-            href="scores.html?format=time_attack&amp;duration=300&amp;difficulty=normal"
-            >Hall of Fame</a
+            <h2 id="chrono-duration-title" tabindex="-1">
+              Combien de temps avant l’incident ?
+            </h2>
+            <p>
+              Le chrono continue pendant les corrections. Même si vous fixez
+              l’écran très fort.
+            </p>
+            <fieldset>
+              <legend>Durée globale</legend>
+              <div class="format-choices">
+                <label
+                  ><input type="radio" name="duration" value="300" checked /> 5
+                  minutes<small>Le sprint du bureau.</small></label
+                ><label
+                  ><input type="radio" name="duration" value="600" /> 10
+                  minutes<small
+                    >Le café aura le temps de refroidir.</small
+                  ></label
+                >
+              </div>
+            </fieldset>
+          </section>
+          <section
+            class="chrono-step"
+            data-step="2"
+            aria-labelledby="chrono-difficulty-title"
+            hidden
           >
+            <h2 id="chrono-difficulty-title" tabindex="-1">
+              Quelle dose de pression ?
+            </h2>
+            <p>
+              Une bonne réponse : <strong>+1 point</strong>. Les erreurs, elles,
+              se paient.
+            </p>
+            <fieldset>
+              <legend>Pénalité des erreurs</legend>
+              <div class="format-choices">
+                <label
+                  ><input type="radio" name="penalty" value="normal" checked />
+                  Normal<small>Chaque erreur : −1 point.</small></label
+                ><label
+                  ><input type="radio" name="penalty" value="hardcore" />
+                  Difficile<small
+                    >Les erreurs coûtent −1, puis −2, puis −3…</small
+                  ></label
+                >
+              </div>
+            </fieldset>
+            <p class="notice" id="time-attack-rule">
+              Avec 6 bonnes réponses et 2 erreurs : +4 points.
+            </p>
+            <p class="meta">
+              Erreurs illimitées · aucun SOS · score pouvant être négatif.
+            </p>
+            <p id="time-attack-resume" class="notice" hidden></p>
+            <div class="chrono-secondary-actions">
+              <button
+                id="time-attack-last-result"
+                type="button"
+                class="btn btn-secondary"
+                hidden
+              >
+                Voir le dernier résultat
+              </button>
+              <a
+                id="time-attack-hof"
+                href="scores.html?format=time_attack&amp;duration=300&amp;difficulty=normal"
+                >Hall of Fame de ce choix</a
+              >
+            </div>
+          </section>
+          <div class="chrono-navigation">
+            <button
+              class="btn btn-secondary"
+              id="chrono-back"
+              type="button"
+              hidden
+            >
+              ← Retour
+            </button>
+            <button class="btn" id="chrono-next" type="button" disabled>
+              Choisir la durée →
+            </button>
+            <button class="btn" id="time-attack-start" disabled type="submit">
+              Démarrer le chrono
+            </button>
+          </div>
         </form>
       </section>
     </main>

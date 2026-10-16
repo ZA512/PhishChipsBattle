@@ -106,6 +106,7 @@ try {
     "time-attack.html",
     "time-attack.js",
     "game-rules.js",
+    "session-recovery.js",
     "script.js",
     "secu.png",
     "img/PhishChips-mail.png",

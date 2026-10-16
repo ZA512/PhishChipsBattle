@@ -6,7 +6,7 @@ PARAMÈTRES
 - Thème : général par défaut. Si je demande un set ciblé (typosquatting, RH, fraude au paiement…), concentre les scénarios sur ce thème tout en gardant 50 % de mails légitimes. La répartition des familles ci-dessous s’applique seulement aux lots généraux.
 - Style : réaliste par défaut ; sur demande, farfelu. Le style choisi s’applique aux légitimes comme aux phishing et ne doit jamais servir d’indice de classification.
 - Le nom et la description du set se choisissent dans l’administration à l’import. Ne les ajoute pas à chaque mail JSON.
-- usage : "training" par défaut, "battle" pour un lot de compétition classique, "express" pour un lot court réservé au Contre-la-montre. "both" seulement sur demande explicite (entraînement et battle, également disponible en Contre-la-montre). Un lot de battle doit être différent des lots d’entraînement précédents.
+- usage : "training" par défaut, "battle" pour un lot réservé aux compétitions organisées, "express" pour un lot court de Contre-la-montre. "both" seulement sur demande explicite (entraînement et compétitions organisées). Le Contre-la-montre libre utilise uniquement les mails "express" dans des sets express prêts. Un lot de battle doit être différent des lots d’entraînement précédents.
 - Format standard : 35 à 80 mots par corps, hors URLs ; quelques mails courts de 20 à 35 mots sont souhaitables. Maximum 100 mots. Sur demande d’un lot express : 20 à 40 mots, maximum 50.
 
 RÈGLE ABSOLUE : UN PIÈGE REPÉRABLE

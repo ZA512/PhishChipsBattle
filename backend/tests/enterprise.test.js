@@ -313,7 +313,7 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
       await answer(alice, started, oldOrder[0], "safe");
       await end(alice, started);
       const frozen = await begin(bob, battle.id);
-      assert.equal((await next(bob, frozen)).emailId, battleOrder[0]);
+      assert.ok(battleOrder.includes((await next(bob, frozen)).emailId));
       await end(bob, frozen);
       const active = (await ok("/api/admin/emails", { user: admin })).emails[0];
       const selected = await ok("/api/admin/emails/export", {
@@ -628,7 +628,7 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
       assert.equal(exported.set.name, "Nom modifié après publication");
       const started = await begin(alice, battle.id);
       const first = await next(alice, started);
-      assert.equal(first.emailId, snapshot.email_order[0]);
+      assert.ok(snapshot.email_order.includes(first.emailId));
       const changed = await imported(setA.id, [mail(6, "Replacement")], {
         replace: true,
       });
@@ -1105,9 +1105,104 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
       );
     },
   );
+  await t.test(
+    "Battles : mélange indépendant par tentative, reprise stable et abandon rejouable",
+    async (t) => {
+      const event = await ok(
+        "/api/battles",
+        {
+          user: admin,
+          method: "POST",
+          body: {
+            name: "Ordres indépendants " + run,
+            mode: "individual",
+            playerIds: [alice.id, bob.id],
+            difficulty: "normal",
+            startsAt: new Date(Date.now() - 1000).toISOString(),
+            endsAt: null,
+            emailCount: 12,
+            jokerLimit: 0,
+            maxAttempts: 2,
+          },
+        },
+        201,
+      );
+      const poolOrder = (
+        await pool.query("SELECT email_order FROM battles WHERE id=$1", [
+          event.id,
+        ])
+      ).rows[0].email_order;
+      const order = async (s) =>
+        (
+          await pool.query(
+            "SELECT email_order FROM game_sessions WHERE id=$1",
+            [s.sessionId],
+          )
+        ).rows[0].email_order;
+      let keep = false,
+        draws = 0;
+      const random = t.mock.method(crypto, "randomInt", (max) => {
+        draws++;
+        return keep ? max - 1 : 0;
+      });
+      try {
+        const first = await begin(alice, event.id),
+          firstOrder = await order(first);
+        assert.equal(
+          draws,
+          poolOrder.length - 1,
+          "Chaque nouvelle tentative appelle le mélange",
+        );
+        const beforeResume = draws;
+        assert.equal((await begin(alice, event.id)).sessionId, first.sessionId);
+        assert.equal(
+          draws,
+          beforeResume,
+          "Une reprise ne remélange pas les questions",
+        );
+        keep = true;
+        const other = await begin(bob, event.id),
+          otherOrder = await order(other);
+        assert.notDeepEqual(
+          firstOrder,
+          otherOrder,
+          "Le mélange ne se fait pas seulement à la publication",
+        );
+        for (const ids of [firstOrder, otherOrder])
+          assert.deepEqual(
+            [...ids].sort((a, b) => a - b),
+            [...poolOrder].sort((a, b) => a - b),
+          );
+        await end(alice, first);
+        const second = await begin(alice, event.id);
+        assert.notEqual(second.sessionId, first.sessionId);
+        assert.equal(second.completed, false);
+        assert.notDeepEqual(await order(second), firstOrder);
+        assert.ok((await next(alice, second)).emailId);
+        assert.deepEqual(
+          await order(first),
+          firstOrder,
+          "L’historique n’est pas réécrit",
+        );
+        await end(alice, second);
+        assert.equal(
+          (
+            await request("/api/sessions", {
+              user: alice,
+              method: "POST",
+              body: { battleId: event.id },
+            })
+          ).status,
+          409,
+        );
+      } finally {
+        random.mock.restore();
+      }
+    },
+  );
   let battle, game;
   await t.test(
-    "Battle : roster figé, même séquence, tentative unique et droits",
+    "Battle : roster figé, même sélection, tentative unique et droits",
     async () => {
       battle = await ok(
         "/api/battles",
@@ -1160,13 +1255,13 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
             "SELECT email_order FROM game_sessions WHERE id=ANY($1::int[]) ORDER BY id",
             [[game.sessionId, other.sessionId]],
           )
-        ).rows.map((r) => r.email_order),
+        ).rows.map((r) => [...r.email_order].sort((a, b) => a - b)),
         Array(2).fill(
           (
             await pool.query("SELECT email_order FROM battles WHERE id=$1", [
               battle.id,
             ])
-          ).rows[0].email_order,
+          ).rows[0].email_order.sort((a, b) => a - b),
         ),
       );
       assert.equal(
@@ -1455,6 +1550,30 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
       const fixture = (
         await ok("/api/admin/emails?setId=" + imported.set.id, { user: admin })
       ).emails.map((e) => e.id);
+      const expressImport = await ok("/api/admin/emails/import", {
+        user: admin,
+        method: "POST",
+        body: {
+          newSet: {
+            name: "Chronos express " + run,
+            status: "ready",
+            defaultUsage: "express",
+          },
+          catalog: Array.from({ length: 32 }, (_, i) => ({
+            sender: "Express <express@example.test>",
+            realSender: "express@example.test",
+            subject: "Express chrono " + run + " " + i,
+            body: "Un mail court de test.",
+            type: i % 2 ? "phishing" : "safe",
+            clues: ["Vérifiez le domaine."],
+          })),
+        },
+      });
+      const expressFixture = (
+        await ok("/api/admin/emails?setId=" + expressImport.set.id, {
+          user: admin,
+        })
+      ).emails.map((e) => e.id);
       const start = async (
         u,
         format,
@@ -1479,7 +1598,16 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
         );
         await pool.query(
           "UPDATE game_sessions SET email_order=$1,total_emails=$2 WHERE id=$3",
-          [JSON.stringify(fixture.slice(0, count)), count, s.sessionId],
+          [
+            JSON.stringify(
+              (format === "time_attack" ? expressFixture : fixture).slice(
+                0,
+                count,
+              ),
+            ),
+            count,
+            s.sessionId,
+          ],
         );
         return s;
       };
@@ -1801,6 +1929,40 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
             { user: actor },
           );
           assert.equal(resumedResult.completed, true);
+          const stale = await start(actor, "time_attack", "normal", 300, 8);
+          await next(actor, stale);
+          await pool.query(
+            "UPDATE game_sessions SET global_deadline_at=clock_timestamp()-INTERVAL '1 second' WHERE id=$1",
+            [stale.sessionId],
+          );
+          const fresh = await ok(
+            "/api/sessions",
+            {
+              user: actor,
+              method: "POST",
+              body: {
+                format: "time_attack",
+                difficulty: "normal",
+                durationSeconds: 300,
+              },
+            },
+            201,
+          );
+          assert.notEqual(fresh.sessionId, stale.sessionId);
+          assert.equal(
+            fresh.completed,
+            false,
+            "Le POST ne renvoie pas la tentative expirée comme une reprise",
+          );
+          assert.equal(
+            (
+              await ok("/api/sessions/" + stale.sessionId + "/state", {
+                user: actor,
+              })
+            ).finishReason,
+            "time_up",
+          );
+          await end(actor, fresh);
           assert.equal(
             (
               await request("/api/sessions/" + zero.sessionId + "/state", {
@@ -2039,11 +2201,58 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
         setB = await make("Express B ");
       const draft = await make("Express brouillon ", "draft"),
         reserved = await make("Battle réservée ", "ready", "battle");
+      const training = await make("Training uniquement ", "ready", "training"),
+        shared = await make("Both uniquement ", "ready", "both"),
+        misplaced = await make("Express dans set classique ", "ready", "both");
+      await ok("/api/admin/emails/import", {
+        user: admin,
+        method: "POST",
+        body: {
+          setId: misplaced.id,
+          catalog: [
+            {
+              sender: "Test <test@example.test>",
+              realSender: "test@example.test",
+              subject: "Express hors set express " + run,
+              body: "Scénario court.",
+              type: "phishing",
+              usage: "express",
+              clues: ["Domaine suspect."],
+            },
+          ],
+        },
+      });
+      await ok("/api/admin/emails/import", {
+        user: admin,
+        method: "POST",
+        body: {
+          setId: setA.id,
+          catalog: [
+            {
+              sender: "Test <test@example.test>",
+              realSender: "test@example.test",
+              subject: "Mail long hors express " + run,
+              body: "Long ".repeat(80),
+              type: "safe",
+              usage: "both",
+              clues: [],
+            },
+          ],
+        },
+      });
       assert.equal((await request("/api/sessions/mail-sets")).status, 401);
       const sources = await ok("/api/sessions/mail-sets", { user: actor });
       assert.equal(sources.sets.find((s) => s.id === setA.id).total, 2);
       assert.ok(
-        !sources.sets.some((s) => [draft.id, reserved.id].includes(s.id)),
+        !sources.sets.some((s) =>
+          [
+            draft.id,
+            reserved.id,
+            training.id,
+            shared.id,
+            misplaced.id,
+          ].includes(s.id),
+        ),
       );
       assert.deepEqual(
         Object.keys(sources.sets.find((s) => s.id === setA.id)).sort(),
@@ -2088,6 +2297,14 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
         emailsA.map((e) => e.id).sort((a, b) => a - b),
       );
       assert.ok((await order(general)).includes(emailsA[0].id));
+      const eligible = (
+        await pool.query(`SELECT DISTINCT e.id FROM emails e JOIN mail_set_emails m ON m.email_id=e.id
+        JOIN mail_sets s ON s.id=m.set_id WHERE e.archived_at IS NULL AND e.usage='express' AND s.status='ready' AND s.default_usage='express'`)
+      ).rows.map((e) => e.id);
+      assert.deepEqual(
+        [...(await order(general))].sort((a, b) => a - b),
+        eligible.sort((a, b) => a - b),
+      );
       const battleEmails = (
         await ok("/api/admin/emails?setId=" + reserved.id, { user: admin })
       ).emails;
@@ -2118,6 +2335,9 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
       for (const [id, status] of [
         [draft.id, 404],
         [reserved.id, 409],
+        [training.id, 409],
+        [shared.id, 409],
+        [misplaced.id, 409],
         [2147483647, 404],
       ])
         assert.equal(
@@ -2479,20 +2699,24 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
       assert.equal(ls.jokerLimit, 0);
       const le = await next(left, ls),
         re = await next(right, rs);
-      assert.equal(le.emailId, re.emailId);
+      assert.ok(le.emailId && re.emailId);
       assert.equal(
         (
           await pool.query(
             "SELECT email_order FROM game_sessions WHERE id=$1",
             [ls.sessionId],
           )
-        ).rows[0].email_order.join(","),
+        ).rows[0].email_order
+          .sort((a, b) => a - b)
+          .join(","),
         (
           await pool.query(
             "SELECT email_order FROM game_sessions WHERE id=$1",
             [rs.sessionId],
           )
-        ).rows[0].email_order.join(","),
+        ).rows[0].email_order
+          .sort((a, b) => a - b)
+          .join(","),
       );
       assert.equal(
         (

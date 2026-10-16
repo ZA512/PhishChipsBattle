@@ -259,7 +259,8 @@ router.post("/", async (req, res) => {
         await client.query("SELECT clock_timestamp() AS now")
       ).rows[0].now;
       await expireOne(client, ongoing);
-      return sessionPayload(client, ongoing, battle?.joker_limit ?? 3, true);
+      if (!ongoing.completed)
+        return sessionPayload(client, ongoing, battle?.joker_limit ?? 3, true);
     }
     if (battle) {
       const attempts = (
@@ -275,15 +276,17 @@ router.post("/", async (req, res) => {
       format === "time_attack" && !battle
         ? await selectSource(client, setId)
         : null;
-    let order = source
-      ? shuffled(source.ids)
-      : battle?.email_order ||
-        shuffled(
-          (
-            await client.query(`SELECT e.id FROM emails e WHERE archived_at IS NULL AND usage IN ('training','both')
+    // Publication freezes the common pool, never a shared answer sequence.
+    // Persist one independent permutation per attempt; resumes reuse that row.
+    let order = shuffled(
+      source
+        ? source.ids
+        : battle?.email_order ||
+            (
+              await client.query(`SELECT e.id FROM emails e WHERE archived_at IS NULL AND usage IN ('training','both')
       AND EXISTS(SELECT 1 FROM mail_set_emails m JOIN mail_sets st ON st.id=m.set_id WHERE m.email_id=e.id AND st.status='ready') ORDER BY e.id`)
-          ).rows.map((e) => e.id),
-        );
+            ).rows.map((e) => e.id),
+    );
     if (format === "classic") order = order.slice(0, 162);
     if (!order.length)
       throw new HttpError(

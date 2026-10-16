@@ -1,19 +1,56 @@
 "use strict";
 (() => {
   const form = document.getElementById("time-attack-form"),
-    notice = document.getElementById("time-attack-resume");
+    notice = document.getElementById("time-attack-resume"),
+    source = document.getElementById("time-attack-set"),
+    start = document.getElementById("time-attack-start"),
+    next = document.getElementById("chrono-next"),
+    back = document.getElementById("chrono-back"),
+    steps = [...form.querySelectorAll(".chrono-step")];
   let player = null,
     sequence = 0,
-    lastState = null;
-  const source = document.getElementById("time-attack-set");
+    lastState = null,
+    step = 0,
+    checking = false;
+  const values = () => new FormData(form);
+  const available = () =>
+    Number(source.selectedOptions[0]?.dataset.total || 0) > 0;
   function key() {
-    const data = new FormData(form);
+    const data = values();
     return `pcb-game-${player.id}-time_attack-${data.get("penalty")}-${data.get("duration")}-${data.get("setId") ? "set-" + data.get("setId") : ""}`;
   }
+  function showStep(index, focus = true) {
+    step = index;
+    document
+      .querySelector("main")
+      .classList.toggle("chrono-in-progress", step > 0);
+    steps.forEach((section, i) => {
+      section.hidden = i !== step;
+    });
+    document.querySelectorAll(".chrono-progress li").forEach((item, i) => {
+      if (i === step) item.setAttribute("aria-current", "step");
+      else item.removeAttribute("aria-current");
+      item.classList.toggle("is-done", i < step);
+    });
+    back.hidden = step === 0;
+    next.hidden = step === 2;
+    start.hidden = step !== 2;
+    next.textContent =
+      step === 0 ? "Choisir la durée →" : "Choisir la difficulté →";
+    if (focus) steps[step].querySelector("h2").focus();
+  }
+  function buttons() {
+    next.disabled = !player || !available();
+    start.disabled =
+      !player ||
+      checking ||
+      (!available() && (!lastState || lastState.completed));
+  }
   async function update() {
-    const data = new FormData(form),
+    const data = values(),
       request = ++sequence;
     lastState = null;
+    checking = false;
     document.getElementById("time-attack-last-result").hidden = true;
     document.getElementById("time-attack-hof").href =
       "/scores.html?" +
@@ -25,20 +62,29 @@
       });
     document.getElementById("time-attack-rule").textContent =
       data.get("penalty") === "hardcore"
-        ? "Bonne réponse : +1. Les erreurs coûtent −1, −2, −3… même après une bonne réponse. Avec 6 bonnes et 2 erreurs : +3 points."
-        : "Bonne réponse : +1. Chaque erreur : −1. Avec 6 bonnes et 2 erreurs : +4 points.";
+        ? "Avec 6 bonnes réponses et 2 erreurs : +3 points. Une bonne réponse ne remet pas les pénalités à zéro."
+        : "Avec 6 bonnes réponses et 2 erreurs : +4 points.";
+    const sourceName =
+      source.selectedOptions[0]?.textContent.split(" · ")[0] || "Sets express";
+    document.getElementById("chrono-selection").textContent =
+      step === 0
+        ? ""
+        : sourceName +
+          (step === 2
+            ? " · " + Number(data.get("duration")) / 60 + " minutes"
+            : "");
+    document.getElementById("time-attack-source").textContent = available()
+      ? `${source.selectedOptions[0].dataset.total} mails express. Ordre aléatoire, sans répétition pendant la tentative.`
+      : "Aucun mail express disponible. Demandez à l’administrateur de préparer un set express prêt à jouer.";
     notice.hidden = true;
-    const available = Number(source.selectedOptions[0]?.dataset.total || 0) > 0;
-    document.getElementById("time-attack-source").textContent = available
-      ? `${source.selectedOptions[0].dataset.total} mails disponibles. La série est figée au démarrage ; un même mail ne revient pas dans la tentative. Les mails réservés aux battles restent exclus.`
-      : "Aucun mail disponible dans cette source. Choisissez un autre set ou demandez un import à l’administrateur.";
-    document.getElementById("time-attack-start").textContent =
-      "Démarrer le chrono";
+    start.textContent = "Démarrer le chrono";
+    buttons();
     if (!player) return;
-    document.getElementById("time-attack-start").disabled = !available;
-    const saved = localStorage.getItem(key());
+    const savedKey = key(),
+      saved = localStorage.getItem(savedKey);
     if (!saved) return;
-    document.getElementById("time-attack-start").disabled = true;
+    checking = true;
+    buttons();
     try {
       const state = await PCB.request(
         "/api/sessions/" + encodeURIComponent(saved) + "/state",
@@ -47,34 +93,42 @@
       lastState = state;
       notice.hidden = false;
       notice.textContent = state.completed
-        ? "Dernière tentative terminée : " +
+        ? "Dernière tentative : " +
           (state.score >= 0 ? "+" : "") +
           state.score +
-          " points. Vous pouvez consulter son résultat ou recommencer."
-        : "Une tentative vous attend. Le chrono ne sera pas remis à zéro.";
-      document.getElementById("time-attack-start").textContent = state.completed
+          " points. Prêt à remettre ça ?"
+        : "Une tentative est en cours. La reprise conserve le temps restant.";
+      start.textContent = state.completed
         ? "Nouvelle tentative"
         : "Reprendre la tentative";
       document.getElementById("time-attack-last-result").hidden =
         !state.completed;
     } catch (error) {
       if (request !== sequence) return;
-      if ([404, 410].includes(error.status)) {
-        localStorage.removeItem(key());
-        notice.hidden = true;
-      } else {
+      if ([404, 410].includes(error.status)) localStorage.removeItem(savedKey);
+      else {
         notice.hidden = false;
         notice.textContent = error.message;
       }
     } finally {
-      if (request === sequence)
-        document.getElementById("time-attack-start").disabled =
-          !available && (!lastState || lastState.completed);
+      if (request === sequence) {
+        checking = false;
+        buttons();
+      }
     }
   }
-  form.addEventListener("change", () => update());
-  function destination() {
-    const data = new FormData(form);
+  next.addEventListener("click", () => {
+    if (!available()) return;
+    showStep(Math.min(2, step + 1));
+    update();
+  });
+  back.addEventListener("click", () => {
+    showStep(Math.max(0, step - 1));
+    update();
+  });
+  form.addEventListener("change", update);
+  function destination(resultId) {
+    const data = values();
     return (
       "/phishing.html?" +
       new URLSearchParams({
@@ -83,37 +137,45 @@
         difficulty: data.get("penalty"),
         autostart: "1",
         ...(data.get("setId") ? { setId: data.get("setId") } : {}),
+        ...(resultId ? { result: resultId } : {}),
       })
     );
   }
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    if (!player) return;
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (step < 2) {
+      if (!next.disabled) next.click();
+      return;
+    }
+    if (start.disabled) return;
+    start.disabled = true;
     if (lastState?.completed) localStorage.removeItem(key());
     location.assign(destination());
   });
   document
     .getElementById("time-attack-last-result")
-    .addEventListener("click", () => location.assign(destination()));
+    .addEventListener("click", () => {
+      if (lastState?.completed)
+        location.assign(destination(lastState.sessionId));
+    });
+  showStep(0, false);
   PCB.ready.then(async (p) => {
     if (!p) return;
     player = p;
     try {
       const catalog = await PCB.request("/api/sessions/mail-sets");
-      const general = source.options[0];
-      general.textContent = `Catalogue général · tous les sets · ${catalog.total} mails`;
-      general.dataset.total = catalog.total;
+      source.options[0].textContent = `Tous les sets express · ${catalog.total} mails`;
+      source.options[0].dataset.total = catalog.total;
       for (const set of catalog.sets) {
         const option = document.createElement("option");
         option.value = String(set.id);
-        option.textContent = `Set : ${set.name} · ${set.total} mails`;
+        option.textContent = `${set.name} · ${set.total} mails`;
         option.dataset.total = set.total;
         source.append(option);
       }
-      source.disabled = false;
+      source.disabled = !catalog.total;
     } catch (error) {
-      notice.hidden = false;
-      notice.textContent = error.message;
+      document.getElementById("time-attack-source").textContent = error.message;
       return;
     }
     try {
@@ -125,17 +187,13 @@
         [300, 600].includes(previous.duration) &&
         ["normal", "hardcore"].includes(previous.difficulty)
       ) {
-        if (Number.isSafeInteger(previous.setId) && previous.setId > 0) {
-          if (
-            ![...source.options].some((o) => o.value === String(previous.setId))
-          ) {
-            const option = document.createElement("option");
-            option.value = String(previous.setId);
-            option.textContent = `Set #${previous.setId} indisponible · ancienne tentative`;
-            source.append(option);
-          }
+        // Former training/battle sources never reappear as Express choices.
+        if (
+          [...source.options].some(
+            (option) => option.value === String(previous.setId),
+          )
+        )
           source.value = String(previous.setId);
-        }
         form.querySelector(
           `[name="duration"][value="${previous.duration}"]`,
         ).checked = true;

@@ -308,18 +308,15 @@ async function startGame() {
     if (gameFormat === "discovery") gameDifficulty = "easy";
     const battle = new URLSearchParams(location.search).get("battle");
     recoveryKey = `pcb-game-${player.id}-${gameFormat}-${gameDifficulty}-${gameFormat === "time_attack" ? gameDuration : ""}-${gameSetId ? "set-" + gameSetId : battle || ""}`;
-    const saved = localStorage.getItem(recoveryKey);
-    let data;
-    if (saved) {
-      try {
-        data = await PCB.request(
-          `/api/sessions/${encodeURIComponent(saved)}/state`,
-        );
-      } catch (e) {
-        if (![404, 410].includes(e.status)) throw e;
-        localStorage.removeItem(recoveryKey);
-      }
-    }
+    const resultId = gameParams.get("result");
+    let data = await PCBRecovery.load({
+      id: resultId || localStorage.getItem(recoveryKey),
+      request: PCB.request,
+      discard: () => localStorage.removeItem(recoveryKey),
+      viewResult: Boolean(resultId),
+    });
+    if (resultId && !data?.completed)
+      throw new Error("Cette tentative n’est pas encore terminée.");
     if (!data)
       data = await PCB.request("/api/sessions", {
         method: "POST",
@@ -335,8 +332,8 @@ async function startGame() {
           ...(battle ? { battleId: battle } : {}),
         }),
       });
-    localStorage.setItem(recoveryKey, String(data.sessionId));
-    if (gameFormat === "time_attack" && !battle)
+    if (!resultId) localStorage.setItem(recoveryKey, String(data.sessionId));
+    if (gameFormat === "time_attack" && !battle && !resultId)
       localStorage.setItem(
         "pcb-time-attack-last-" + player.id,
         JSON.stringify({
@@ -1420,14 +1417,14 @@ startBtn.addEventListener("click", startGame);
 restartBtn.addEventListener("click", () => {
   rankReelController?.destroy();
   rankReelController = null;
-  if (recoveryKey) localStorage.removeItem(recoveryKey);
+  // Keep the last result available; a new launch ignores completed sessions.
   canonicalState = null;
-  if (gameFormat === "time_attack") {
-    location.assign("/time-attack.html");
-    return;
-  }
   if (new URLSearchParams(location.search).has("battle")) {
     location.assign("/battles.html");
+    return;
+  }
+  if (gameFormat === "time_attack") {
+    location.assign("/time-attack.html");
     return;
   }
   gameOverScreen.classList.add("hidden");

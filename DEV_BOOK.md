@@ -58,7 +58,7 @@ L’audit a révélé des défauts absents du précédent document :
 | SSO Entra | Code + PKCE, état/nonce, contrôle signature/émetteur/audience/tenant, identité `oid`, rôles | Connexion réelle, consentements et politiques du tenant à tester. |
 | Annuaire | Import complet transactionnel, désactivation des absents, synchronisation Graph paginée | Retour des managers et permissions applicatives Graph à confirmer dans le tenant réel. Pas de planification automatique. |
 | Équipes | CRUD avec archivage, recommandation sans affectation, choix libre, historique | Rapprochement des anciens comptes non authentifiés à développer. |
-| Battles | Classique et Contre-la-montre organisé ; personnes, toute l’entreprise ou équipes avec entrants ; même séquence, reprise, équipe figée par inscription, échéance facultative | Aucun éditeur de draft après publication. |
+| Battles | Classique et Contre-la-montre organisé ; personnes, toute l’entreprise ou équipes avec entrants ; même sélection, ordre indépendant par tentative, reprise, équipe figée par inscription, échéance facultative | Aucun éditeur de draft après publication. |
 | Résultats | Provisoires puis conservés à clôture ; absents à zéro pour la moyenne des équipes | Clôture à la consultation après échéance ou manuelle ; pas de tâche planifiée dédiée. |
 | Modération | Motif obligatoire, acteur/date/avant-après, disqualification et contrôle de version | Les badges déjà obtenus ne sont pas automatiquement révoqués. |
 | Interface | Identité Phish & Chips commune, clair/sombre partagé, connexion/inscription séparées, administration par rubriques, badges regroupés, messagerie simulée dans sa fenêtre | Voir [la refonte et ses vérifications](docs/UI_REFONTE_2026-10-01.md). SSO réel toujours à valider dans le tenant. |
@@ -123,9 +123,10 @@ Les tags et le suivi individuel des questions déjà vues restent des évolution
 
 ### Sets du Contre-la-montre
 
-- Migration 007 : disponibilité `express` et source optionnelle de session (`mail_set_id`, nom figé), sans réécriture des anciennes parties. `express` est réservé au Contre-la-montre ; `training` et `both` sont utilisables dans ce mode ; `battle` en reste exclu.
-- Le joueur choisit le catalogue général ou un set prêt. GET `/api/sessions/mail-sets` expose uniquement noms, identifiants et volumes éligibles ; POST `/api/sessions` accepte `setId` uniquement en Contre-la-montre. Aucun contenu ni correction n’est livré par la liste des sets.
+- Migration 007 : disponibilité `express` et source optionnelle de session (`mail_set_id`, nom figé), sans réécriture des anciennes parties. Le mode libre est désormais limité aux sets prêts `default_usage='express'` et aux mails `usage='express'`. Les compétitions organisées gardent leurs scénarios réservés ; aucune série existante n’est réécrite.
+- Le joueur choisit les sets express, la durée puis la difficulté en trois cartes successives. GET `/api/sessions/mail-sets` expose uniquement noms, identifiants et volumes éligibles ; POST `/api/sessions` applique aussi le filtre express. Aucun contenu ni correction n’est livré par la liste des sets.
 - L’ordre tiré reste figé dans la session. Reprise distincte par source/durée/difficulté, y compris après archivage ; nouvelles parties refusées sur une source vide, en brouillon ou archivée.
+- Chaque nouvelle tentative, y compris en battle, mélange sa sélection avec `crypto.randomInt`. Une reprise conserve sa permutation. Le cache navigateur ignore les parties terminées au démarrage ; la consultation d’un ancien résultat est explicite (`result`), sans écraser l’identifiant de la tentative active. Une session chrono expirée découverte à la création ne bloque plus le démarrage suivant sur son résultat.
 - Hall of Fame, détail du top 10 d’équipe et CSV filtrés par source, durée et difficulté. Les résultats historiques sans source restent dans le catalogue général. Les statistiques pédagogiques agrégées du dossier et de l’administration conservent leur segmentation par format/durée/difficulté.
 - Import/export, filtres du catalogue, disponibilité par défaut et modification sur sélection acceptent `express`. Les prompts FR/EN définissent explicitement cet usage pour les lots courts.
 
