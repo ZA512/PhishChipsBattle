@@ -50,6 +50,7 @@ async function assignTeam(
       reason,
     ],
   );
+  await require("./battleAudience").refreshAudiences(client);
   return team;
 }
 

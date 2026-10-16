@@ -206,7 +206,7 @@ router.get("/stats/hardest-emails", async (req, res) => {
     JOIN emails e ON e.id = ea.email_id
     JOIN game_sessions gs ON gs.id=ea.session_id
     WHERE gs.rules_version IN (1,2) AND NOT gs.disqualified AND ea.user_choice IN ('phishing', 'safe')
- AND ($1::text IS NULL OR CASE WHEN gs.game_format='classic' THEN CASE WHEN gs.battle_id IS NULL THEN 'classic_training' ELSE 'battle' END ELSE gs.game_format END=$1)
+ AND ($1::text IS NULL OR CASE WHEN gs.battle_id IS NOT NULL THEN CASE WHEN gs.game_format='time_attack' THEN 'time_attack_battle' ELSE 'battle' END WHEN gs.game_format='classic' THEN 'classic_training' ELSE gs.game_format END=$1)
  AND ($2::int IS NULL OR gs.duration_seconds=$2) AND ($3::text IS NULL OR gs.difficulty=$3)
     GROUP BY e.id, e.subject, e.type
     HAVING COUNT(*) >= 5
@@ -245,7 +245,7 @@ router.get("/stats/activity", async (req, res) => {
       COUNT(DISTINCT player_id) AS players
     FROM game_sessions
     WHERE rules_version IN (1,2) AND NOT disqualified AND started_at >= NOW() - ($1 || ' days')::interval
- AND ($2::text IS NULL OR CASE WHEN game_format='classic' THEN CASE WHEN battle_id IS NULL THEN 'classic_training' ELSE 'battle' END ELSE game_format END=$2)
+ AND ($2::text IS NULL OR CASE WHEN battle_id IS NOT NULL THEN CASE WHEN game_format='time_attack' THEN 'time_attack_battle' ELSE 'battle' END WHEN game_format='classic' THEN 'classic_training' ELSE game_format END=$2)
  AND ($3::int IS NULL OR duration_seconds=$3) AND ($4::text IS NULL OR difficulty=$4)
     GROUP BY DATE(started_at)
     ORDER BY day

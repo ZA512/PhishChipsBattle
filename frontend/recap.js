@@ -15,13 +15,24 @@ PCB.ready
             " min · " +
             (data.session.difficulty === "hardcore" ? "Difficile" : "Normal") +
             " · Score : " +
-            data.session.score
+            data.session.score +
+            " · " +
+            (data.session.battle_id
+              ? "Compétition #" + data.session.battle_id
+              : data.session.mail_set_name || "Catalogue général")
           : "Classique · Score : " + data.session.score) +
       " · Erreurs : " +
       data.session.errors +
       " · Équipe : " +
       (data.session.service_name || "—");
     const container = document.getElementById("answers");
+    if (data.session.battle_id) {
+      const link = document.createElement("a");
+      link.className = "btn btn-secondary";
+      link.textContent = "Classement de la compétition";
+      link.href = "/battles.html?results=" + data.session.battle_id;
+      document.getElementById("message").after(link);
+    }
     if (!data.answers.length) {
       const empty = document.createElement("p");
       empty.className = "empty-state";

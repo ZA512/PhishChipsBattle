@@ -67,14 +67,14 @@ router.get("/:id/profile", async (req, res) => {
       id === req.user.id
         ? (
             await pool.query(
-              `SELECT b.id,b.name,b.difficulty,b.status,bp.service_name,
+              `SELECT b.id,b.name,b.difficulty,b.game_format,b.duration_seconds,b.status,bp.service_name,
       best.score AS best_score, best.id AS session_id,
       (SELECT COUNT(*)::int FROM game_sessions gs WHERE gs.battle_id=b.id AND gs.player_id=$1) AS attempts
       FROM battle_participants bp JOIN battles b ON b.id=bp.battle_id LEFT JOIN LATERAL (
         SELECT gs.id,gs.score FROM game_sessions gs WHERE gs.battle_id=b.id AND gs.player_id=$1
-        AND gs.completed AND NOT gs.disqualified AND gs.rules_version IN (1,2) AND gs.game_format='classic'
-        AND (gs.rules_version=1 OR gs.finish_reason IS DISTINCT FROM 'abandoned')
-        ORDER BY gs.score DESC,gs.ended_at,gs.id LIMIT 1
+        AND gs.completed AND NOT gs.disqualified AND gs.rules_version IN (1,2) AND gs.game_format=b.game_format
+        AND ((b.game_format='classic' AND (gs.rules_version=1 OR gs.finish_reason IS DISTINCT FROM 'abandoned')) OR (b.game_format='time_attack' AND gs.current_email_index>0 AND gs.finish_reason IN ('time_up','all_emails','battle_closed')))
+        ORDER BY gs.score DESC,gs.human_correct DESC,gs.errors,gs.ended_at,gs.id LIMIT 1
       ) best ON TRUE WHERE bp.player_id=$1 ORDER BY b.created_at DESC,b.id DESC LIMIT 100`,
               [id],
             )

@@ -9,6 +9,10 @@ const { evaluateAchievements } = require("../services/achievements");
 const { shuffled, openBattle } = require("../services/battles");
 const { CATALOG_LOCK } = require("../services/mailCatalog");
 const {
+  availableSources,
+  selectSource,
+} = require("../services/timeAttackCatalog");
+const {
   NEW_RULES,
   classicSeconds,
   timeAttackScore,
@@ -57,7 +61,11 @@ async function lockedSession(client, id, playerId, allowClosed = false) {
   ).rows[0].now;
   if (![1, 2].includes(s.rules_version) && (!allowClosed || !s.completed))
     throw new HttpError(410, "Ancienne partie : démarrez une nouvelle partie");
-  if (!allowClosed && battle && s.server_now >= new Date(battle.ends_at))
+  if (
+    !allowClosed &&
+    battle?.ends_at &&
+    s.server_now >= new Date(battle.ends_at)
+  )
     throw new HttpError(409, "La battle n’est plus ouverte");
   await expireOne(client, s);
   return { session: s, battle };
@@ -105,10 +113,13 @@ async function state(client, s, jokerLimit) {
   return {
     sessionId: s.id,
     format: s.game_format,
+    battleId: s.battle_id,
     difficulty: s.difficulty,
     rulesVersion: s.rules_version,
     timerRules: s.timer_rules,
     durationSeconds: s.duration_seconds,
+    setId: s.mail_set_id,
+    setName: s.mail_set_name,
     deadlineAt: deadline,
     serverNow: s.server_now,
     remainingMs: deadline
@@ -155,6 +166,9 @@ async function earned(playerId, id) {
     return [];
   }
 }
+router.get("/mail-sets", async (_req, res) =>
+  res.json(await availableSources(pool)),
+);
 router.post("/", async (req, res) => {
   if (
     req.body.playerId !== undefined &&
@@ -162,20 +176,14 @@ router.post("/", async (req, res) => {
   )
     throw new HttpError(403, "Vous ne pouvez jouer que pour votre compte");
   const battleId = integer(req.body.battleId, "Battle", { optional: true });
-  const format = req.body.format ?? "classic";
+  if (battleId && req.body.format === "discovery")
+    throw new HttpError(400, "La découverte ne constitue pas une compétition");
   if (
-    !["classic", "discovery", "time_attack"].includes(format) ||
-    (battleId && format !== "classic")
+    req.body.format !== undefined &&
+    !["classic", "discovery", "time_attack"].includes(req.body.format)
   )
     throw new HttpError(400, "Format de jeu invalide pour ce contexte");
-  const duration =
-    format === "time_attack"
-      ? integer(req.body.durationSeconds, "Durée")
-      : null;
-  if (format === "time_attack" && ![300, 600].includes(duration))
-    throw new HttpError(400, "Choisissez 5 ou 10 minutes");
-  if (format !== "time_attack" && req.body.durationSeconds !== undefined)
-    throw new HttpError(400, "Ce format n’utilise pas de durée globale");
+  const setId = integer(req.body.setId, "Set", { optional: true });
   const result = await transaction(async (client) => {
     await client.query("SELECT pg_advisory_xact_lock_shared($1)", [
       CATALOG_LOCK,
@@ -193,9 +201,26 @@ router.post("/", async (req, res) => {
       if (!roster)
         throw new HttpError(
           403,
-          "Vous n’étiez pas inscrit à cette battle lors de sa création",
+          "Vous ne faites pas partie du public de cette compétition",
         );
     }
+    const format = battle?.game_format || req.body.format || "classic";
+    const duration =
+      format === "time_attack"
+        ? battle?.duration_seconds || integer(req.body.durationSeconds, "Durée")
+        : null;
+    if (
+      (format === "time_attack" && ![300, 600].includes(duration)) ||
+      (battle && req.body.format !== undefined && req.body.format !== format) ||
+      (req.body.durationSeconds !== undefined &&
+        (format !== "time_attack" ||
+          Number(req.body.durationSeconds) !== duration)) ||
+      (setId && (battle || format !== "time_attack"))
+    )
+      throw new HttpError(
+        400,
+        "Configuration incompatible avec cette compétition ou ce format",
+      );
     const difficulty =
       format === "discovery"
         ? "easy"
@@ -224,8 +249,9 @@ router.post("/", async (req, res) => {
       await client.query(
         `SELECT * FROM game_sessions WHERE player_id=$1 AND battle_id IS NOT DISTINCT FROM $2::integer
       AND difficulty=$3 AND game_format=$4 AND duration_seconds IS NOT DISTINCT FROM $5::integer
+      AND mail_set_id IS NOT DISTINCT FROM $6::integer
       AND rules_version IN (1,2) AND NOT completed ORDER BY id DESC LIMIT 1 FOR UPDATE`,
-        [req.user.id, battleId, difficulty, format, duration],
+        [req.user.id, battleId, difficulty, format, duration, setId],
       )
     ).rows[0];
     if (ongoing) {
@@ -245,14 +271,19 @@ router.post("/", async (req, res) => {
       if (Number(attempts.n) >= battle.max_attempts)
         throw new HttpError(409, "Toutes vos tentatives ont été utilisées");
     }
-    let order =
-      battle?.email_order ||
-      shuffled(
-        (
-          await client.query(`SELECT e.id FROM emails e WHERE archived_at IS NULL AND usage IN ('training','both')
+    const source =
+      format === "time_attack" && !battle
+        ? await selectSource(client, setId)
+        : null;
+    let order = source
+      ? shuffled(source.ids)
+      : battle?.email_order ||
+        shuffled(
+          (
+            await client.query(`SELECT e.id FROM emails e WHERE archived_at IS NULL AND usage IN ('training','both')
       AND EXISTS(SELECT 1 FROM mail_set_emails m JOIN mail_sets st ON st.id=m.set_id WHERE m.email_id=e.id AND st.status='ready') ORDER BY e.id`)
-        ).rows.map((e) => e.id),
-      );
+          ).rows.map((e) => e.id),
+        );
     if (format === "classic") order = order.slice(0, 162);
     if (!order.length)
       throw new HttpError(
@@ -262,8 +293,8 @@ router.post("/", async (req, res) => {
     const rules = battle?.timer_rules || NEW_RULES;
     const s = (
       await client.query(
-        `INSERT INTO game_sessions(player_id,difficulty,email_order,total_emails,service_id,service_name,battle_id,rules_version,game_format,duration_seconds,timer_rules)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+        `INSERT INTO game_sessions(player_id,difficulty,email_order,total_emails,service_id,service_name,battle_id,rules_version,game_format,duration_seconds,timer_rules,mail_set_id,mail_set_name)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
         [
           req.user.id,
           difficulty,
@@ -276,6 +307,8 @@ router.post("/", async (req, res) => {
           format,
           duration,
           JSON.stringify(rules),
+          source?.set?.id ?? null,
+          source?.set?.name ?? null,
         ],
       )
     ).rows[0];
@@ -332,7 +365,7 @@ router.get("/:id/next-email", async (req, res) => {
         UPDATE game_sessions SET email_started_at=clock.now,
         email_deadline_at=CASE WHEN $1::integer IS NULL THEN NULL ELSE LEAST(clock.now+($1::integer*INTERVAL '1 second'),COALESCE($2::timestamptz,'infinity'::timestamptz)) END,
         global_started_at=CASE WHEN game_format='time_attack' THEN COALESCE(global_started_at,clock.now) ELSE global_started_at END,
-        global_deadline_at=CASE WHEN game_format='time_attack' THEN COALESCE(global_deadline_at,clock.now+(duration_seconds*INTERVAL '1 second')) ELSE global_deadline_at END,
+        global_deadline_at=CASE WHEN game_format='time_attack' THEN COALESCE(global_deadline_at,LEAST(clock.now+(duration_seconds*INTERVAL '1 second'),COALESCE($2::timestamptz,'infinity'::timestamptz))) ELSE global_deadline_at END,
         viewed_emails=GREATEST(viewed_emails,current_email_index+1)
         FROM clock WHERE id=$3 RETURNING *,clock.now AS server_now`,
               [limit, battle?.ends_at || null, id],
@@ -564,6 +597,8 @@ router.get("/:id/recap", async (req, res) => {
         battle_id: s.battle_id,
         game_format: s.game_format,
         duration_seconds: s.duration_seconds,
+        mail_set_id: s.mail_set_id,
+        mail_set_name: s.mail_set_name,
         difficulty: s.difficulty,
         timer_rules: s.timer_rules,
       },

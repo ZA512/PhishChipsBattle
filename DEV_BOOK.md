@@ -58,7 +58,7 @@ L’audit a révélé des défauts absents du précédent document :
 | SSO Entra | Code + PKCE, état/nonce, contrôle signature/émetteur/audience/tenant, identité `oid`, rôles | Connexion réelle, consentements et politiques du tenant à tester. |
 | Annuaire | Import complet transactionnel, désactivation des absents, synchronisation Graph paginée | Retour des managers et permissions applicatives Graph à confirmer dans le tenant réel. Pas de planification automatique. |
 | Équipes | CRUD avec archivage, recommandation sans affectation, choix libre, historique | Rapprochement des anciens comptes non authentifiés à développer. |
-| Battles | Individuel, intra-équipe, inter-équipes ; règles/roster figés, même séquence, reprise, tentatives limitées | Participants déjà inscrits uniquement. Aucun éditeur de draft après publication. |
+| Battles | Classique et Contre-la-montre organisé ; personnes, toute l’entreprise ou équipes avec entrants ; même séquence, reprise, équipe figée par inscription, échéance facultative | Aucun éditeur de draft après publication. |
 | Résultats | Provisoires puis conservés à clôture ; absents à zéro pour la moyenne des équipes | Clôture à la consultation après échéance ou manuelle ; pas de tâche planifiée dédiée. |
 | Modération | Motif obligatoire, acteur/date/avant-après, disqualification et contrôle de version | Les badges déjà obtenus ne sont pas automatiquement révoqués. |
 | Interface | Identité Phish & Chips commune, clair/sombre partagé, connexion/inscription séparées, administration par rubriques, badges regroupés, messagerie simulée dans sa fenêtre | Voir [la refonte et ses vérifications](docs/UI_REFONTE_2026-10-01.md). SSO réel toujours à valider dans le tenant. |
@@ -121,12 +121,30 @@ La création de battles reste classique ; les tags, nouveaux badges dédiés, ba
 
 Les tags et le suivi individuel des questions déjà vues restent des évolutions ultérieures. Les corrections de battle demeurent accessibles après chaque réponse, comme décrit dans le README.
 
+### Sets du Contre-la-montre
+
+- Migration 007 : disponibilité `express` et source optionnelle de session (`mail_set_id`, nom figé), sans réécriture des anciennes parties. `express` est réservé au Contre-la-montre ; `training` et `both` sont utilisables dans ce mode ; `battle` en reste exclu.
+- Le joueur choisit le catalogue général ou un set prêt. GET `/api/sessions/mail-sets` expose uniquement noms, identifiants et volumes éligibles ; POST `/api/sessions` accepte `setId` uniquement en Contre-la-montre. Aucun contenu ni correction n’est livré par la liste des sets.
+- L’ordre tiré reste figé dans la session. Reprise distincte par source/durée/difficulté, y compris après archivage ; nouvelles parties refusées sur une source vide, en brouillon ou archivée.
+- Hall of Fame, détail du top 10 d’équipe et CSV filtrés par source, durée et difficulté. Les résultats historiques sans source restent dans le catalogue général. Les statistiques pédagogiques agrégées du dossier et de l’administration conservent leur segmentation par format/durée/difficulté.
+- Import/export, filtres du catalogue, disponibilité par défaut et modification sur sélection acceptent `express`. Les prompts FR/EN définissent explicitement cet usage pour les lots courts.
+
 ### Ergonomie du catalogue
 
 - Vue des sets en cartes, édition dans une fenêtre dédiée, import dans une vue séparée et sets archivés masqués par défaut.
 - Vue des mails centrée sur une collection, 15 lignes par page (30/50 au choix), actions visibles après sélection et sélection de tous les résultats filtrés sur toutes les pages. Changer de filtre efface la sélection pour éviter les actions sur des mails masqués.
 - Déplacement transactionnel d’un set à un autre, distinct de l’ajout à plusieurs sets ; validation de tous les rattachements d’origine avant mutation et historique dans les deux sets.
 - Suppressions regroupées dans les actions secondaires, outils globaux repliés. Parcours création, renommage, import et déplacement vérifiés dans le navigateur ; tests PostgreSQL couvrant déplacement périmé, destination identique, rattachement déjà existant et pagination.
+
+### Compétitions ouvertes et Contre-la-montre organisé
+
+- Migration 008 non destructive : fin facultative, format et durée de tentative sur battles, public snapshot/all/teams et équipes ciblées. Les anciennes battles restent snapshot et Classique. Plus de plafond de 90 jours ; une compétition sans fin est clôturée manuellement.
+- Toute l’entreprise inclut les comptes actifs avec une équipe, y compris les futurs. Les équipes ciblées peuvent inclure leurs futurs membres ; la sélection de personnes reste fixe. Inscriptions idempotentes lors des choix d’équipe et des accès aux compétitions ; aucune réaffectation des membres déjà inscrits, aucun ajout après clôture/échéance. Publication du roster initial en une requête adaptée aux effectifs importants.
+- Interface : recherche nom/email/équipe, filtre d’équipe et ajout des seuls résultats affichés. Le public et le classement sont indépendants : classement individuel sur des équipes ciblées, intra-équipe ou inter-équipes.
+- Contre-la-montre organisé et libre partagent le moteur. La compétition impose une série commune de sets prêts, une difficulté, 300/600 s et un quota de tentatives ; aucun SOS. Le délai global est borné par l’échéance éventuelle de l’événement. Les sets battle sont utilisables dans l’événement tout en restant exclus du mode libre.
+- Classements propres à chaque événement, aucun ajout au Hall of Fame libre. Les absents restent visibles sans rang devant les scores négatifs ; équipe = moyenne du top 10 des joueurs ayant terminé une tentative valide. Le Classique conserve sa formule avec absents à zéro. Clôturer force les tentatives actives à battle_closed, leurs scores acquis sont conservés.
+- Statistiques pédagogiques séparées via time_attack_battle ; dossier personnel et récapitulatif identifient les compétitions. Les corrections de score et disqualifications existantes restent applicables.
+- Vérification : 36 tests Node/PostgreSQL, dont migration, 1 200 comptes, échéance au-delà de 90 jours, absence de fin, nouveaux entrants, public ciblé, snapshots et clôture, ordre commun, pénalités, délai borné, départage et séparation du mode libre.
 
 ## Refonte de l’interface · octobre 2026
 

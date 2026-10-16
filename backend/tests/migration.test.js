@@ -94,10 +94,32 @@ test("Migration de données historiques : doublons, affectation et résultats pr
         "utf8",
       ),
     );
+    await client.query(
+      fs.readFileSync(
+        path.join(__dirname, "../src/db/migrations/007_time_attack_sets.sql"),
+        "utf8",
+      ),
+    );
     const preservedActive = (
       await client.query("SELECT * FROM game_sessions WHERE id=$1", [active.id])
     ).rows[0];
+    await client.query(
+      fs.readFileSync(
+        path.join(__dirname, "../src/db/migrations/008_open_competitions.sql"),
+        "utf8",
+      ),
+    );
+    const preservedBattle = (
+      await client.query(
+        "SELECT game_format,audience_mode,ends_at FROM battles WHERE id=$1",
+        [oldBattle.id],
+      )
+    ).rows[0];
+    assert.equal(preservedBattle.game_format, "classic");
+    assert.equal(preservedBattle.audience_mode, "snapshot");
+    assert.ok(preservedBattle.ends_at);
     assert.equal(preservedActive.game_format, "classic");
+    assert.equal(preservedActive.mail_set_id, null);
     assert.equal(preservedActive.rules_version, 1);
     assert.equal(preservedActive.timer_rules.version, 1);
     assert.equal(preservedActive.score, 1);

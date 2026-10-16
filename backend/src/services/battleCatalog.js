@@ -75,13 +75,22 @@ function allocate(emails, selections, safeCount) {
     .map((a) => ({ email: a.email, setId: selections[a.index].setId }));
 }
 async function selectBattleEmails(client, body) {
-  const count = integer(body.emailCount ?? 20, "Nombre d’emails", { max: 162 });
+  const timed = body.gameFormat === "time_attack";
+  const max = timed ? 5000 : 162;
+  const count = integer(body.emailCount ?? 20, "Nombre d’emails", { max });
   await client.query("SELECT pg_advisory_xact_lock_shared($1)", [CATALOG_LOCK]);
   // Compatibility for integrations predating sets; the new UI always selects sets.
   if (body.sets === undefined) {
     const available = (
-      await client.query(`SELECT e.id FROM emails e WHERE e.archived_at IS NULL AND e.usage IN ('battle','both')
-      AND EXISTS(SELECT 1 FROM mail_set_emails m JOIN mail_sets s ON s.id=m.set_id WHERE m.email_id=e.id AND s.status='ready') ORDER BY e.id`)
+      await client.query(
+        `SELECT e.id FROM emails e WHERE e.archived_at IS NULL AND e.usage=ANY($1::text[])
+      AND EXISTS(SELECT 1 FROM mail_set_emails m JOIN mail_sets s ON s.id=m.set_id WHERE m.email_id=e.id AND s.status='ready') ORDER BY e.id`,
+        [
+          timed
+            ? ["battle", "both", "express", "training"]
+            : ["battle", "both"],
+        ],
+      )
     ).rows.map((e) => e.id);
     if (count > available.length)
       throw new HttpError(
@@ -94,7 +103,7 @@ async function selectBattleEmails(client, body) {
     throw new HttpError(400, "Choisissez entre 1 et 20 sets");
   const selections = body.sets.map((s) => ({
     setId: integer(s?.setId, "Set"),
-    count: integer(s?.count, "Quantité par set", { max: 162 }),
+    count: integer(s?.count, "Quantité par set", { max }),
   }));
   if (new Set(selections.map((s) => s.setId)).size !== selections.length)
     throw new HttpError(400, "Un set ne peut être sélectionné qu’une fois");
@@ -129,8 +138,17 @@ async function selectBattleEmails(client, body) {
     await client.query(
       `SELECT e.id,e.type,e.usage,array_agg(m.set_id ORDER BY m.set_id) AS set_ids
     FROM emails e JOIN mail_set_emails m ON m.email_id=e.id WHERE e.archived_at IS NULL AND m.set_id=ANY($1::int[])
-    AND (e.usage='battle' OR (e.usage='both' AND $2::boolean=FALSE)) GROUP BY e.id ORDER BY e.id`,
-      [ids, !!body.excludeTraining],
+    AND e.usage=ANY($2::text[]) GROUP BY e.id ORDER BY e.id`,
+      [
+        ids,
+        timed
+          ? body.excludeTraining
+            ? ["battle", "express"]
+            : ["battle", "both", "express", "training"]
+          : body.excludeTraining
+            ? ["battle"]
+            : ["battle", "both"],
+      ],
     )
   ).rows;
   const emails = rows.map((e) => ({ ...e, setIds: e.set_ids }));
@@ -140,8 +158,12 @@ async function selectBattleEmails(client, body) {
     safe: safeCount,
     phishing: count - safeCount,
     excludeTraining: !!body.excludeTraining,
-    sharedAvailable: emails.filter((e) => e.usage === "both").length,
-    sharedSelected: assignments.filter((a) => a.email.usage === "both").length,
+    sharedAvailable: emails.filter(
+      (e) => e.usage === "both" || e.usage === "training",
+    ).length,
+    sharedSelected: assignments.filter(
+      (a) => a.email.usage === "both" || a.email.usage === "training",
+    ).length,
     sets: selections.map((s) => {
       const metadata = sets.find((x) => x.id === s.setId),
         selected = assignments.filter((a) => a.setId === s.setId);

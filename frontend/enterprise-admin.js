@@ -54,7 +54,7 @@ function selectedIds(kind) {
 function normalized(text) {
   return text
     .normalize("NFD")
-    .replace(/[\\u0300-\\u036f]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 }
 function renderPicker(kind, rows, name, extra) {
@@ -73,6 +73,7 @@ function renderPicker(kind, rows, name, extra) {
       label.dataset.search = normalized(
         text.textContent + " " + detail.textContent,
       );
+      label.dataset.teamId = String(row.service_id || "");
       label.append(input, text, detail);
       input.addEventListener("change", updatePickerCounts);
       return label;
@@ -87,7 +88,14 @@ function filterPicker(kind) {
   );
   byId("battle-" + kind)
     .querySelectorAll("label")
-    .forEach((l) => (l.hidden = !l.dataset.search.includes(query)));
+    .forEach(
+      (l) =>
+        (l.hidden =
+          !l.dataset.search.includes(query) ||
+          (kind === "players" &&
+            byId("player-team-filter").value &&
+            l.dataset.teamId !== byId("player-team-filter").value)),
+    );
 }
 function updatePickerCounts() {
   byId("players-selected").textContent =
@@ -98,11 +106,14 @@ function updatePickerCounts() {
 }
 function updateBattlePreview() {
   const mode = byId("battle-mode").value;
+  const scope = byId("battle-audience").value;
   const count =
-    mode === "individual"
-      ? selectedIds("players").length
-      : players.filter((p) => selectedIds("teams").includes(p.service_id))
-          .length;
+    scope === "all"
+      ? players.filter((p) => p.service_id).length
+      : scope === "players"
+        ? selectedIds("players").length
+        : players.filter((p) => selectedIds("teams").includes(p.service_id))
+            .length;
   byId("battle-preview").textContent =
     count +
     " participant(s) · " +
@@ -112,8 +123,16 @@ function updateBattlePreview() {
     " tentative(s) · " +
     byId("battle-jokers").value +
     " SOS par tentative. " +
-    PCBRules.timing(byId("battle-difficulty").value) +
-    ". Participants, équipes et règles seront figés à la publication.";
+    (byId("battle-game-format").value === "time_attack"
+      ? byId("battle-duration").value / 60 + " minutes globales, sans SOS"
+      : PCBRules.timing(byId("battle-difficulty").value)) +
+    (scope === "all" ||
+    (scope === "teams" && byId("battle-include-future").checked)
+      ? ". Public ouvert aux nouveaux arrivants éligibles."
+      : ". Liste des participants figée à la publication.") +
+    (byId("battle-no-end").checked
+      ? " Sans date de fin, clôture manuelle."
+      : "");
 }
 function updateCorrectionPreview() {
   const s = sessions.find((s) => s.id === Number(byId("session-select").value));
@@ -178,6 +197,9 @@ document.querySelectorAll("[data-admin-tab]").forEach((b) => {
 });
 byId("player-search").addEventListener("input", () => filterPicker("players"));
 byId("team-search").addEventListener("input", () => filterPicker("teams"));
+byId("player-team-filter").addEventListener("change", () =>
+  filterPicker("players"),
+);
 byId("battle-form").addEventListener("input", updateBattlePreview);
 byId("corrected-score").addEventListener("input", updateCorrectionPreview);
 byId("disqualified").addEventListener("change", updateCorrectionPreview);
@@ -186,11 +208,21 @@ async function loadLists() {
   const data = await PCB.request("/api/battles/participants");
   players = data.players;
   teams = data.teams;
+  const teamFilter = byId("player-team-filter"),
+    previousTeam = teamFilter.value;
+  teamFilter.replaceChildren(
+    new Option("Toutes les équipes", ""),
+    ...teams.map((t) => new Option(t.name, String(t.id))),
+  );
+  teamFilter.value = previousTeam;
   renderPicker(
     "players",
     players,
     (p) => p.display_name,
-    (p) => teams.find((t) => t.id === p.service_id)?.name || "Sans équipe",
+    (p) =>
+      (teams.find((t) => t.id === p.service_id)?.name || "Sans équipe") +
+      " · " +
+      p.email,
   );
   renderPicker(
     "teams",
@@ -266,16 +298,53 @@ byId("team-form").addEventListener("submit", (e) => {
     notify("Équipe enregistrée.");
   });
 });
-byId("battle-mode").addEventListener("change", () => {
-  const individual = byId("battle-mode").value === "individual";
-  byId("player-picker").classList.toggle("hidden", !individual);
-  byId("team-picker").classList.toggle("hidden", individual);
+function updateAudience() {
+  const scope = byId("battle-audience").value;
+  if (scope !== "teams") byId("battle-mode").value = "individual";
+  byId("player-picker").classList.toggle("hidden", scope !== "players");
+  byId("team-picker").classList.toggle("hidden", scope !== "teams");
+  byId("battle-future-field").hidden = scope !== "teams";
+  byId("battle-audience-note").textContent =
+    scope === "all"
+      ? "Tous les comptes avec une équipe, y compris ceux créés plus tard, jusqu’à la clôture. Aucune sélection de 1 200 noms à maintenir."
+      : scope === "teams"
+        ? "Choisissez les équipes ciblées. L’équipe est figée lors de l’inscription ; changer ensuite d’équipe ne déplace pas les résultats."
+        : "Recherchez par nom, email ou équipe. Ajouter les résultats ne sélectionne que les personnes affichées ; les nouveaux comptes ne sont pas ajoutés.";
   updateBattlePreview();
+}
+byId("battle-audience").addEventListener("change", updateAudience);
+byId("battle-mode").addEventListener("change", () => {
+  if (byId("battle-mode").value !== "individual")
+    byId("battle-audience").value = "teams";
+  updateAudience();
+});
+byId("battle-game-format").addEventListener("change", () => {
+  const timed = byId("battle-game-format").value === "time_attack";
+  byId("battle-duration-field").hidden = !timed;
+  byId("battle-difficulty").querySelector('[value="easy"]').disabled = timed;
+  if (timed && byId("battle-difficulty").value === "easy")
+    byId("battle-difficulty").value = "normal";
+  byId("battle-jokers").value = timed ? 0 : 3;
+  byId("battle-jokers").disabled = timed;
+  byId("battle-count").max = timed ? 5000 : 162;
+  updateBattlePreview();
+});
+byId("battle-no-end").addEventListener("change", () => {
+  byId("battle-end").disabled = byId("battle-no-end").checked;
+  byId("battle-end").required = !byId("battle-no-end").checked;
 });
 byId("select-all").addEventListener("click", () => {
   byId("battle-players")
+    .querySelectorAll("label")
+    .forEach((label) => {
+      if (!label.hidden) label.querySelector("input").checked = true;
+    });
+  updatePickerCounts();
+});
+byId("clear-players").addEventListener("click", () => {
+  byId("battle-players")
     .querySelectorAll("input")
-    .forEach((input) => (input.checked = true));
+    .forEach((i) => (i.checked = false));
   updatePickerCounts();
 });
 byId("battle-form").addEventListener("submit", (e) => {
@@ -284,9 +353,15 @@ byId("battle-form").addEventListener("submit", (e) => {
     const body = {
       name: byId("battle-name").value,
       mode: byId("battle-mode").value,
+      gameFormat: byId("battle-game-format").value,
+      ...(byId("battle-game-format").value === "time_attack"
+        ? { durationSeconds: Number(byId("battle-duration").value) }
+        : {}),
       difficulty: byId("battle-difficulty").value,
       startsAt: new Date(byId("battle-start").value).toISOString(),
-      endsAt: new Date(byId("battle-end").value).toISOString(),
+      endsAt: byId("battle-no-end").checked
+        ? null
+        : new Date(byId("battle-end").value).toISOString(),
       emailCount: Number(byId("battle-count").value),
       maxAttempts: Number(byId("battle-attempts").value),
       jokerLimit: Number(byId("battle-jokers").value),
@@ -294,9 +369,26 @@ byId("battle-form").addEventListener("submit", (e) => {
       teamIds: selectedIds("teams"),
       ...PCB.battleCatalog.fields(),
     };
-    if (body.endsAt <= body.startsAt)
+    const scope = byId("battle-audience").value;
+    body.audience = {
+      type:
+        scope === "all"
+          ? "all"
+          : scope === "teams" && byId("battle-include-future").checked
+            ? "teams"
+            : "snapshot",
+    };
+    if (scope === "teams" && body.mode === "individual")
+      body.playerIds = players
+        .filter((p) => body.teamIds.includes(p.service_id))
+        .map((p) => p.id);
+    if (body.endsAt && body.endsAt <= body.startsAt)
       throw new Error("La fin doit suivre le début.");
-    if (body.mode === "individual" && !body.playerIds.length)
+    if (
+      body.audience.type === "snapshot" &&
+      body.mode === "individual" &&
+      !body.playerIds.length
+    )
       throw new Error("Sélectionnez au moins un joueur.");
     if (body.mode === "internal" && body.teamIds.length !== 1)
       throw new Error("Sélectionnez une seule équipe pour ce format.");
@@ -330,14 +422,19 @@ async function loadBattles() {
         b.mail_selection?.sets
           .map((s) => `${s.name} (${s.count})`)
           .join(" · ") || "Catalogue historique",
-        PCBRules.timing(b.difficulty, b.timer_rules.version),
+        b.game_format === "time_attack"
+          ? "Contre-la-montre · " +
+            b.duration_seconds / 60 +
+            " min · " +
+            b.difficulty
+          : PCBRules.timing(b.difficulty, b.timer_rules.version),
         formatDate(b.starts_at),
-        formatDate(b.ends_at),
+        b.ends_at ? formatDate(b.ends_at) : "Sans date de fin",
         b.status === "closed"
           ? "Clôturée"
           : Date.now() < Date.parse(b.starts_at)
             ? "À venir"
-            : Date.now() >= Date.parse(b.ends_at)
+            : b.ends_at && Date.now() >= Date.parse(b.ends_at)
               ? "Échéance atteinte"
               : "En cours",
         b.status === "closed"
@@ -476,6 +573,7 @@ PCB.ready
       .forEach((e) => e.classList.toggle("hidden", !admin));
     selectAdminSection(location.hash.slice(1));
     await loadLists();
+    updateAudience();
     await loadBattles();
     if (admin) await loadScores();
     notify("");

@@ -102,11 +102,16 @@ PCB.ready = (async () => {
       const timeAttack =
         location.pathname === "/time-attack.html" ||
         (location.pathname === "/phishing.html" &&
-          new URLSearchParams(location.search).get("format") === "time_attack");
+          new URLSearchParams(location.search).get("format") ===
+            "time_attack" &&
+          !new URLSearchParams(location.search).has("battle"));
       if (
-        timeAttack
-          ? href === "/time-attack.html"
-          : new URL(link.href).pathname === location.pathname
+        location.pathname === "/phishing.html" &&
+        new URLSearchParams(location.search).has("battle")
+          ? href === "/battles.html"
+          : timeAttack
+            ? href === "/time-attack.html"
+            : new URL(link.href).pathname === location.pathname
       )
         link.setAttribute("aria-current", "page");
       links.appendChild(link);

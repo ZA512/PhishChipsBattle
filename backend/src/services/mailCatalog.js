@@ -7,6 +7,7 @@ const {
   setInput,
   saveSet,
   event,
+  USAGES,
 } = require("./mailSets");
 const MAX_MAILS = 5000;
 function normalizeEmails(input, defaultUsage = "training") {
@@ -28,10 +29,10 @@ function normalizeEmails(input, defaultUsage = "training") {
     if (!["safe", "phishing"].includes(row.type))
       throw new HttpError(400, `${label} : type safe ou phishing requis`);
     const usage = row.usage ?? defaultUsage;
-    if (!["training", "battle", "both"].includes(usage))
+    if (!USAGES.includes(usage))
       throw new HttpError(
         400,
-        `${label} : usage training, battle ou both requis`,
+        `${label} : usage training, battle, both ou express requis`,
       );
     if (
       !Array.isArray(row.clues) ||

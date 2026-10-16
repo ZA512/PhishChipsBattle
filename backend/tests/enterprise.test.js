@@ -18,7 +18,7 @@ process.env.TRUST_PROXY = "loopback";
 const pool = require("../src/db/pool");
 const { migrate } = require("../src/db/migrate");
 const { createApp } = require("../src/app");
-const { answerLimiter } = require("../src/middleware/rateLimiter");
+const { answerLimiter, authLimiter } = require("../src/middleware/rateLimiter");
 const { passwordHash, passwordMatches } = require("../src/services/auth");
 const { evaluateAchievements } = require("../src/services/achievements");
 const { transaction } = require("../src/lib/http");
@@ -2008,6 +2008,646 @@ test("Parcours entreprise et régressions sur PostgreSQL", async (t) => {
             -5.5,
           );
         },
+      );
+    },
+  );
+
+  await t.test(
+    "Contre-la-montre : sets express, reprises et classements isolés par source",
+    async () => {
+      const actor = await user("express");
+      await choose(actor, b.id);
+      const make = async (label, status = "ready", usage = "express") =>
+        (
+          await ok("/api/admin/emails/import", {
+            user: admin,
+            method: "POST",
+            body: {
+              newSet: { name: label + run, status, defaultUsage: usage },
+              catalog: [0, 1].map((i) => ({
+                sender: "Test <test@example.test>",
+                realSender: "test@example.test",
+                subject: label + run + i,
+                body: "Un mail court de test.",
+                type: i ? "phishing" : "safe",
+                clues: ["Comparez le domaine du lien."],
+              })),
+            },
+          })
+        ).set;
+      const setA = await make("Express A "),
+        setB = await make("Express B ");
+      const draft = await make("Express brouillon ", "draft"),
+        reserved = await make("Battle réservée ", "ready", "battle");
+      assert.equal((await request("/api/sessions/mail-sets")).status, 401);
+      const sources = await ok("/api/sessions/mail-sets", { user: actor });
+      assert.equal(sources.sets.find((s) => s.id === setA.id).total, 2);
+      assert.ok(
+        !sources.sets.some((s) => [draft.id, reserved.id].includes(s.id)),
+      );
+      assert.deepEqual(
+        Object.keys(sources.sets.find((s) => s.id === setA.id)).sort(),
+        ["id", "name", "total"],
+      );
+      const emailsA = (
+        await ok("/api/admin/emails?setId=" + setA.id + "&usage=express", {
+          user: admin,
+        })
+      ).emails;
+      assert.equal(emailsA.length, 2);
+      assert.ok(emailsA.every((e) => e.usage === "express"));
+      const launch = async (setId) =>
+        ok(
+          "/api/sessions",
+          {
+            user: actor,
+            method: "POST",
+            body: {
+              format: "time_attack",
+              difficulty: "hardcore",
+              durationSeconds: 300,
+              ...(setId ? { setId } : {}),
+            },
+          },
+          201,
+        );
+      const sa = await launch(setA.id),
+        sb = await launch(setB.id),
+        general = await launch();
+      assert.notEqual(sa.sessionId, sb.sessionId);
+      assert.equal(sa.setName, setA.name);
+      const order = async (s) =>
+        (
+          await pool.query(
+            "SELECT email_order FROM game_sessions WHERE id=$1",
+            [s.sessionId],
+          )
+        ).rows[0].email_order;
+      assert.deepEqual(
+        (await order(sa)).sort((a, b) => a - b),
+        emailsA.map((e) => e.id).sort((a, b) => a - b),
+      );
+      assert.ok((await order(general)).includes(emailsA[0].id));
+      const battleEmails = (
+        await ok("/api/admin/emails?setId=" + reserved.id, { user: admin })
+      ).emails;
+      assert.ok(
+        (await order(general)).every(
+          (id) => !battleEmails.some((e) => e.id === id),
+        ),
+      );
+      for (const format of ["classic", "discovery"]) {
+        const session = await ok(
+          "/api/sessions",
+          { user: actor, method: "POST", body: { format, difficulty: "easy" } },
+          201,
+        );
+        assert.ok(
+          (await order(session)).every(
+            (id) => !emailsA.some((e) => e.id === id),
+          ),
+        );
+        await end(actor, session);
+      }
+      const first = await next(actor, sa);
+      assert.ok(emailsA.some((e) => e.id === first.emailId));
+      assert.ok(!("type" in first) && !("clues" in first));
+      const resumed = await launch(setA.id);
+      assert.equal(resumed.sessionId, sa.sessionId);
+      assert.equal((await next(actor, sa)).deadlineAt, first.deadlineAt);
+      for (const [id, status] of [
+        [draft.id, 404],
+        [reserved.id, 409],
+        [2147483647, 404],
+      ])
+        assert.equal(
+          (
+            await request("/api/sessions", {
+              user: actor,
+              method: "POST",
+              body: {
+                format: "time_attack",
+                difficulty: "normal",
+                durationSeconds: 600,
+                setId: id,
+              },
+            })
+          ).status,
+          status,
+        );
+      assert.equal(
+        (
+          await request("/api/sessions", {
+            user: actor,
+            method: "POST",
+            body: { difficulty: "easy", setId: setA.id },
+          })
+        ).status,
+        400,
+      );
+      await ok("/api/admin/mail-sets/" + setA.id, {
+        user: admin,
+        method: "PUT",
+        body: {
+          name: "Renommé " + run,
+          status: "ready",
+          defaultUsage: "express",
+        },
+      });
+      await ok("/api/admin/mail-sets/" + setB.id, {
+        user: admin,
+        method: "PUT",
+        body: { name: setB.name, status: "archived", defaultUsage: "express" },
+      });
+      assert.equal(
+        (await launch(setB.id)).sessionId,
+        sb.sessionId,
+        "Un archivage ne casse pas la reprise figée",
+      );
+      assert.equal(
+        (await ok(`/api/sessions/${sa.sessionId}/state`, { user: actor }))
+          .setName,
+        setA.name,
+      );
+      for (const [session, good] of [
+        [sa, false],
+        [sb, true],
+      ]) {
+        for (let i = 0; i < 2; i++) {
+          const mail = await next(actor, session);
+          const type = (
+            await pool.query("SELECT type FROM emails WHERE id=$1", [
+              mail.emailId,
+            ])
+          ).rows[0].type;
+          await answer(
+            actor,
+            session,
+            mail.emailId,
+            good ? type : type === "safe" ? "phishing" : "safe",
+          );
+        }
+      }
+      await end(actor, general);
+      const scores = async (source = "") =>
+        (
+          await ok(
+            "/api/scores/time-attack/players?duration=300&difficulty=hardcore" +
+              source,
+            { user: actor },
+          )
+        ).scores;
+      assert.equal(
+        (await scores("&setId=" + setA.id)).find((p) => p.id === actor.id)
+          .best_score,
+        -3,
+      );
+      assert.equal(
+        (await scores("&setId=" + setB.id)).find((p) => p.id === actor.id)
+          .best_score,
+        2,
+      );
+      assert.ok(!(await scores()).some((p) => p.id === actor.id));
+      const detail = await ok(
+        `/api/scores/time-attack/services/${b.id}/detail?duration=300&difficulty=hardcore&setId=${setA.id}`,
+        { user: actor },
+      );
+      assert.equal(detail.avgBestScore, -3);
+      assert.equal(detail.top10.length, 1);
+      const recap = await ok(`/api/sessions/${sa.sessionId}/recap`, {
+        user: actor,
+      });
+      assert.equal(recap.session.mail_set_name, setA.name);
+      assert.ok(
+        !(await ok("/api/sessions/mail-sets", { user: actor })).sets.some(
+          (s) => s.id === setB.id,
+        ),
+      );
+      assert.equal(
+        (
+          await request("/api/sessions", {
+            user: actor,
+            method: "POST",
+            body: {
+              format: "time_attack",
+              difficulty: "normal",
+              durationSeconds: 600,
+              setId: setB.id,
+            },
+          })
+        ).status,
+        404,
+      );
+    },
+  );
+
+  await t.test(
+    "Compétitions ouvertes : plus de 90 jours, sans fin, 1200 comptes et entrants ciblés",
+    async () => {
+      authLimiter.resetKey("127.0.0.1");
+      const team = (
+        await ok(
+          "/api/admin/services",
+          {
+            user: admin,
+            method: "POST",
+            body: { name: "DSI ouverte", code: "OPEN_" + run },
+          },
+          201,
+        )
+      ).service;
+      const other = (
+        await ok(
+          "/api/admin/services",
+          {
+            user: admin,
+            method: "POST",
+            body: { name: "Comptabilité ouverte", code: "COMPTA_" + run },
+          },
+          201,
+        )
+      ).service;
+      await pool.query(
+        `INSERT INTO players(name,email,service_id) SELECT 'Effectif '||n||$1,'effectif'||n||$1||'@example.test',$2 FROM generate_series(1,1200)n`,
+        [run, team.id],
+      );
+      const publish = async (fields) =>
+        ok(
+          "/api/battles",
+          {
+            user: admin,
+            method: "POST",
+            body: {
+              name: "Public ouvert " + run,
+              mode: "individual",
+              difficulty: "hardcore",
+              startsAt: new Date(Date.now() - 60000).toISOString(),
+              endsAt: null,
+              emailCount: 2,
+              ...fields,
+            },
+          },
+          201,
+        );
+      const all = await publish({ audience: { type: "all" } });
+      assert.ok(all.participants >= 1200);
+      const annual = await publish({
+        audience: { type: "all" },
+        endsAt: new Date(Date.now() + 400 * 86400000).toISOString(),
+      });
+      const target = await publish({
+        mode: "internal",
+        audience: { type: "teams" },
+        teamIds: [other.id],
+      });
+      assert.equal(
+        target.participants,
+        0,
+        "Une équipe vide peut accueillir de futurs entrants",
+      );
+      const first = await user("openfirst");
+      await choose(first, team.id);
+      const fixed = await publish({ playerIds: [first.id] });
+      const late = await user("openlate");
+      let visible = (await ok("/api/battles", { user: late })).battles;
+      assert.ok(
+        !visible.some((x) => x.id === all.id),
+        "Choix d’équipe requis avant inscription",
+      );
+      await choose(late, other.id);
+      visible = (await ok("/api/battles", { user: late })).battles;
+      assert.ok(visible.some((x) => x.id === all.id && x.ends_at === null));
+      assert.ok(visible.some((x) => x.id === annual.id));
+      assert.ok(visible.some((x) => x.id === target.id));
+      assert.ok(!visible.some((x) => x.id === fixed.id));
+      assert.equal(
+        (await request(`/api/battles/${fixed.id}/results`, { user: late }))
+          .status,
+        403,
+      );
+      await choose(late, team.id);
+      const roster = (
+        await pool.query(
+          "SELECT service_id FROM battle_participants WHERE battle_id=$1 AND player_id=$2",
+          [target.id, late.id],
+        )
+      ).rows[0];
+      assert.equal(
+        roster.service_id,
+        other.id,
+        "Changer d’équipe ne déplace pas une inscription existante",
+      );
+      const session = await begin(late, target.id);
+      assert.equal(
+        (
+          await pool.query("SELECT service_id FROM game_sessions WHERE id=$1", [
+            session.sessionId,
+          ])
+        ).rows[0].service_id,
+        other.id,
+      );
+      const before = (
+        await pool.query(
+          "SELECT COUNT(*)::int n FROM battle_participants WHERE battle_id=$1",
+          [all.id],
+        )
+      ).rows[0].n;
+      await Promise.all([
+        ok("/api/battles", { user: late }),
+        ok("/api/battles", { user: first }),
+      ]);
+      assert.equal(
+        (
+          await pool.query(
+            "SELECT COUNT(*)::int n FROM battle_participants WHERE battle_id=$1",
+            [all.id],
+          )
+        ).rows[0].n,
+        before,
+        "Inscriptions idempotentes",
+      );
+      await ok(`/api/battles/${all.id}/close`, {
+        user: admin,
+        method: "POST",
+        body: {},
+      });
+      const later = await user("afterclose");
+      await choose(later, other.id);
+      assert.ok(
+        !(await ok("/api/battles", { user: later })).battles.some(
+          (x) => x.id === all.id,
+        ),
+      );
+      await ok(`/api/battles/${target.id}/close`, {
+        user: admin,
+        method: "POST",
+        body: {},
+      });
+      assert.equal(
+        (await ok(`/api/sessions/${session.sessionId}/state`, { user: late }))
+          .finishReason,
+        "battle_closed",
+      );
+      const directory = (await ok("/api/battles/participants", { user: admin }))
+        .players;
+      assert.ok(
+        directory.filter((p) => p.service_id === team.id).length >= 1200,
+      );
+    },
+  );
+  await t.test(
+    "Contre-la-montre organisé : série réservée, contraintes, négatifs et séparation du mode libre",
+    async () => {
+      authLimiter.resetKey("127.0.0.1");
+      const team = (
+        await ok(
+          "/api/admin/services",
+          {
+            user: admin,
+            method: "POST",
+            body: { name: "Chrono organisé", code: "EVENT_" + run },
+          },
+          201,
+        )
+      ).service;
+      const left = await user("eventleft"),
+        right = await user("eventright"),
+        absent = await user("eventabsent");
+      for (const u of [left, right, absent]) await choose(u, team.id);
+      const imported = await ok("/api/admin/emails/import", {
+        user: admin,
+        method: "POST",
+        body: {
+          newSet: {
+            name: "Express réservé " + run,
+            status: "ready",
+            defaultUsage: "battle",
+          },
+          catalog: Array.from({ length: 4 }, (_, i) => ({
+            sender: "Support <s@example.test>",
+            realSender: "s@example.test",
+            subject: "Event " + run + i,
+            body: "Scénario court " + i,
+            type: i % 2 ? "phishing" : "safe",
+            clues: ["Comparez le domaine."],
+          })),
+        },
+      });
+      const body = {
+        name: "Chrono DSI " + run,
+        gameFormat: "time_attack",
+        durationSeconds: 300,
+        mode: "internal",
+        difficulty: "hardcore",
+        startsAt: new Date(Date.now() - 1000).toISOString(),
+        endsAt: null,
+        teamIds: [team.id],
+        audience: { type: "teams" },
+        emailCount: 4,
+        safeCount: 2,
+        sets: [{ setId: imported.set.id, count: 4 }],
+      };
+      const event = await ok(
+        "/api/battles",
+        { user: admin, method: "POST", body },
+        201,
+      );
+      assert.equal(
+        (
+          await request("/api/battles", {
+            user: admin,
+            method: "POST",
+            body: { ...body, difficulty: "easy" },
+          })
+        ).status,
+        400,
+      );
+      assert.equal(
+        (
+          await request("/api/battles", {
+            user: admin,
+            method: "POST",
+            body: { ...body, jokerLimit: 1 },
+          })
+        ).status,
+        400,
+      );
+      const ls = await begin(left, event.id),
+        rs = await begin(right, event.id);
+      assert.equal(ls.format, "time_attack");
+      assert.equal(ls.durationSeconds, 300);
+      assert.equal(ls.jokerLimit, 0);
+      const le = await next(left, ls),
+        re = await next(right, rs);
+      assert.equal(le.emailId, re.emailId);
+      assert.equal(
+        (
+          await pool.query(
+            "SELECT email_order FROM game_sessions WHERE id=$1",
+            [ls.sessionId],
+          )
+        ).rows[0].email_order.join(","),
+        (
+          await pool.query(
+            "SELECT email_order FROM game_sessions WHERE id=$1",
+            [rs.sessionId],
+          )
+        ).rows[0].email_order.join(","),
+      );
+      assert.equal(
+        (
+          await request(`/api/sessions/${ls.sessionId}/answer`, {
+            user: left,
+            token: ls.sessionToken,
+            method: "POST",
+            body: { emailId: le.emailId, choice: "joker" },
+          })
+        ).status,
+        400,
+      );
+      assert.equal(
+        (
+          await request("/api/sessions", {
+            user: left,
+            method: "POST",
+            body: { battleId: event.id, format: "classic" },
+          })
+        ).status,
+        400,
+      );
+      for (let i = 0; i < 4; i++) {
+        const mail = await next(left, ls);
+        const type = (
+          await pool.query("SELECT type FROM emails WHERE id=$1", [
+            mail.emailId,
+          ])
+        ).rows[0].type;
+        await answer(
+          left,
+          ls,
+          mail.emailId,
+          type === "safe" ? "phishing" : "safe",
+        );
+      }
+      const state = await ok(`/api/sessions/${ls.sessionId}/state`, {
+        user: left,
+      });
+      assert.equal(state.score, -10);
+      assert.equal(state.completed, true);
+      const result = await ok(`/api/battles/${event.id}/results`, {
+        user: left,
+      });
+      assert.equal(
+        result.results.players[0].player_id,
+        left.id,
+        "Les absents ne passent pas devant un score négatif",
+      );
+      assert.equal(result.results.teams[0].score, -10);
+      assert.ok(
+        result.results.players.find((p) => p.player_id === absent.id).score ===
+          null,
+      );
+      const tie = (
+        await pool.query(
+          "INSERT INTO players(name,email,service_id) VALUES($1,$2,$3) RETURNING id",
+          ["Égalité " + run, "tie-" + run + "@example.test", team.id],
+        )
+      ).rows[0];
+      await pool.query(
+        `INSERT INTO game_sessions(player_id,battle_id,difficulty,email_order,total_emails,score,current_email_index,completed,ended_at,service_id,service_name,rules_version,game_format,duration_seconds,human_correct,errors,finish_reason)
+        VALUES($1,$2,'hardcore','[]',4,-10,4,TRUE,clock_timestamp()-INTERVAL '1 minute',$3,'Chrono organisé',2,'time_attack',300,0,4,'all_emails')`,
+        [tie.id, event.id, team.id],
+      );
+      const tied = await ok(`/api/battles/${event.id}/results`, { user: left });
+      assert.equal(
+        tied.results.players[0].player_id,
+        tie.id,
+        "Une égalité se départage par date de fin, pas par ordre d’inscription",
+      );
+      const hof = await ok(
+        "/api/scores/time-attack/players?duration=300&difficulty=hardcore",
+        { user: left },
+      );
+      assert.ok(!hof.scores.some((p) => p.id === left.id));
+      assert.equal(
+        (
+          await request("/api/sessions", {
+            user: left,
+            method: "POST",
+            body: { battleId: event.id },
+          })
+        ).status,
+        409,
+      );
+      const profile = await ok(`/api/players/${left.id}/profile`, {
+        user: left,
+      });
+      assert.ok(
+        profile.formats.some(
+          (r) => r.family === "time_attack_battle" && r.best_score === -10,
+        ),
+      );
+      assert.ok(
+        profile.battles.some((b) => b.id === event.id && b.best_score === -10),
+      );
+      assert.equal(
+        (
+          await ok("/api/admin/stats/overview?family=time_attack_battle", {
+            user: admin,
+          })
+        ).byDifficulty.every((r) => r.family === "time_attack_battle"),
+        true,
+      );
+      const solo = await ok(
+        "/api/sessions",
+        {
+          user: right,
+          method: "POST",
+          body: {
+            format: "time_attack",
+            durationSeconds: 300,
+            difficulty: "normal",
+          },
+        },
+        201,
+      );
+      assert.equal(solo.battleId, null);
+      await end(right, solo);
+      const short = await ok(
+        "/api/battles",
+        {
+          user: admin,
+          method: "POST",
+          body: {
+            ...body,
+            name: "Échéance proche",
+            endsAt: new Date(Date.now() + 60000).toISOString(),
+          },
+        },
+        201,
+      );
+      const shortSession = await begin(right, short.id),
+        shortMail = await next(right, shortSession);
+      assert.ok(shortMail.remainingMs <= 60000);
+      await ok(`/api/battles/${event.id}/close`, {
+        user: admin,
+        method: "POST",
+        body: {},
+      });
+      assert.equal(
+        (await ok(`/api/sessions/${rs.sessionId}/state`, { user: right }))
+          .finishReason,
+        "battle_closed",
+      );
+      assert.equal(
+        (
+          await request("/api/sessions", {
+            user: right,
+            method: "POST",
+            body: { battleId: event.id },
+          })
+        ).status,
+        409,
       );
     },
   );

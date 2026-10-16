@@ -73,6 +73,11 @@ const gameParams = new URLSearchParams(location.search);
 let gameFormat =
   gameParams.get("format") === "time_attack" ? "time_attack" : "classic";
 let gameDuration = Number(gameParams.get("duration") || 300);
+let competition = null;
+const gameSetId =
+  gameFormat === "time_attack" && !gameParams.has("battle")
+    ? gameParams.get("setId") || ""
+    : "";
 let canonicalState = null;
 let rulesVersion = 2;
 let checkingExpiry = false;
@@ -208,6 +213,9 @@ async function loadServices() {
       );
       if (!battle || !battle.participating)
         throw new Error("Vous ne participez pas à cette battle.");
+      competition = battle;
+      gameFormat = battle.game_format;
+      if (battle.duration_seconds) gameDuration = battle.duration_seconds;
       const note = document.createElement("p");
       note.className = "notice";
       note.textContent = `${battle.name} · ${battle.email_count} emails · ${battle.max_attempts} tentative(s). L’équipe de cette battle reste ${battle.roster_team || "celle fixée à sa création"}.`;
@@ -282,14 +290,15 @@ async function startGame() {
       document.querySelector('input[name="difficulty"]:checked')?.value ||
       "easy";
     if (gameFormat === "time_attack")
-      gameDifficulty = gameParams.get("difficulty") || "normal";
+      gameDifficulty =
+        competition?.difficulty || gameParams.get("difficulty") || "normal";
     else
       gameFormat = gameParams.has("battle")
         ? "classic"
         : document.getElementById("training-format").value;
     if (gameFormat === "discovery") gameDifficulty = "easy";
     const battle = new URLSearchParams(location.search).get("battle");
-    recoveryKey = `pcb-game-${player.id}-${gameFormat}-${gameDifficulty}-${gameFormat === "time_attack" ? gameDuration : ""}-${battle || ""}`;
+    recoveryKey = `pcb-game-${player.id}-${gameFormat}-${gameDifficulty}-${gameFormat === "time_attack" ? gameDuration : ""}-${gameSetId ? "set-" + gameSetId : battle || ""}`;
     const saved = localStorage.getItem(recoveryKey);
     let data;
     if (saved) {
@@ -309,16 +318,23 @@ async function startGame() {
           difficulty: gameDifficulty,
           format: gameFormat,
           ...(gameFormat === "time_attack"
-            ? { durationSeconds: gameDuration }
+            ? {
+                durationSeconds: gameDuration,
+                ...(gameSetId ? { setId: gameSetId } : {}),
+              }
             : {}),
           ...(battle ? { battleId: battle } : {}),
         }),
       });
     localStorage.setItem(recoveryKey, String(data.sessionId));
-    if (gameFormat === "time_attack")
+    if (gameFormat === "time_attack" && !battle)
       localStorage.setItem(
         "pcb-time-attack-last-" + player.id,
-        JSON.stringify({ duration: gameDuration, difficulty: gameDifficulty }),
+        JSON.stringify({
+          duration: gameDuration,
+          difficulty: gameDifficulty,
+          setId: gameSetId ? Number(gameSetId) : null,
+        }),
       );
     sessionId = data.sessionId;
     sessionToken = data.sessionToken;
@@ -466,6 +482,7 @@ function stripTags(text) {
 function applyCanonical(data) {
   canonicalState = data;
   gameFormat = data.format || gameFormat;
+  document.body.dataset.gameFormat = gameFormat;
   gameDuration = data.durationSeconds || gameDuration;
   rulesVersion = data.rulesVersion || rulesVersion;
   document.getElementById("game-format-label").textContent =
@@ -473,7 +490,9 @@ function applyCanonical(data) {
       ? "Découverte · sans chrono, sans score"
       : gameFormat === "time_attack"
         ? "Contre-la-montre · " +
-          PCBRules.configuration(data.durationSeconds, data.difficulty)
+          PCBRules.configuration(data.durationSeconds, data.difficulty) +
+          " · " +
+          (data.battleId ? "Compétition" : data.setName || "Catalogue général")
         : gameParams.has("battle")
           ? "Classique · battle"
           : "Classique · entraînement";
@@ -1297,21 +1316,30 @@ async function endGame(won, abandoned = false, ending = null) {
     }
     document.getElementById("game-mode-message").textContent =
       gameFormat === "time_attack"
-        ? PCBRules.configuration(result.durationSeconds, result.difficulty)
+        ? PCBRules.configuration(result.durationSeconds, result.difficulty) +
+          " · " +
+          (result.battleId
+            ? "Compétition"
+            : result.setName || "Catalogue général")
         : gameFormat === "discovery"
           ? "Sans chrono, sans score, sans classement"
           : PCBRules.timing(result.difficulty, result.timerRules.version);
     const ranking = document.getElementById("result-scores-link");
     ranking.hidden = gameFormat === "discovery";
-    ranking.href =
-      gameFormat === "time_attack"
+    ranking.href = result.battleId
+      ? "/battles.html?results=" + result.battleId
+      : gameFormat === "time_attack"
         ? "/scores.html?" +
           new URLSearchParams({
             format: "time_attack",
             duration: result.durationSeconds,
             difficulty: result.difficulty,
+            ...(result.setId ? { setId: result.setId } : {}),
           })
         : "/scores.html";
+    ranking.textContent = result.battleId
+      ? "Classement de la compétition"
+      : "Classements";
     renderNewBadges(
       gameFormat === "classic"
         ? [

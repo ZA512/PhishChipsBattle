@@ -6,7 +6,7 @@ PARAMÈTRES
 - Thème : général par défaut. Si je demande un set ciblé (typosquatting, RH, fraude au paiement…), concentre les scénarios sur ce thème tout en gardant 50 % de mails légitimes. La répartition des familles ci-dessous s’applique seulement aux lots généraux.
 - Style : réaliste par défaut ; sur demande, farfelu. Le style choisi s’applique aux légitimes comme aux phishing et ne doit jamais servir d’indice de classification.
 - Le nom et la description du set se choisissent dans l’administration à l’import. Ne les ajoute pas à chaque mail JSON.
-- usage : "training" par défaut, "battle" pour un lot de compétition. "both" seulement sur demande explicite. Un lot de battle doit être différent des lots d’entraînement précédents.
+- usage : "training" par défaut, "battle" pour un lot de compétition classique, "express" pour un lot court réservé au Contre-la-montre. "both" seulement sur demande explicite (entraînement et battle, également disponible en Contre-la-montre). Un lot de battle doit être différent des lots d’entraînement précédents.
 - Format standard : 35 à 80 mots par corps, hors URLs ; quelques mails courts de 20 à 35 mots sont souhaitables. Maximum 100 mots. Sur demande d’un lot express : 20 à 40 mots, maximum 50.
 
 RÈGLE ABSOLUE : UN PIÈGE REPÉRABLE
@@ -63,7 +63,7 @@ Retourne uniquement un tableau JSON valide : ni Markdown, ni commentaire, ni tex
 - subject : sujet ; maximum 300 caractères.
 - body : texte et liens simulés ; maximum 6 000 caractères.
 - type : "phishing" ou "safe" (légitime dans ce scénario).
-- usage : "training" ou "battle" selon ma demande ; "both" uniquement sur demande explicite.
+- usage : "training", "battle" ou "express" selon ma demande ; "both" uniquement sur demande explicite. Un lot express doit porter usage "express" et respecter les longueurs courtes définies plus haut.
 - clues : les deux textes de correction, chacun inférieur à 500 caractères.
 N’ajoute pas d’id, catégorie ou verdict dans le corps. Le serveur attribue les identifiants ; les corrections ne sont pas envoyées au joueur avant sa réponse.
 

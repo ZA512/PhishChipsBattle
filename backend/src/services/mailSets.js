@@ -1,7 +1,7 @@
 "use strict";
 const { HttpError, integer, text } = require("../lib/http");
 const CATALOG_LOCK = 817415;
-const USAGES = ["training", "battle", "both"];
+const USAGES = ["training", "battle", "both", "express"];
 function setInput(body) {
   if (!body || typeof body !== "object" || Array.isArray(body))
     throw new HttpError(400, "Définition du set invalide");
@@ -94,6 +94,11 @@ async function listSets(client, readyOnly = false) {
     COUNT(e.id) FILTER(WHERE e.type='phishing')::int AS phishing,
     COUNT(e.id) FILTER(WHERE e.usage IN ('training','both'))::int AS training,
     COUNT(e.id) FILTER(WHERE e.usage IN ('battle','both'))::int AS battle,
+    COUNT(e.id) FILTER(WHERE e.usage='express')::int AS express,
+    COUNT(e.id) FILTER(WHERE e.usage IN ('battle','both','express','training'))::int AS competition,
+    COUNT(e.id) FILTER(WHERE e.usage IN ('battle','express'))::int AS competition_only,
+    COUNT(e.id) FILTER(WHERE e.usage IN ('battle','express') AND e.type='safe')::int AS competition_only_safe,
+    COUNT(e.id) FILTER(WHERE e.usage IN ('battle','express') AND e.type='phishing')::int AS competition_only_phishing,
     COUNT(e.id) FILTER(WHERE e.usage='battle')::int AS battle_only,
     COUNT(e.id) FILTER(WHERE e.usage='both')::int AS shared,
     COUNT(e.id) FILTER(WHERE e.usage IN ('battle','both') AND e.type='safe')::int AS battle_safe,

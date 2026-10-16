@@ -23,11 +23,17 @@ async function exported(type, row) {
     lastData: { [type]: [row] },
     scoreFormat: "time_attack",
     scoreDuration: 600,
+    scoreSetId: "7",
     activeDifficulty: "hardcore",
     Blob,
     setTimeout: (work) => work(),
     Date,
-    document: { createElement: () => anchor },
+    document: {
+      createElement: () => anchor,
+      getElementById: () => ({
+        selectedOptions: [{ textContent: "Set express" }],
+      }),
+    },
     URL: {
       createObjectURL(value) {
         blob = value;
@@ -55,7 +61,9 @@ test("CSV Contre-la-montre : score négatif numérique et configuration explicit
     games_played: 1,
   });
   assert.match(filename, /time_attack-600-hardcore/);
+  assert.match(filename, /set-7/);
   assert.ok(csv.includes("Contre-la-montre"));
+  assert.ok(csv.includes('"Set express"'));
   assert.ok(csv.includes('"10";"Difficile"'));
   assert.ok(csv.includes('"-28"'));
   assert.ok(!csv.includes('"\'-28"'));

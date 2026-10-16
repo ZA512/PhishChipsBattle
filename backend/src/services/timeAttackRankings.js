@@ -10,18 +10,22 @@ function configuration(query) {
     (month && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
   )
     throw new HttpError(400, "Configuration de classement invalide");
-  return { duration, difficulty, month };
+  const setId = integer(query.setId, "Set", { optional: true });
+  return { duration, difficulty, month, setId };
 }
 function ranking(config, team = false) {
   const params = [
     config.duration,
     config.difficulty,
     config.month ? config.month + "-01" : null,
+    config.setId,
   ];
   const sql = `WITH eligible AS (
  SELECT gs.*,COUNT(*) OVER(PARTITION BY player_id${team ? ",service_id" : ""})::int AS games_played,
  ROW_NUMBER() OVER(PARTITION BY player_id${team ? ",service_id" : ""} ORDER BY score DESC,human_correct DESC,errors ASC,ended_at ASC,id ASC) AS best
  FROM game_sessions gs WHERE game_format='time_attack' AND duration_seconds=$1 AND difficulty=$2
+ AND battle_id IS NULL
+ AND mail_set_id IS NOT DISTINCT FROM $4::integer
  AND rules_version IN (1,2) AND completed AND NOT disqualified AND finish_reason IN ('time_up','all_emails') AND current_email_index>0
  AND ($3::date IS NULL OR DATE_TRUNC('month',ended_at)=DATE_TRUNC('month',$3::date))),
  best AS (SELECT gs.player_id AS id,COALESCE(d.display_name,p.name) AS name,gs.service_id,gs.service_name,
@@ -70,7 +74,7 @@ function install(router, pool) {
     const rows = (
       await pool.query(
         sql +
-          ` SELECT * FROM best WHERE service_id=$4 ORDER BY best_score DESC,good_answers DESC,errors ASC,ended_at ASC,session_id ASC`,
+          ` SELECT * FROM best WHERE service_id=$5 ORDER BY best_score DESC,good_answers DESC,errors ASC,ended_at ASC,session_id ASC`,
         [...params, id],
       )
     ).rows;

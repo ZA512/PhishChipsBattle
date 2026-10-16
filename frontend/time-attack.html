@@ -16,9 +16,21 @@
         5 ou 10 minutes. Le temps passe, même pendant les corrections. Les
         mauvaises réponses se paient en points.
       </p>
+      <p class="meta">
+        Ici, le mode libre. Pour participer à une compétition avec inscriptions
+        et sets imposés, ouvrez <a href="battles.html">Battles</a>.
+      </p>
       <section class="card game-preparation">
         <h2>Réglez votre prochaine urgence.</h2>
         <form id="time-attack-form">
+          <label for="time-attack-set">Quels mails mettre au chrono ?</label>
+          <select id="time-attack-set" name="setId" disabled>
+            <option value="">Catalogue général · chargement…</option>
+          </select>
+          <p id="time-attack-source" class="meta" aria-live="polite">
+            Tous les mails disponibles, ou un set précis préparé par votre
+            administrateur. Les mails réservés aux battles restent exclus.
+          </p>
           <fieldset>
             <legend>Durée globale</legend>
             <div class="format-choices">
@@ -49,8 +61,8 @@
           </p>
           <p class="meta">
             Erreurs illimitées, aucun SOS. Le score peut être négatif. Chaque
-            durée et difficulté possède son propre classement ; vous pouvez
-            rejouer autant que vous le souhaitez.
+            combinaison de source, durée et difficulté possède son classement ;
+            vous pouvez rejouer autant que vous le souhaitez.
           </p>
           <p id="time-attack-resume" class="notice" hidden></p>
           <button class="btn" id="time-attack-start" disabled type="submit">

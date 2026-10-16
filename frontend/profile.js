@@ -166,13 +166,19 @@ function renderProfile(
   );
   const section = document.getElementById("format-statistics");
   section.replaceChildren();
-  for (const family of ["battle", "time_attack", "discovery"]) {
+  for (const family of [
+    "battle",
+    "time_attack_battle",
+    "time_attack",
+    "discovery",
+  ]) {
     const heading = node(
       "h2",
       "",
       {
         battle: "Battles",
-        time_attack: "Contre-la-montre",
+        time_attack_battle: "Contre-la-montre · compétitions",
+        time_attack: "Contre-la-montre · libre",
         discovery: "Découverte",
       }[family],
     );
@@ -185,7 +191,10 @@ function renderProfile(
           node(
             "p",
             "meta",
-            b.service_name +
+            (b.game_format === "time_attack"
+              ? "Contre-la-montre · " + b.duration_seconds / 60 + " min · "
+              : "Classique · ") +
+              b.service_name +
               " · " +
               { easy: "Facile", normal: "Normal", hardcore: "Difficile" }[
                 b.difficulty
@@ -241,7 +250,7 @@ function renderProfile(
         node(
           "h3",
           "",
-          family === "time_attack"
+          ["time_attack", "time_attack_battle"].includes(family)
             ? r.duration / 60 +
                 " min · " +
                 (r.difficulty === "hardcore" ? "Difficile" : "Normal")

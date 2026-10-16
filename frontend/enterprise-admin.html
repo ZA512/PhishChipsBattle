@@ -126,9 +126,9 @@
           style="border: 0; border-top: 1px solid var(--line); margin: 24px 0"
         />
         <p class="meta">
-          Les participants et leurs équipes sont figés à la publication. Tous
-          reçoivent la même série. Les changements d’équipe ultérieurs
-          concernent les prochaines battles.
+          Choisissez le public, le format de jeu et les sets. Les nouveaux
+          arrivants peuvent rejoindre automatiquement les compétitions ouvertes.
+          La série et l’équipe de chaque inscrit restent figées.
         </p>
         <details class="editor" id="battle-editor">
           <summary class="btn">Créer une battle</summary>
@@ -137,7 +137,25 @@
             ><input id="battle-name" maxlength="100" required />
             <div class="grid">
               <div>
-                <label for="battle-mode">Format</label
+                <label for="battle-game-format">Jeu</label
+                ><select id="battle-game-format">
+                  <option value="classic">Classique · chrono par mail</option>
+                  <option value="time_attack">
+                    Contre-la-montre · chrono global
+                  </option>
+                </select>
+              </div>
+              <div id="battle-duration-field" hidden>
+                <label for="battle-duration">Durée par tentative</label
+                ><select id="battle-duration">
+                  <option value="300">5 minutes</option>
+                  <option value="600">10 minutes</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid">
+              <div>
+                <label for="battle-mode">Classement</label
                 ><select id="battle-mode">
                   <option value="individual">Classement individuel</option>
                   <option value="internal">Individuel dans une équipe</option>
@@ -161,6 +179,10 @@
               <div>
                 <label for="battle-end">Fin</label
                 ><input id="battle-end" type="datetime-local" required />
+                <label
+                  ><input id="battle-no-end" type="checkbox" /> Sans date de fin
+                  · clôture manuelle</label
+                >
               </div>
             </div>
             <div class="grid">
@@ -222,12 +244,13 @@
                 <div><p id="battle-phishing-count" class="meta"></p></div>
               </div>
               <label
-                ><input id="battle-exclude-training" type="checkbox" />
-                Uniquement les mails réservés aux battles</label
+                ><input id="battle-exclude-training" type="checkbox" /> Exclure
+                les mails accessibles en entraînement</label
               >
               <p class="meta">
-                Sinon, des mails disponibles en entraînement peuvent être
-                sélectionnés.
+                En Classique : mails battle ; en Contre-la-montre : mails battle
+                et express. Sans cette option, les mails partagés sont aussi
+                proposés.
               </p>
               <button
                 class="btn btn-secondary"
@@ -241,17 +264,44 @@
                 publication.
               </p>
             </fieldset>
-            <div id="player-picker">
+            <label for="battle-audience">Qui peut participer ?</label>
+            <select id="battle-audience">
+              <option value="all">
+                Toute l’entreprise · actuels et nouveaux arrivants
+              </option>
+              <option value="teams">
+                Certaines équipes · DSI, Comptabilité…
+              </option>
+              <option value="players">Des personnes précises</option>
+            </select>
+            <label id="battle-future-field" hidden
+              ><input id="battle-include-future" type="checkbox" checked />
+              Inclure aussi les futurs membres des équipes choisies</label
+            >
+            <p id="battle-audience-note" class="meta" role="status"></p>
+            <div id="player-picker" class="hidden">
               <label for="player-search">Participants</label>
               <input
                 id="player-search"
                 type="search"
                 placeholder="Nom du joueur ou de l’équipe"
               />
+              <label for="player-team-filter"
+                >Filtrer les personnes par équipe</label
+              ><select id="player-team-filter">
+                <option value="">Toutes les équipes</option>
+              </select>
               <div id="battle-players" class="admin-picker"></div>
               <p id="players-selected" class="admin-picker-count"></p>
               <button class="btn btn-secondary" id="select-all" type="button">
-                Tous les joueurs actuels
+                Ajouter tous les résultats affichés
+              </button>
+              <button
+                class="btn btn-secondary"
+                id="clear-players"
+                type="button"
+              >
+                Vider la sélection
               </button>
             </div>
             <div id="team-picker" class="hidden">
@@ -464,6 +514,9 @@
                 <option value="training">Entraînement</option>
                 <option value="battle">Battle</option>
                 <option value="both">Les deux</option>
+                <option value="express">
+                  Express · contre-la-montre uniquement
+                </option>
               </select>
             </div>
           </div>
@@ -540,6 +593,9 @@
                     <option value="training">Entraînement</option>
                     <option value="battle">Battle uniquement</option>
                     <option value="both">Les deux</option>
+                    <option value="express">
+                      Express · contre-la-montre uniquement
+                    </option>
                   </select>
                 </div>
                 <button
@@ -648,6 +704,9 @@
               <option value="both">
                 Entraînement et battle (corrections réutilisables)
               </option>
+              <option value="express">
+                Express · contre-la-montre uniquement
+              </option>
             </select>
             <label class="mail-replace"
               ><input id="mail-replace" type="checkbox" /> Remplacer le contenu
@@ -716,6 +775,9 @@
                   <option value="training">Entraînement</option>
                   <option value="battle">Battle uniquement</option>
                   <option value="both">Les deux</option>
+                  <option value="express">
+                    Express · contre-la-montre uniquement
+                  </option>
                 </select>
               </div>
               <div>

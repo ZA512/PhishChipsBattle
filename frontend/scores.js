@@ -4,6 +4,7 @@
 
 // --- Difficulty state (global, applies to all tabs) ---
 const scoreParams = new URLSearchParams(location.search);
+let scoreSetId = scoreParams.get("setId") || "";
 let scoreFormat =
   scoreParams.get("format") === "time_attack" ? "time_attack" : "classic";
 let scoreDuration = [300, 600].includes(Number(scoreParams.get("duration")))
@@ -131,7 +132,10 @@ function buildQuery(month, difficulty) {
   const parts = [];
   if (month) parts.push(`month=${encodeURIComponent(month)}`);
   if (difficulty) parts.push(`difficulty=${encodeURIComponent(difficulty)}`);
-  if (scoreFormat === "time_attack") parts.push(`duration=${scoreDuration}`);
+  if (scoreFormat === "time_attack") {
+    parts.push(`duration=${scoreDuration}`);
+    if (scoreSetId) parts.push(`setId=${encodeURIComponent(scoreSetId)}`);
+  }
   return parts.length ? "?" + parts.join("&") : "";
 }
 
@@ -162,6 +166,7 @@ function scoreKey() {
   return JSON.stringify([
     scoreFormat,
     scoreDuration,
+    scoreSetId,
     activeDifficulty,
     activeTab,
     pmMonth.current,
@@ -415,6 +420,8 @@ function synchronizeFormat() {
   document.getElementById("score-duration").value = String(scoreDuration);
   document.getElementById("score-duration-label").hidden =
     scoreFormat !== "time_attack";
+  document.getElementById("score-set-label").hidden =
+    scoreFormat !== "time_attack";
   document.querySelectorAll(".diff-btn").forEach((button) => {
     button.hidden =
       scoreFormat === "time_attack" &&
@@ -435,10 +442,11 @@ function synchronizeFormat() {
       : "Classique · entraînement";
   document.getElementById("modal-close").click();
 }
-for (const id of ["score-format", "score-duration"])
+for (const id of ["score-format", "score-duration", "score-set"])
   document.getElementById(id).addEventListener("change", () => {
     scoreFormat = document.getElementById("score-format").value;
     scoreDuration = Number(document.getElementById("score-duration").value);
+    scoreSetId = document.getElementById("score-set").value;
     if (
       scoreFormat === "time_attack" &&
       !["normal", "hardcore"].includes(activeDifficulty)
@@ -462,8 +470,38 @@ document
 document
   .getElementById("score-period")
   .addEventListener("change", updateScoreSelection);
-PCB.ready.then((player) => {
-  if (player) updateScoreSelection();
+PCB.ready.then(async (player) => {
+  if (!player) return;
+  const select = document.getElementById("score-set");
+  try {
+    const catalog = await PCB.request("/api/sessions/mail-sets");
+    for (const set of catalog.sets) {
+      const option = document.createElement("option");
+      option.value = String(set.id);
+      option.textContent = "Set : " + set.name;
+      select.append(option);
+    }
+    if (
+      scoreSetId &&
+      ![...select.options].some((o) => o.value === scoreSetId)
+    ) {
+      const option = document.createElement("option");
+      option.value = scoreSetId;
+      option.textContent = "Set #" + scoreSetId + " · historique";
+      select.append(option);
+    }
+    select.value = scoreSetId;
+    select.disabled = false;
+  } catch {
+    if (scoreSetId) {
+      const option = document.createElement("option");
+      option.value = scoreSetId;
+      option.textContent = "Set #" + scoreSetId;
+      select.append(option);
+      select.value = scoreSetId;
+    }
+  }
+  updateScoreSelection();
 });
 
 // --- CSV Export ---
@@ -502,11 +540,12 @@ function exportCsv(type) {
 
   if (scoreFormat === "time_attack") {
     const baseMap = mapRow;
-    headers = ["Format", "Durée (minutes)", "Difficulté", ...headers];
+    headers = ["Format", "Durée (minutes)", "Difficulté", "Source", ...headers];
     mapRow = (row, index) => [
       "Contre-la-montre",
       scoreDuration / 60,
       activeDifficulty === "hardcore" ? "Difficile" : "Normal",
+      document.getElementById("score-set").selectedOptions[0].textContent,
       ...baseMap(row, index),
     ];
   }
@@ -534,7 +573,7 @@ function exportCsv(type) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `classement-${scoreFormat}-${scoreFormat === "time_attack" ? scoreDuration + "-" + activeDifficulty + "-" : ""}${type}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `classement-${scoreFormat}-${scoreFormat === "time_attack" ? scoreDuration + "-" + activeDifficulty + "-" + (scoreSetId ? "set-" + scoreSetId : "general") + "-" : ""}${type}-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

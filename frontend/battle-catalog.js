@@ -19,6 +19,7 @@
   }
   function input() {
     return {
+      gameFormat: el("battle-game-format").value,
       emailCount: Number(el("battle-count").value),
       safeCount: Number(el("battle-safe-count").value),
       excludeTraining: el("battle-exclude-training").checked,
@@ -46,7 +47,28 @@
     el("battle-mail-sets").replaceChildren();
     for (const set of sets) {
       const exclusive = el("battle-exclude-training").checked;
-      const available = exclusive ? set.battle_only : set.battle;
+      const timed = el("battle-game-format").value === "time_attack";
+      const available = timed
+        ? exclusive
+          ? set.competition_only
+          : set.competition
+        : exclusive
+          ? set.battle_only
+          : set.battle;
+      const safe = timed
+        ? exclusive
+          ? set.competition_only_safe
+          : set.safe
+        : exclusive
+          ? set.battle_only_safe
+          : set.battle_safe;
+      const phishing = timed
+        ? exclusive
+          ? set.competition_only_phishing
+          : set.phishing
+        : exclusive
+          ? set.battle_only_phishing
+          : set.battle_phishing;
       const row = document.createElement("label"),
         check = document.createElement("input"),
         label = document.createElement("span"),
@@ -57,7 +79,7 @@
       check.disabled = !available;
       check.checked = previous.has(set.id) && !!available;
       label.textContent = set.name;
-      meta.textContent = `${available} disponibles · ${exclusive ? set.battle_only_safe : set.battle_safe} légitimes / ${exclusive ? set.battle_only_phishing : set.battle_phishing} phishing${set.shared && !exclusive ? ` · ${set.shared} accessibles en entraînement` : ""}`;
+      meta.textContent = `${available} disponibles · ${safe} légitimes / ${phishing} phishing${set.shared && !exclusive ? ` · ${set.shared} accessibles en entraînement` : ""}`;
       label.append(meta);
       count.type = "number";
       count.min = 1;
@@ -93,6 +115,9 @@
     },
   };
   el("battle-safe-count").addEventListener("input", invalidate);
+  el("battle-game-format").addEventListener("change", () =>
+    load().catch((e) => notice(e.message, true)),
+  );
   el("battle-count").addEventListener("input", invalidate);
   el("battle-exclude-training").addEventListener("change", () =>
     load().catch((e) => notice(e.message, true)),

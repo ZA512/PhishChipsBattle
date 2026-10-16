@@ -5,6 +5,10 @@ const { requireUser } = require("../services/auth");
 const { organizerAuth } = require("../middleware/adminAuth");
 const { HttpError, integer, transaction } = require("../lib/http");
 const {
+  refreshAudiences,
+  enrollEligible,
+} = require("../services/battleAudience");
+const {
   createBattle,
   computeResults,
   closeBattle,
@@ -33,7 +37,7 @@ router.get("/participants", organizerAuth, async (_req, res) =>
   res.json({
     players: (
       await pool.query(
-        `SELECT p.id,COALESCE(d.display_name,p.name) AS display_name,p.service_id FROM players p LEFT JOIN directory_employees d ON d.id=p.directory_id WHERE d.id IS NULL OR d.active ORDER BY display_name`,
+        `SELECT p.id,COALESCE(d.display_name,p.name) AS display_name,p.email,p.service_id FROM players p LEFT JOIN directory_employees d ON d.id=p.directory_id WHERE d.id IS NULL OR d.active ORDER BY display_name`,
       )
     ).rows,
     teams: (
@@ -44,8 +48,11 @@ router.get("/participants", organizerAuth, async (_req, res) =>
   }),
 );
 router.get("/", async (req, res) => {
-  const { rows } = await pool.query(
-    `SELECT b.id,b.name,b.mode,b.difficulty,b.timer_rules,b.starts_at,b.ends_at,b.max_attempts,b.joker_limit,b.status,
+  const rows = await transaction(async (client) => {
+    await refreshAudiences(client);
+    return (
+      await client.query(
+        `SELECT b.id,b.name,b.mode,b.game_format,b.duration_seconds,b.audience_mode,b.audience_team_ids,b.difficulty,b.timer_rules,b.starts_at,b.ends_at,b.max_attempts,b.joker_limit,b.status,
     jsonb_array_length(b.email_order) AS email_count,bp.service_name AS roster_team,
     CASE WHEN $2::boolean THEN b.mail_selection ELSE NULL END AS mail_selection,
     (SELECT COUNT(*) FROM game_sessions gs WHERE gs.battle_id=b.id AND gs.player_id=$1) AS attempts_used,
@@ -53,8 +60,10 @@ router.get("/", async (req, res) => {
     (bp.id IS NOT NULL) AS participating
     FROM battles b LEFT JOIN battle_participants bp ON bp.battle_id=b.id AND bp.player_id=$1
     WHERE bp.id IS NOT NULL OR $2::boolean ORDER BY b.starts_at DESC LIMIT 100`,
-    [req.user.id, ["admin", "organizer"].includes(req.user.role)],
-  );
+        [req.user.id, ["admin", "organizer"].includes(req.user.role)],
+      )
+    ).rows;
+  });
   res.json({
     battles: rows,
     canOrganize: ["admin", "organizer"].includes(req.user.role),
@@ -74,11 +83,12 @@ router.get("/:id/results", async (req, res) => {
   const results = await transaction(async (client) => {
     const battle = (
       await client.query(
-        "SELECT *,NOW() AS server_now FROM battles WHERE id=$1",
+        "SELECT *,NOW() AS server_now FROM battles WHERE id=$1 FOR UPDATE",
         [id],
       )
     ).rows[0];
     if (!battle) throw new HttpError(404, "Battle introuvable");
+    await enrollEligible(client, battle);
     if (
       !["admin", "organizer"].includes(req.user.role) &&
       !(
@@ -91,15 +101,25 @@ router.get("/:id/results", async (req, res) => {
       throw new HttpError(403, "Vous ne participez pas à cette battle");
     if (battle.status === "closed")
       return {
-        battle: { id, name: battle.name, mode: battle.mode, status: "closed" },
+        battle: {
+          id,
+          name: battle.name,
+          mode: battle.mode,
+          game_format: battle.game_format,
+          duration_seconds: battle.duration_seconds,
+          status: "closed",
+        },
         results: battle.results,
       };
-    const closed = battle.server_now >= new Date(battle.ends_at);
+    const closed =
+      battle.ends_at && battle.server_now >= new Date(battle.ends_at);
     return {
       battle: {
         id,
         name: battle.name,
         mode: battle.mode,
+        game_format: battle.game_format,
+        duration_seconds: battle.duration_seconds,
         status: closed ? "closed" : "published",
       },
       results: closed

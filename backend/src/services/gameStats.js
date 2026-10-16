@@ -10,7 +10,13 @@ function statisticsFilter(query = {}) {
     difficulty = query.difficulty || null;
   if (
     family &&
-    !["classic_training", "battle", "time_attack", "discovery"].includes(family)
+    ![
+      "classic_training",
+      "battle",
+      "time_attack",
+      "time_attack_battle",
+      "discovery",
+    ].includes(family)
   )
     throw new HttpError(400, "Format de statistiques invalide");
   if (duration !== null && ![300, 600].includes(duration))
@@ -20,7 +26,7 @@ function statisticsFilter(query = {}) {
   return { family, duration, difficulty };
 }
 const familySql =
-  "CASE WHEN gs.game_format='classic' THEN CASE WHEN gs.battle_id IS NULL THEN 'classic_training' ELSE 'battle' END ELSE gs.game_format END";
+  "CASE WHEN gs.battle_id IS NOT NULL THEN CASE WHEN gs.game_format='time_attack' THEN 'time_attack_battle' ELSE 'battle' END WHEN gs.game_format='classic' THEN 'classic_training' ELSE gs.game_format END";
 async function groupedStats(pool, playerId = null, filter = {}) {
   await expireTimeAttacks(pool);
   const rows = (

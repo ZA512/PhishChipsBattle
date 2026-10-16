@@ -1420,8 +1420,47 @@ body.game-page #analysis-panel {
     padding: 7px 9px;
     font-size: 12px;
   }
-  .game-page #analysis-panel .panel-section:nth-child(4),
-  .game-page #analysis-panel .panel-section:nth-child(5) {
+  .game-page #analysis-panel .panel-stats {
+    display: none;
+  }
+  body.game-page #analysis-panel {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: center;
+  }
+  body.game-page #analysis-panel #game-format-label {
+    grid-column: 1 / -1;
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+  }
+  body.game-page #analysis-panel .panel-controls {
+    grid-column: 1 / -1;
+  }
+  body.game-page #analysis-panel .panel-score {
+    grid-column: auto;
+    text-align: center;
+  }
+  body.game-page[data-game-format="time_attack"]
+    #analysis-panel
+    .panel-controls {
+    grid-column: 3;
+    grid-row: 2;
+  }
+  body.game-page[data-game-format="time_attack"] #analysis-panel .panel-stats {
+    display: block;
+    grid-column: 1 / -1;
+    text-align: center;
+  }
+  body.game-page[data-game-format="time_attack"]
+    #analysis-panel
+    .panel-stats
+    h3,
+  body.game-page[data-game-format="time_attack"]
+    #analysis-panel
+    .panel-stats
+    p:not(#game-progress):not(#game-accuracy) {
     display: none;
   }
   body.game-page #email-viewer {

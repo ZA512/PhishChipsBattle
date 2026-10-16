@@ -44,8 +44,9 @@ async function refreshStats() {
 }
 for (const id of ["stats-family", "stats-duration", "stats-difficulty"])
   document.getElementById(id).addEventListener("change", () => {
-    const timeAttack =
-      document.getElementById("stats-family").value === "time_attack";
+    const timeAttack = ["time_attack", "time_attack_battle"].includes(
+      document.getElementById("stats-family").value,
+    );
     document.getElementById("stats-duration").disabled = !timeAttack;
     if (!timeAttack) document.getElementById("stats-duration").value = "";
     refreshStats();
@@ -127,7 +128,7 @@ function renderOverview(data) {
     .map(
       (d) => `
         <tr>
-            <td>${{ classic_training: "Classique · entraînement", battle: "Battle", time_attack: "Contre-la-montre", discovery: "Découverte" }[d.family]}${d.duration ? " · " + d.duration / 60 + " min" : ""} · ${diffLabels[d.difficulty] || d.difficulty}</td>
+            <td>${{ classic_training: "Classique · entraînement", battle: "Battle", time_attack: "Contre-la-montre libre", time_attack_battle: "Contre-la-montre · compétition", discovery: "Découverte" }[d.family]}${d.duration ? " · " + d.duration / 60 + " min" : ""} · ${diffLabels[d.difficulty] || d.difficulty}</td>
             <td>${d.games} / ${d.abandoned}</td><td>${d.viewed}</td><td>${d.decisions}</td><td>${d.correct} / ${d.errors}</td><td>${d.assisted} / ${d.timeouts}</td>
             <td>${d.avgScore ?? "—"}</td>
         </tr>

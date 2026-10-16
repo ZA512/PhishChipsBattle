@@ -8,6 +8,7 @@
     training: "Entraînement",
     battle: "Battle",
     both: "Les deux",
+    express: "Express · contre-la-montre",
   };
   let page = 1,
     pages = 1,
@@ -100,7 +101,7 @@
       return load();
     }
     el("mail-totals").textContent = data.totals.total
-      ? `${data.totals.total} mails actifs · ${data.totals.training} disponibles en entraînement · ${data.totals.battle} en battle`
+      ? `${data.totals.total} mails actifs · ${data.totals.training} disponibles en entraînement · ${data.totals.battle} en battle · ${data.totals.express} express`
       : "Le buffet est vide. Importez vos scénarios avant de lancer une partie ou de publier une battle.";
     el("mail-export-all").disabled = el("mail-delete-all").disabled =
       !data.totals.total;
@@ -604,7 +605,12 @@
       const usage = document.createElement("p");
       usage.className = "meta";
       usage.textContent =
-        set.training + " entraînement · " + set.battle + " battle";
+        set.training +
+        " entraînement · " +
+        set.battle +
+        " battle · " +
+        set.express +
+        " express";
       const actions = document.createElement("div");
       actions.className = "form-actions";
       const open = button("Ouvrir les mails", () => openSet(set.id));

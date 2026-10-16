@@ -61,7 +61,7 @@ function catalogFilter(query) {
   const setId = integer(query.setId, "Set", { optional: true, min: 0 });
   if (
     !["", "phishing", "safe"].includes(type) ||
-    !["", "training", "battle", "both"].includes(usage)
+    !["", ...USAGES].includes(usage)
   )
     throw new HttpError(400, "Filtre invalide");
   const filter = `FROM emails e WHERE archived_at IS NULL AND ($1='' OR subject ILIKE '%'||$1||'%' OR sender ILIKE '%'||$1||'%') AND ($2='' OR type=$2) AND ($3='' OR usage=$3)
@@ -89,6 +89,7 @@ router.get("/emails", async (req, res) => {
     pool.query(
       `SELECT COUNT(*)::int AS total,
         COUNT(*) FILTER(WHERE usage IN ('training','both') AND EXISTS(SELECT 1 FROM mail_set_emails m JOIN mail_sets s ON s.id=m.set_id WHERE m.email_id=e.id AND s.status='ready'))::int AS training,
+        COUNT(*) FILTER(WHERE usage='express' AND EXISTS(SELECT 1 FROM mail_set_emails m JOIN mail_sets s ON s.id=m.set_id WHERE m.email_id=e.id AND s.status='ready'))::int AS express,
         COUNT(*) FILTER(WHERE usage IN ('battle','both') AND EXISTS(SELECT 1 FROM mail_set_emails m JOIN mail_sets s ON s.id=m.set_id WHERE m.email_id=e.id AND s.status='ready'))::int AS battle FROM emails e WHERE archived_at IS NULL`,
     ),
   ]);

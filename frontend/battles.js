@@ -21,7 +21,10 @@ function table(headers, rows) {
   return table;
 }
 function state(b) {
-  if (b.status === "closed" || Date.now() >= Date.parse(b.ends_at))
+  if (
+    b.status === "closed" ||
+    (b.ends_at && Date.now() >= Date.parse(b.ends_at))
+  )
     return "closed";
   return Date.now() < Date.parse(b.starts_at) ? "upcoming" : "active";
 }
@@ -48,27 +51,40 @@ async function showResults(id) {
     const data = await PCB.request("/api/battles/" + id + "/results");
     document.getElementById("results").classList.remove("hidden");
     document.getElementById("results-title").textContent = data.battle.name;
+    const timed = data.battle.game_format === "time_attack";
+    const rankedPlayers = timed
+      ? data.results.players.filter((p) => p.played)
+      : data.results.players;
     document.getElementById("results-note").textContent =
       (data.battle.status === "closed"
         ? "Résultats définitifs. "
         : "Résultats provisoires. ") +
       (data.battle.mode === "teams"
         ? data.results.teamFormula
-        : "Meilleur score, puis temps de décision, puis ordre de fin.");
+        : data.battle.game_format === "time_attack"
+          ? "Meilleur score, bonnes réponses, erreurs puis ordre de fin. Les absents ne sont pas classés."
+          : "Meilleur score, puis temps de décision, puis ordre de fin.");
+    if (timed && data.battle.mode !== "teams")
+      document.getElementById("results-note").textContent +=
+        ` ${data.results.players.length - rankedPlayers.length} personne(s) sans tentative valide.`;
     const rows =
       data.battle.mode === "teams"
         ? data.results.teams.map((t, i) => [
-            i + 1,
+            t.score === null ? "—" : i + 1,
             t.name,
             t.score,
             t.played + "/" + t.participants,
           ])
-        : data.results.players.map((p, i) => [
-            i + 1,
+        : rankedPlayers.map((p, i) => [
+            data.battle.game_format === "time_attack" && !p.played
+              ? "—"
+              : i + 1,
             p.name,
             p.service_name,
             p.score,
-            p.played ? p.decision_seconds + "s" : "Non joué",
+            ...(timed
+              ? [p.good_answers, p.errors]
+              : [p.played ? p.decision_seconds + "s" : "Non joué"]),
           ]);
     document
       .getElementById("results-table")
@@ -76,7 +92,13 @@ async function showResults(id) {
         table(
           data.battle.mode === "teams"
             ? ["Rang", "Équipe", "Score moyen", "Participation"]
-            : ["Rang", "Joueur", "Équipe", "Score", "Temps"],
+            : [
+                "Rang",
+                "Joueur",
+                "Équipe",
+                "Score",
+                ...(timed ? ["Bonnes réponses", "Erreurs"] : ["Temps"]),
+              ],
           rows,
         ),
       );
@@ -118,13 +140,25 @@ function renderBattles() {
         teams: "Entre équipes",
       }[b.mode],
       difficultyNames[b.difficulty],
-      PCBRules.timing(b.difficulty, b.timer_rules.version),
+      b.game_format === "time_attack"
+        ? "Contre-la-montre · " + b.duration_seconds / 60 + " min"
+        : PCBRules.timing(b.difficulty, b.timer_rules.version),
       b.email_count + " emails",
-      b.joker_limit + " SOS",
+      b.game_format === "time_attack"
+        ? "Sans SOS · erreurs illimitées"
+        : b.joker_limit + " SOS",
     ].forEach((text) => rules.append(el("span", "pill", text)));
     card.append(
       rules,
-      el("p", "meta", "Du " + date(b.starts_at) + " au " + date(b.ends_at)),
+      el(
+        "p",
+        "meta",
+        "À partir du " +
+          date(b.starts_at) +
+          (b.ends_at
+            ? " · jusqu’au " + date(b.ends_at)
+            : " · sans date de fin"),
+      ),
     );
     card.append(
       el(
@@ -145,7 +179,19 @@ function renderBattles() {
       (Number(b.attempts_used) < b.max_attempts || b.ongoing)
     ) {
       const play = el("a", "btn", b.ongoing ? "Reprendre" : "Jouer");
-      play.href = "/phishing.html?battle=" + b.id;
+      play.href =
+        "/phishing.html?" +
+        new URLSearchParams({
+          battle: b.id,
+          ...(b.game_format === "time_attack"
+            ? {
+                format: "time_attack",
+                duration: b.duration_seconds,
+                difficulty: b.difficulty,
+                autostart: "1",
+              }
+            : {}),
+        });
       actions.append(play);
     }
     const results = el("button", "btn btn-secondary", "Voir les résultats");
@@ -165,6 +211,9 @@ PCB.ready
     if (!player) return;
     battleData = (await PCB.request("/api/battles")).battles;
     renderBattles();
+    const selected = new URLSearchParams(location.search).get("results");
+    if (selected && battleData.some((b) => String(b.id) === selected))
+      await showResults(selected);
   })
   .catch((error) => {
     message.className = "notice error";
